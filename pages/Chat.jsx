@@ -1,12 +1,23 @@
 import React from 'react';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/lib/supabase';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Send, Loader2, MessageCircle, Users, UserPlus, Plus, Check, CheckCheck, Image as ImageIcon, Video } from 'lucide-react';
+import {
+  ArrowLeft,
+  Send,
+  Loader2,
+  MessageCircle,
+  Users,
+  UserPlus,
+  Plus,
+  Check,
+  CheckCheck,
+  Image as ImageIcon,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -20,11 +31,13 @@ import EmojiPicker from '@/components/chat/EmojiPicker';
 const NOTIFY_AUDIO_SRC =
   'data:audio/wav;base64,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';
 
+const STORAGE_BUCKET = 'chat-media';
+
 export default function Chat() {
   const queryClient = useQueryClient();
 
   const [newMessage, setNewMessage] = React.useState('');
-  const [activeTab, setActiveTab] = React.useState('partner'); // partner | groups
+  const [activeTab, setActiveTab] = React.useState('partner');
   const [selectedGroup, setSelectedGroup] = React.useState(null);
   const [showCreateGroup, setShowCreateGroup] = React.useState(false);
   const [showInvite, setShowInvite] = React.useState(false);
@@ -34,16 +47,16 @@ export default function Chat() {
   const fileInputRef = React.useRef(null);
   const [isUploading, setIsUploading] = React.useState(false);
 
-  // Reuse a single audio instance (fast)
   const notifyAudioRef = React.useRef(null);
+
   React.useEffect(() => {
     notifyAudioRef.current = new Audio(NOTIFY_AUDIO_SRC);
   }, []);
+
   const playNotify = React.useCallback(() => {
     notifyAudioRef.current?.play().catch(() => {});
   }, []);
 
-  // Track last message ids to avoid repeated sound spam
   const lastPartnerNotifiedIdRef = React.useRef(null);
   const lastGroupNotifiedIdRef = React.useRef(null);
 
@@ -52,46 +65,68 @@ export default function Chat() {
     isLoading: isUserLoading,
     isError: isUserError,
   } = useQuery({
-    queryKey: ['user'],
-    queryFn: () => base44.auth.me(),
+    queryKey: ['user-profile'],
+    queryFn: async () => {
+      const {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
+      if (!authUser) return null;
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .maybeSingle();
+
+      if (profileError) throw profileError;
+
+      return {
+        id: authUser.id,
+        email: authUser.email,
+        ...profile,
+      };
+    },
     staleTime: 5 * 60 * 1000,
   });
 
   const isPendingVerification = user?.relationship_status === 'pending_verification';
 
   const { data: partner } = useQuery({
-    queryKey: ['partner', user?.couple_profile_id, user?.email],
-    enabled: !!user?.couple_profile_id && !!user?.email,
+    queryKey: ['partner', user?.couple_profile_id, user?.id],
+    enabled: !!user?.couple_profile_id && !!user?.id,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const coupleId = user?.couple_profile_id;
-      const myEmail = user?.email;
-      if (!coupleId || !myEmail) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('couple_profile_id', user.couple_profile_id)
+        .neq('id', user.id)
+        .limit(1)
+        .maybeSingle();
 
-      const profiles = await base44.entities.CoupleProfile.filter({ id: coupleId });
-      if (!profiles?.length) return null;
-
-      const profile = profiles[0];
-      const partnerEmail = profile.partner1_email === myEmail ? profile.partner2_email : profile.partner1_email;
-      if (!partnerEmail) return null;
-
-      const partners = await base44.entities.User.filter({ email: partnerEmail });
-      return partners?.[0] || null;
+      if (error) throw error;
+      return data || null;
     },
   });
 
-  const {
-    data: partnerMessages = [],
-  } = useQuery({
+  const { data: partnerMessages = [] } = useQuery({
     queryKey: ['messages', user?.couple_profile_id],
     enabled: !!user?.couple_profile_id && activeTab === 'partner',
     staleTime: 2000,
     refetchInterval: 5000,
-    queryFn: () =>
-      base44.entities.Message.filter(
-        { couple_profile_id: user.couple_profile_id },
-        'created_date'
-      ),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('couple_profile_id', user.couple_profile_id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    },
   });
 
   const { data: myGroups = [] } = useQuery({
@@ -99,57 +134,72 @@ export default function Chat() {
     enabled: !!user?.email && isPendingVerification,
     staleTime: 30 * 1000,
     queryFn: async () => {
-      const myEmail = user?.email;
-      if (!myEmail) return [];
+      const { data: memberships, error: membershipsError } = await supabase
+        .from('chat_group_members')
+        .select('*')
+        .eq('user_email', user.email)
+        .eq('status', 'active');
 
-      const memberships = await base44.entities.ChatGroupMember.filter({
-        user_email: myEmail,
-        status: 'active',
-      });
+      if (membershipsError) throw membershipsError;
 
       const groupIds = (memberships || []).map((m) => m.chat_group_id).filter(Boolean);
       if (!groupIds.length) return [];
 
-      const groups = await base44.entities.ChatGroup.list();
-      const mine = (groups || []).filter((g) => groupIds.includes(g.id));
+      const { data: groups, error: groupsError } = await supabase
+        .from('chat_groups')
+        .select('*')
+        .in('id', groupIds);
 
-      // Add memberCount (could be heavy if you have many groups; ok for small counts)
-      const withCounts = await Promise.all(
-        mine.map(async (group) => {
-          const members = await base44.entities.ChatGroupMember.filter({
-            chat_group_id: group.id,
-            status: 'active',
-          });
-          return { ...group, memberCount: (members || []).length };
+      if (groupsError) throw groupsError;
+
+      const groupsWithCounts = await Promise.all(
+        (groups || []).map(async (group) => {
+          const { count, error: countError } = await supabase
+            .from('chat_group_members')
+            .select('*', { count: 'exact', head: true })
+            .eq('chat_group_id', group.id)
+            .eq('status', 'active');
+
+          if (countError) throw countError;
+          return { ...group, memberCount: count || 0 };
         })
       );
 
-      return withCounts;
+      return groupsWithCounts;
     },
   });
 
-  const {
-    data: groupMessages = [],
-  } = useQuery({
+  const { data: groupMessages = [] } = useQuery({
     queryKey: ['groupMessages', selectedGroup?.id],
     enabled: !!selectedGroup?.id,
     staleTime: 2000,
     refetchInterval: 5000,
-    queryFn: () =>
-      base44.entities.GroupMessage.filter(
-        { chat_group_id: selectedGroup.id },
-        'created_date'
-      ),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('group_messages')
+        .select('*')
+        .eq('chat_group_id', selectedGroup.id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    },
   });
 
-  // Mark partner messages as read in one go (no per-message invalidation spam)
   const markPartnerReadMutation = useMutation({
     mutationFn: async (ids) => {
-      await Promise.all(ids.map((id) => base44.entities.Message.update(id, { read: true })));
+      const { error } = await supabase
+        .from('messages')
+        .update({
+          read: true,
+          read_at: new Date().toISOString(),
+        })
+        .in('id', ids);
+
+      if (error) throw error;
       return ids;
     },
     onSuccess: (ids) => {
-      // Update cache locally (fast), no refetch needed
       queryClient.setQueryData(['messages', user?.couple_profile_id], (old = []) =>
         old.map((m) => (ids.includes(m.id) ? { ...m, read: true } : m))
       );
@@ -166,10 +216,11 @@ export default function Chat() {
       .filter((m) => m.sender_email !== user.email && !m.read)
       .map((m) => m.id);
 
-    if (unreadIds.length) markPartnerReadMutation.mutate(unreadIds);
-  }, [partnerMessages, user?.email, activeTab]); // intentionally not including mutation object to avoid loops
+    if (unreadIds.length) {
+      markPartnerReadMutation.mutate(unreadIds);
+    }
+  }, [partnerMessages, user?.email, activeTab]);
 
-  // Notification sound: partner messages (only once per new incoming message)
   React.useEffect(() => {
     if (!user?.email) return;
     if (!partnerMessages?.length) return;
@@ -184,12 +235,10 @@ export default function Chat() {
       lastPartnerNotifiedIdRef.current = last.id;
       playNotify();
     } else if (isNew) {
-      // Keep pointer updated even for own messages
       lastPartnerNotifiedIdRef.current = last.id;
     }
   }, [partnerMessages, user?.email, playNotify]);
 
-  // Notification sound: group messages (only once per new incoming message)
   React.useEffect(() => {
     if (!user?.email) return;
     if (!groupMessages?.length) return;
@@ -209,7 +258,19 @@ export default function Chat() {
   }, [groupMessages, user?.email, playNotify]);
 
   const sendPartnerMessageMutation = useMutation({
-    mutationFn: (messageData) => base44.entities.Message.create(messageData),
+    mutationFn: async (messageData) => {
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          ...messageData,
+          read: false,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['messages', user?.couple_profile_id] });
       setNewMessage('');
@@ -218,7 +279,16 @@ export default function Chat() {
   });
 
   const sendGroupMessageMutation = useMutation({
-    mutationFn: (messageData) => base44.entities.GroupMessage.create(messageData),
+    mutationFn: async (messageData) => {
+      const { data, error } = await supabase
+        .from('group_messages')
+        .insert(messageData)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['groupMessages', selectedGroup?.id] });
       setNewMessage('');
@@ -228,16 +298,26 @@ export default function Chat() {
 
   const createGroupMutation = useMutation({
     mutationFn: async (groupData) => {
-      const group = await base44.entities.ChatGroup.create({
-        ...groupData,
-        creator_email: user.email,
-      });
+      const { data: group, error: groupError } = await supabase
+        .from('chat_groups')
+        .insert({
+          ...groupData,
+          creator_email: user.email,
+        })
+        .select()
+        .single();
 
-      await base44.entities.ChatGroupMember.create({
-        chat_group_id: group.id,
-        user_email: user.email,
-        status: 'active',
-      });
+      if (groupError) throw groupError;
+
+      const { error: memberError } = await supabase
+        .from('chat_group_members')
+        .insert({
+          chat_group_id: group.id,
+          user_email: user.email,
+          status: 'active',
+        });
+
+      if (memberError) throw memberError;
 
       return group;
     },
@@ -251,70 +331,95 @@ export default function Chat() {
     mutationFn: async (email) => {
       if (!selectedGroup?.id) return;
 
-      await base44.entities.ChatGroupMember.create({
-        chat_group_id: selectedGroup.id,
-        user_email: email,
-        status: 'invited',
-      });
+      const { error } = await supabase
+        .from('chat_group_members')
+        .insert({
+          chat_group_id: selectedGroup.id,
+          user_email: email,
+          status: 'invited',
+        });
 
-      await base44.integrations.Core.SendEmail({
-        to: email,
-        subject: `You're invited to join ${selectedGroup.name}`,
-        body: `You've been invited to join the group chat "${selectedGroup.name}" on Date-Locked. Log in to accept the invitation!`,
-      });
+      if (error) throw error;
     },
     onSuccess: () => setShowInvite(false),
   });
 
-  const handleFileUpload = React.useCallback(async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
+  const handleFileUpload = React.useCallback(
+    async (e) => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if (!file) return;
 
-    const isImage = file.type.startsWith('image/');
-    const isVideo = file.type.startsWith('video/');
-    
-    if (!isImage && !isVideo) {
-      alert('Please select an image or video file');
-      return;
-    }
+      const isImage = file.type.startsWith('image/');
+      const isVideo = file.type.startsWith('video/');
 
-    setIsUploading(true);
-    try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      if (!file_url) throw new Error('Upload failed');
-
-      const prefix = isImage ? '📷 ' : '🎥 ';
-      const content = `${prefix}${file_url}`;
-
-      if (selectedGroup?.id) {
-        await base44.entities.GroupMessage.create({
-          chat_group_id: selectedGroup.id,
-          sender_email: user.email,
-          sender_name: user.full_name,
-          content,
-        });
-        queryClient.invalidateQueries({ queryKey: ['groupMessages', selectedGroup?.id] });
-      } else if (user.couple_profile_id) {
-        await base44.entities.Message.create({
-          couple_profile_id: user.couple_profile_id,
-          sender_email: user.email,
-          content,
-        });
-        queryClient.invalidateQueries({ queryKey: ['messages', user?.couple_profile_id] });
+      if (!isImage && !isVideo) {
+        alert('Please select an image or video file');
+        return;
       }
 
-      inputRef.current?.focus();
-    } catch (error) {
-      console.error('Upload failed:', error);
-      alert('Failed to upload file. Please try again.');
-    } finally {
-      setIsUploading(false);
-    }
-  }, [selectedGroup?.id, user, queryClient]);
+      setIsUploading(true);
+
+      try {
+        const ext = file.name.split('.').pop();
+        const filePath = `${user.id}/${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2)}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (uploadError) throw uploadError;
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+
+        const prefix = isImage ? '📷 ' : '🎥 ';
+        const content = `${prefix}${publicUrl}`;
+
+        if (selectedGroup?.id) {
+          const { error } = await supabase.from('group_messages').insert({
+            chat_group_id: selectedGroup.id,
+            sender_email: user.email,
+            sender_name: user.full_name,
+            content,
+          });
+
+          if (error) throw error;
+
+          queryClient.invalidateQueries({ queryKey: ['groupMessages', selectedGroup?.id] });
+        } else if (user.couple_profile_id) {
+          const { error } = await supabase.from('messages').insert({
+            couple_profile_id: user.couple_profile_id,
+            sender_email: user.email,
+            content,
+            read: false,
+          });
+
+          if (error) throw error;
+
+          queryClient.invalidateQueries({ queryKey: ['messages', user?.couple_profile_id] });
+        }
+
+        inputRef.current?.focus();
+      } catch (error) {
+        console.error('Upload failed:', error);
+        alert('Failed to upload file. Please try again.');
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [selectedGroup?.id, user, queryClient]
+  );
 
   const handleSend = React.useCallback(() => {
     if (!user) return;
+
     const content = newMessage.trim();
     if (!content) return;
 
@@ -329,6 +434,7 @@ export default function Chat() {
     }
 
     if (!user.couple_profile_id) return;
+
     sendPartnerMessageMutation.mutate({
       couple_profile_id: user.couple_profile_id,
       sender_email: user.email,
@@ -340,7 +446,6 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [partnerMessages, groupMessages]);
 
-  // Basic loading / error state for user
   if (isUserLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-rose-50 via-white to-pink-50 pb-24 flex items-center justify-center">
@@ -351,11 +456,14 @@ export default function Chat() {
       </div>
     );
   }
+
   if (isUserError || !user) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-rose-50 via-white to-pink-50 pb-24 flex items-center justify-center">
         <Card className="p-8 max-w-md w-full text-center">
-          <h3 className="text-lg font-semibold text-slate-700 mb-2">Couldn&apos;t load chat</h3>
+          <h3 className="text-lg font-semibold text-slate-700 mb-2">
+            Couldn&apos;t load chat
+          </h3>
           <p className="text-slate-500 text-sm">Please check your connection and try again.</p>
           <div className="mt-4">
             <Link to={createPageUrl('Home')}>
@@ -367,7 +475,6 @@ export default function Chat() {
     );
   }
 
-  // If not date-locked, block chat
   if (!user?.couple_profile_id || user?.relationship_status === 'single') {
     return (
       <div className="min-h-screen bg-gradient-to-b from-rose-50 via-white to-pink-50 pb-24">
@@ -394,11 +501,11 @@ export default function Chat() {
   }
 
   const displayedMessages = selectedGroup ? groupMessages : partnerMessages;
-  const isSending = sendPartnerMessageMutation.isPending || sendGroupMessageMutation.isPending;
+  const isSending =
+    sendPartnerMessageMutation.isPending || sendGroupMessageMutation.isPending;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-100 via-pink-50 to-red-100 flex flex-col pb-24">
-      {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10 shadow-sm">
         <div className="max-w-2xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -422,7 +529,7 @@ export default function Chat() {
               ) : partner ? (
                 <div className="flex items-center gap-3">
                   <Avatar className="w-10 h-10">
-                    <AvatarImage src={partner.profile_photo} />
+                    <AvatarImage src={partner.avatar_url} />
                     <AvatarFallback className="bg-gradient-to-br from-rose-100 to-pink-100 text-rose-500">
                       {partner.full_name?.[0]}
                     </AvatarFallback>
@@ -446,7 +553,6 @@ export default function Chat() {
         </div>
       </div>
 
-      {/* Tabs - Only show if pending verification and not inside a selected group */}
       {isPendingVerification && !selectedGroup && (
         <div className="bg-white border-b">
           <div className="max-w-2xl mx-auto px-4">
@@ -464,7 +570,6 @@ export default function Chat() {
         </div>
       )}
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto">
         {activeTab === 'groups' && !selectedGroup ? (
           <div className="max-w-2xl mx-auto px-4 py-6">
@@ -500,7 +605,8 @@ export default function Chat() {
                 <AnimatePresence>
                   {displayedMessages.map((msg) => {
                     const isMe = msg.sender_email === user.email;
-                    const createdDate = parseSafeDate(msg.created_date);
+                    const createdDate = parseSafeDate(msg.created_at || msg.created_date);
+
                     return (
                       <motion.div
                         key={msg.id}
@@ -514,29 +620,29 @@ export default function Chat() {
                           )}
 
                           <div
-                           className={`rounded-2xl px-4 py-2.5 ${
-                             isMe
-                               ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white'
-                               : 'bg-white border border-slate-200 text-slate-800'
-                           }`}
+                            className={`rounded-2xl px-4 py-2.5 ${
+                              isMe
+                                ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white'
+                                : 'bg-white border border-slate-200 text-slate-800'
+                            }`}
                           >
-                           {msg.content?.startsWith('📷 ') ? (
-                             <img 
-                               src={msg.content.substring(3)} 
-                               alt="Shared" 
-                               className="max-w-full rounded-lg"
-                               style={{ maxHeight: '300px' }}
-                             />
-                           ) : msg.content?.startsWith('🎥 ') ? (
-                             <video 
-                               src={msg.content.substring(3)} 
-                               controls 
-                               className="max-w-full rounded-lg"
-                               style={{ maxHeight: '300px' }}
-                             />
-                           ) : (
-                             <p className="text-sm leading-relaxed break-words">{msg.content}</p>
-                           )}
+                            {msg.content?.startsWith('📷 ') ? (
+                              <img
+                                src={msg.content.substring(3)}
+                                alt="Shared"
+                                className="max-w-full rounded-lg"
+                                style={{ maxHeight: '300px' }}
+                              />
+                            ) : msg.content?.startsWith('🎥 ') ? (
+                              <video
+                                src={msg.content.substring(3)}
+                                controls
+                                className="max-w-full rounded-lg"
+                                style={{ maxHeight: '300px' }}
+                              />
+                            ) : (
+                              <p className="text-sm leading-relaxed break-words">{msg.content}</p>
+                            )}
                           </div>
 
                           <div
@@ -565,17 +671,16 @@ export default function Chat() {
         )}
       </div>
 
-      {/* Input (show in partner chat OR when a group is selected) */}
       {(activeTab !== 'groups' || !!selectedGroup) && (
         <div className="bg-white border-t fixed left-0 right-0 z-20 safe-area-pb" style={{ bottom: '88px' }}>
-          <input 
-            ref={fileInputRef} 
-            type="file" 
-            accept="image/*,video/*" 
-            onChange={handleFileUpload} 
-            className="hidden" 
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*"
+            onChange={handleFileUpload}
+            className="hidden"
           />
-          
+
           <div className="max-w-2xl mx-auto px-4 py-4">
             <div className="flex gap-2 items-end">
               <div className="flex gap-1">
@@ -619,7 +724,6 @@ export default function Chat() {
         </div>
       )}
 
-      {/* Dialogs */}
       <CreateGroupDialog
         open={showCreateGroup}
         onOpenChange={setShowCreateGroup}
