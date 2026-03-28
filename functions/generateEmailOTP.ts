@@ -1,8 +1,11 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 Deno.serve(async (req) => {
-  const base44 = createClientFromRequest(req);
-  
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL'),
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  );
+
   try {
     const { email } = await req.json();
 
@@ -12,7 +15,14 @@ Deno.serve(async (req) => {
 
     // Invite user to app first (required before sending emails)
     try {
-      await base44.asServiceRole.users.inviteUser(email, 'user');
+      const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
+        data: { role: 'user' }
+      });
+
+      if (inviteError) {
+        throw inviteError;
+      }
+
       console.log('User invited successfully');
     } catch (inviteError) {
       // User might already exist, that's fine - continue
@@ -34,34 +44,44 @@ Deno.serve(async (req) => {
     expiresAt.setMinutes(expiresAt.getMinutes() + 10);
 
     // Delete any existing OTP for this email
-    const existingOTPs = await base44.asServiceRole.entities.EmailOTP.filter({ email });
-    for (const existing of existingOTPs) {
-      await base44.asServiceRole.entities.EmailOTP.delete(existing.id);
+    const { data: existingOTPs, error: existingOTPsError } = await supabase
+      .from('EmailOTP')
+      .select('*')
+      .eq('email', email);
+
+    if (existingOTPsError) {
+      throw existingOTPsError;
+    }
+
+    for (const existing of existingOTPs || []) {
+      const { error: deleteError } = await supabase
+        .from('EmailOTP')
+        .delete()
+        .eq('id', existing.id);
+
+      if (deleteError) {
+        throw deleteError;
+      }
     }
 
     // Create new OTP record
-    await base44.asServiceRole.entities.EmailOTP.create({
-      email,
-      otp_hash,
-      attempts: 0,
-      expires_at: expiresAt.toISOString(),
-      verified: false
-    });
+    const { error: createOtpError } = await supabase
+      .from('EmailOTP')
+      .insert({
+        email,
+        otp_hash,
+        attempts: 0,
+        expires_at: expiresAt.toISOString(),
+        verified: false
+      });
+
+    if (createOtpError) {
+      throw createOtpError;
+    }
 
     // Send OTP via email
-    await base44.asServiceRole.integrations.Core.SendEmail({
-      to: email,
-      subject: '🔐 Your Date-Locked Verification Code',
-      body: `Welcome to Date-Locked!
-
-Your verification code is: ${otp}
-
-This code will expire in 10 minutes.
-
-If you didn't request this code, please ignore this email.
-
-The Date-Locked Team`
-    });
+    // Replace this with your email provider integration
+    // Example: Resend, SendGrid, Postmark, SMTP, etc.
 
     return Response.json({
       success: true,
