@@ -1,41 +1,69 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL'),
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+      {
+        global: {
+          headers: {
+            Authorization: req.headers.get('Authorization') || '',
+          },
+        },
+      }
+    );
 
-    if (!user) {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Check if user already has an active code
-    const existingCodes = await base44.asServiceRole.entities.DateLockCode.filter({
-      creator_email: user.email,
-      status: 'active'
-    });
+    const { data: existingCodes, error: existingCodesError } = await supabase
+      .from('DateLockCode')
+      .select('*')
+      .eq('creator_email', user.email)
+      .eq('status', 'active');
+
+    if (existingCodesError) {
+      throw existingCodesError;
+    }
 
     // Expire old active codes
-    for (const oldCode of existingCodes) {
-      await base44.asServiceRole.entities.DateLockCode.update(oldCode.id, {
-        status: 'expired'
-      });
+    for (const oldCode of existingCodes || []) {
+      const { error: expireError } = await supabase
+        .from('DateLockCode')
+        .update({ status: 'expired' })
+        .eq('id', oldCode.id);
+
+      if (expireError) {
+        throw expireError;
+      }
     }
 
     // Generate a unique 6-digit code
     let code;
     let isUnique = false;
-    
+
     while (!isUnique) {
       code = Math.floor(100000 + Math.random() * 900000).toString();
-      
-      // Check if code already exists
-      const existing = await base44.asServiceRole.entities.DateLockCode.filter({
-        code: code,
-        status: 'active'
-      });
-      
-      if (existing.length === 0) {
+
+      const { data: existing, error: existingError } = await supabase
+        .from('DateLockCode')
+        .select('*')
+        .eq('code', code)
+        .eq('status', 'active');
+
+      if (existingError) {
+        throw existingError;
+      }
+
+      if (!existing || existing.length === 0) {
         isUnique = true;
       }
     }
@@ -45,18 +73,33 @@ Deno.serve(async (req) => {
     expiresAt.setHours(expiresAt.getHours() + 24);
 
     // Create the Date-Lock code
-    const dateLockCode = await base44.asServiceRole.entities.DateLockCode.create({
-      code: code,
-      creator_email: user.email,
-      creator_name: user.full_name || user.email,
-      status: 'active',
-      expires_at: expiresAt.toISOString()
-    });
+    const { data: dateLockCode, error: createError } = await supabase
+      .from('DateLockCode')
+      .insert({
+        code: code,
+        creator_email: user.email,
+        creator_name: user.user_metadata?.full_name || user.email,
+        status: 'active',
+        expires_at: expiresAt.toISOString()
+      })
+      .select()
+      .single();
+
+    if (createError) {
+      throw createError;
+    }
 
     // Update user status to pending verification
-    await base44.asServiceRole.entities.User.update(user.id, {
-      relationship_status: 'pending_verification'
-    });
+    const { error: updateUserError } = await supabase
+      .from('User')
+      .update({
+        relationship_status: 'pending_verification'
+      })
+      .eq('id', user.id);
+
+    if (updateUserError) {
+      throw updateUserError;
+    }
 
     return Response.json({
       success: true,
@@ -64,10 +107,11 @@ Deno.serve(async (req) => {
       expires_at: expiresAt.toISOString(),
       code_id: dateLockCode.id
     });
+
   } catch (error) {
     console.error('Generate Date-Lock code error:', error);
-    return Response.json({ 
-      error: error.message 
+    return Response.json({
+      error: error.message
     }, { status: 500 });
   }
 });
