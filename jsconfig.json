@@ -1,21 +1,271 @@
-{
-  "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
+import { createClient } from 'npm:@supabase/supabase-js@2'
+
+Deno.serve(async (req) => {
+  try {
+    if (req.method !== 'POST') {
+      return jsonResponse({ error: 'Method not allowed' }, 405)
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
+      return jsonResponse(
+        {
+          error:
+            'Missing required environment variables: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY',
+        },
+        500
+      )
+    }
+
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return jsonResponse({ error: 'Missing Authorization header' }, 401)
+    }
+
+    // Authenticated user client
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    })
+
+    // Admin client for DB writes
+    const adminClient = createClient(supabaseUrl, supabaseServiceRoleKey)
+
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+
+    if (userError || !user) {
+      return jsonResponse({ error: 'Unauthorized user' }, 401)
+    }
+
+    const body = await req.json().catch(() => null)
+    const inviteCode = body?.invite_code?.toString().trim()
+
+    if (!inviteCode) {
+      return jsonResponse({ error: 'invite_code is required' }, 400)
+    }
+
+    // Get accepting user's profile
+    const { data: acceptingProfile, error: acceptingProfileError } = await adminClient
+      .from('profiles')
+      .select('id, user_id, email, relationship_status, relationship_id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (acceptingProfileError || !acceptingProfile) {
+      return jsonResponse({ error: 'Accepting user profile not found' }, 404)
+    }
+
+    if (acceptingProfile.relationship_status === 'date_locked') {
+      return jsonResponse(
+        { error: 'You are already Date-Locked in an active relationship' },
+        400
+      )
+    }
+
+    // Find invite
+    const { data: invite, error: inviteError } = await adminClient
+      .from('relationship_invites')
+      .select(`
+        id,
+        inviter_user_id,
+        invitee_user_id,
+        invitee_email,
+        invite_code,
+        status,
+        expires_at,
+        accepted_at
+      `)
+      .eq('invite_code', inviteCode)
+      .eq('status', 'pending')
+      .single()
+
+    if (inviteError || !invite) {
+      return jsonResponse({ error: 'Invalid or expired invite code' }, 404)
+    }
+
+    const now = new Date()
+    const expiresAt = new Date(invite.expires_at)
+
+    if (expiresAt.getTime() < now.getTime()) {
+      await adminClient
+        .from('relationship_invites')
+        .update({ status: 'expired' })
+        .eq('id', invite.id)
+
+      return jsonResponse({ error: 'Invite code has expired' }, 400)
+    }
+
+    if (invite.inviter_user_id === user.id) {
+      return jsonResponse(
+        { error: 'You cannot accept your own Date-Locked invite' },
+        400
+      )
+    }
+
+    // Optional recipient restriction checks
+    if (invite.invitee_user_id && invite.invitee_user_id !== user.id) {
+      return jsonResponse(
+        { error: 'This invite code was issued for a different user' },
+        403
+      )
+    }
+
+    if (
+      invite.invitee_email &&
+      user.email &&
+      invite.invitee_email.toLowerCase() !== user.email.toLowerCase()
+    ) {
+      return jsonResponse(
+        { error: 'This invite code was issued for a different email address' },
+        403
+      )
+    }
+
+    // Fetch inviter profile
+    const { data: inviterProfile, error: inviterProfileError } = await adminClient
+      .from('profiles')
+      .select('id, user_id, email, relationship_status, relationship_id')
+      .eq('user_id', invite.inviter_user_id)
+      .single()
+
+    if (inviterProfileError || !inviterProfile) {
+      return jsonResponse({ error: 'Inviter profile not found' }, 404)
+    }
+
+    if (inviterProfile.relationship_status === 'date_locked') {
+      return jsonResponse(
+        { error: 'The inviter is already Date-Locked in another relationship' },
+        400
+      )
+    }
+
+    // Final safety check: prevent duplicate active relationship
+    const { data: existingRelationship } = await adminClient
+      .from('relationships')
+      .select('id')
+      .or(
+        `and(user_one_id.eq.${inviterProfile.user_id},user_two_id.eq.${acceptingProfile.user_id}),and(user_one_id.eq.${acceptingProfile.user_id},user_two_id.eq.${inviterProfile.user_id})`
+      )
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (existingRelationship) {
+      return jsonResponse(
+        { error: 'These users are already linked in an active relationship' },
+        400
+      )
+    }
+
+    // Create one active relationship
+    const confirmedAt = new Date().toISOString()
+
+    const { data: relationship, error: relationshipError } = await adminClient
+      .from('relationships')
+      .insert({
+        user_one_id: inviterProfile.user_id,
+        user_two_id: acceptingProfile.user_id,
+        status: 'active',
+        verification_method: 'invite_code',
+        confirmed_at: confirmedAt,
+      })
+      .select('id, user_one_id, user_two_id, status, confirmed_at')
+      .single()
+
+    if (relationshipError || !relationship) {
+      return jsonResponse(
+        { error: relationshipError?.message || 'Failed to create relationship' },
+        500
+      )
+    }
+
+    // Update invite as accepted
+    const { error: inviteUpdateError } = await adminClient
+      .from('relationship_invites')
+      .update({
+        status: 'accepted',
+        invitee_user_id: acceptingProfile.user_id,
+        accepted_at: confirmedAt,
+      })
+      .eq('id', invite.id)
+
+    if (inviteUpdateError) {
+      return jsonResponse(
+        { error: inviteUpdateError.message || 'Failed to update invite' },
+        500
+      )
+    }
+
+    // Update both profiles so they become one verified pair in app logic
+    const { error: inviterProfileUpdateError } = await adminClient
+      .from('profiles')
+      .update({
+        relationship_status: 'date_locked',
+        relationship_id: relationship.id,
+        partner_user_id: acceptingProfile.user_id,
+        date_locked_at: confirmedAt,
+      })
+      .eq('user_id', inviterProfile.user_id)
+
+    if (inviterProfileUpdateError) {
+      return jsonResponse(
+        { error: inviterProfileUpdateError.message || 'Failed to update inviter profile' },
+        500
+      )
+    }
+
+    const { error: acceptingProfileUpdateError } = await adminClient
+      .from('profiles')
+      .update({
+        relationship_status: 'date_locked',
+        relationship_id: relationship.id,
+        partner_user_id: inviterProfile.user_id,
+        date_locked_at: confirmedAt,
+      })
+      .eq('user_id', acceptingProfile.user_id)
+
+    if (acceptingProfileUpdateError) {
+      return jsonResponse(
+        { error: acceptingProfileUpdateError.message || 'Failed to update accepting profile' },
+        500
+      )
+    }
+
+    return jsonResponse(
+      {
+        success: true,
+        message: 'Relationship confirmed. Both users are now Date-Locked.',
+        relationship: {
+          id: relationship.id,
+          user_one_id: relationship.user_one_id,
+          user_two_id: relationship.user_two_id,
+          status: relationship.status,
+          confirmed_at: relationship.confirmed_at,
+        },
+      },
+      200
+    )
+  } catch (error) {
+    return jsonResponse(
+      { error: error instanceof Error ? error.message : 'Unknown server error' },
+      500
+    )
+  }
+})
+
+function jsonResponse(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
     },
-    "jsx": "react-jsx",
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "lib": ["esnext", "dom"],
-    "target": "esnext",
-    "checkJs": true,
-    "skipLibCheck": true,
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "types": []
-  },
-  "include": ["src/components/**/*.js", "src/pages/**/*.jsx", "src/Layout.jsx"],
-  "exclude": ["node_modules", "dist", "src/vite-plugins", "src/components/ui", "src/api", "src/lib"]
-} 
+  })
+}
