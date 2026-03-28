@@ -1,11 +1,25 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL'),
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+      {
+        global: {
+          headers: {
+            Authorization: req.headers.get('Authorization') || '',
+          },
+        },
+      }
+    );
 
-    if (!user) {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -16,12 +30,17 @@ Deno.serve(async (req) => {
     }
 
     // Get the invitation by token
-    const invitations = await base44.asServiceRole.entities.RelationshipInvitation.filter({ 
-      invitation_token: invitation_token,
-      status: 'pending'
-    });
+    const { data: invitations, error: invitationError } = await supabase
+      .from('RelationshipInvitation')
+      .select('*')
+      .eq('invitation_token', invitation_token)
+      .eq('status', 'pending');
 
-    if (invitations.length === 0) {
+    if (invitationError) {
+      throw invitationError;
+    }
+
+    if (!invitations || invitations.length === 0) {
       return Response.json({ error: 'Invitation not found or expired' }, { status: 404 });
     }
 
@@ -29,58 +48,79 @@ Deno.serve(async (req) => {
 
     // Check if invitation expired
     if (new Date(invitation.expires_at) < new Date()) {
-      await base44.asServiceRole.entities.RelationshipInvitation.update(invitation.id, {
-        status: 'expired'
-      });
+      await supabase
+        .from('RelationshipInvitation')
+        .update({ status: 'expired' })
+        .eq('id', invitation.id);
+
       return Response.json({ error: 'Invitation has expired' }, { status: 400 });
     }
 
     // Create couple profile
-    const coupleProfile = await base44.asServiceRole.entities.CoupleProfile.create({
-      partner1_email: invitation.sender_email,
-      partner2_email: user.email,
-      date_locked_at: new Date().toISOString()
-    });
+    const { data: coupleProfile, error: coupleError } = await supabase
+      .from('CoupleProfile')
+      .insert({
+        partner1_email: invitation.sender_email,
+        partner2_email: user.email,
+        date_locked_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
 
-    // Update invitation status
-    await base44.asServiceRole.entities.RelationshipInvitation.update(invitation.id, {
-      status: 'accepted'
-    });
-
-    // Update both users to date_locked status
-    const senderUsers = await base44.asServiceRole.entities.User.filter({
-      email: invitation.sender_email
-    });
-    
-    if (senderUsers.length > 0) {
-      await base44.asServiceRole.entities.User.update(senderUsers[0].id, {
-        relationship_status: 'date_locked',
-        partner_email: user.email,
-        couple_profile_id: coupleProfile.id
-      });
+    if (coupleError) {
+      throw coupleError;
     }
 
-    await base44.auth.updateMe({
-      relationship_status: 'date_locked',
-      partner_email: invitation.sender_email,
-      couple_profile_id: coupleProfile.id
-    });
+    // Update invitation status
+    await supabase
+      .from('RelationshipInvitation')
+      .update({ status: 'accepted' })
+      .eq('id', invitation.id);
 
-    // Send notification email to sender using service role
+    // Update sender user
+    const { data: senderUsers, error: senderError } = await supabase
+      .from('User')
+      .select('*')
+      .eq('email', invitation.sender_email);
+
+    if (senderError) {
+      throw senderError;
+    }
+
+    if (senderUsers && senderUsers.length > 0) {
+      await supabase
+        .from('User')
+        .update({
+          relationship_status: 'date_locked',
+          partner_email: user.email,
+          couple_profile_id: coupleProfile.id,
+        })
+        .eq('id', senderUsers[0].id);
+    }
+
+    // Update current authenticated user (replacement for base44.auth.updateMe)
+    await supabase
+      .from('User')
+      .update({
+        relationship_status: 'date_locked',
+        partner_email: invitation.sender_email,
+        couple_profile_id: coupleProfile.id,
+      })
+      .eq('id', user.id);
+
+    // Send notification email (REPLACE WITH YOUR EMAIL SERVICE)
     try {
-      await base44.asServiceRole.integrations.Core.SendEmail({
-        to: invitation.sender_email,
-        subject: '🔐 You are now Date-Locked!',
-        body: `Great news! ${user.full_name || 'Your partner'} has accepted your Date-Lock invitation. You are now officially Date-Locked together!`
-      });
+      // Example placeholder
+      // await sendEmail({...})
     } catch (emailError) {
       console.error('Failed to send notification email:', emailError);
     }
 
-    return Response.json({ 
+    return Response.json({
       success: true,
-      couple_profile_id: coupleProfile.id 
+      couple_profile_id: coupleProfile.id,
     });
+
   } catch (error) {
     console.error('Accept invitation error:', error);
     return Response.json({ error: error.message }, { status: 500 });
