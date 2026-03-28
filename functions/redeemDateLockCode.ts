@@ -1,94 +1,188 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClient } from 'npm:@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Content-Type': 'application/json',
+}
 
 Deno.serve(async (req) => {
-  try {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
 
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    if (req.method !== 'POST') {
+      return jsonResponse({ error: 'Method not allowed' }, 405)
     }
 
-    const { code } = await req.json();
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+    if (!supabaseUrl || !anonKey || !serviceKey) {
+      return jsonResponse({ error: 'Missing environment variables' }, 500)
+    }
+
+    const authHeader = req.headers.get('Authorization')
+
+    if (!authHeader) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+
+    // Authenticated user client
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    })
+
+    // Admin client
+    const adminClient = createClient(supabaseUrl, serviceKey)
+
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+
+    if (userError || !user) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+
+    const body = await req.json()
+    const code = body?.code?.toString().trim()
 
     if (!code) {
-      return Response.json({ error: 'Code is required' }, { status: 400 });
+      return jsonResponse({ error: 'Code is required' }, 400)
     }
 
-    // Find the code
-    const codes = await base44.asServiceRole.entities.DateLockCode.filter({
-      code: code.toString(),
-      status: 'active'
-    });
+    // Get current user profile
+    const { data: currentUser, error: currentUserError } = await adminClient
+      .from('User')
+      .select('*')
+      .eq('id', user.id)
+      .single()
 
-    if (codes.length === 0) {
-      return Response.json({ error: 'Invalid or expired code' }, { status: 404 });
+    if (currentUserError || !currentUser) {
+      return jsonResponse({ error: 'User profile not found' }, 404)
     }
 
-    const dateLockCode = codes[0];
+    // Find code
+    const { data: codes, error: codeError } = await adminClient
+      .from('DateLockCode')
+      .select('*')
+      .eq('code', code)
+      .eq('status', 'active')
 
-    // Check if code expired
+    if (codeError) {
+      throw codeError
+    }
+
+    if (!codes || codes.length === 0) {
+      return jsonResponse({ error: 'Invalid or expired code' }, 404)
+    }
+
+    const dateLockCode = codes[0]
+
+    // Expiry check
     if (new Date(dateLockCode.expires_at) < new Date()) {
-      await base44.asServiceRole.entities.DateLockCode.update(dateLockCode.id, {
-        status: 'expired'
-      });
-      return Response.json({ error: 'Code has expired' }, { status: 400 });
+      await adminClient
+        .from('DateLockCode')
+        .update({ status: 'expired' })
+        .eq('id', dateLockCode.id)
+
+      return jsonResponse({ error: 'Code has expired' }, 400)
     }
 
-    // Prevent self-redemption
+    // Prevent self-use
     if (dateLockCode.creator_email === user.email) {
-      return Response.json({ error: 'You cannot redeem your own code' }, { status: 400 });
+      return jsonResponse(
+        { error: 'You cannot redeem your own code' },
+        400
+      )
     }
 
-    // Check if user is already Date-Locked
-    if (user.relationship_status === 'date_locked' && user.couple_profile_id) {
-      return Response.json({ error: 'You are already Date-Locked with someone' }, { status: 400 });
+    // Already locked check
+    if (
+      currentUser.relationship_status === 'date_locked' &&
+      currentUser.couple_profile_id
+    ) {
+      return jsonResponse(
+        { error: 'You are already Date-Locked with someone' },
+        400
+      )
     }
 
     // Create couple profile
-    const coupleProfile = await base44.asServiceRole.entities.CoupleProfile.create({
-      partner1_email: dateLockCode.creator_email,
-      partner2_email: user.email,
-      date_locked_at: new Date().toISOString()
-    });
+    const { data: coupleProfile, error: coupleError } = await adminClient
+      .from('CoupleProfile')
+      .insert({
+        partner1_email: dateLockCode.creator_email,
+        partner2_email: user.email,
+        date_locked_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
 
-    // Update code status
-    await base44.asServiceRole.entities.DateLockCode.update(dateLockCode.id, {
-      status: 'redeemed',
-      redeemed_by: user.email,
-      redeemed_at: new Date().toISOString()
-    });
-
-    // Update creator's profile
-    const creatorUsers = await base44.asServiceRole.entities.User.filter({
-      email: dateLockCode.creator_email
-    });
-    
-    if (creatorUsers.length > 0) {
-      await base44.asServiceRole.entities.User.update(creatorUsers[0].id, {
-        relationship_status: 'date_locked',
-        partner_email: user.email,
-        couple_profile_id: coupleProfile.id
-      });
+    if (coupleError || !coupleProfile) {
+      throw coupleError
     }
 
-    // Update current user's profile
-    await base44.asServiceRole.entities.User.update(user.id, {
-      relationship_status: 'date_locked',
-      partner_email: dateLockCode.creator_email,
-      couple_profile_id: coupleProfile.id
-    });
+    // Update code
+    await adminClient
+      .from('DateLockCode')
+      .update({
+        status: 'redeemed',
+        redeemed_by: user.email,
+        redeemed_at: new Date().toISOString(),
+      })
+      .eq('id', dateLockCode.id)
 
-    return Response.json({
+    // Get creator
+    const { data: creatorUsers } = await adminClient
+      .from('User')
+      .select('*')
+      .eq('email', dateLockCode.creator_email)
+
+    if (creatorUsers && creatorUsers.length > 0) {
+      await adminClient
+        .from('User')
+        .update({
+          relationship_status: 'date_locked',
+          partner_email: user.email,
+          couple_profile_id: coupleProfile.id,
+        })
+        .eq('id', creatorUsers[0].id)
+    }
+
+    // Update current user
+    await adminClient
+      .from('User')
+      .update({
+        relationship_status: 'date_locked',
+        partner_email: dateLockCode.creator_email,
+        couple_profile_id: coupleProfile.id,
+      })
+      .eq('id', user.id)
+
+    return jsonResponse({
       success: true,
       couple_profile_id: coupleProfile.id,
       partner_name: dateLockCode.creator_name,
-      message: `You are now Date-Locked with ${dateLockCode.creator_name}!`
-    });
+      message: `You are now Date-Locked with ${dateLockCode.creator_name}!`,
+    })
   } catch (error) {
-    console.error('Redeem Date-Lock code error:', error);
-    return Response.json({ 
-      error: error.message 
-    }, { status: 500 });
+    console.error('Redeem Date-Lock code error:', error)
+
+    return jsonResponse(
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+      500
+    )
   }
-});
+})
+
+function jsonResponse(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: corsHeaders,
+  })
+}
