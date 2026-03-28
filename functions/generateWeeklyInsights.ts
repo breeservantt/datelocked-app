@@ -1,15 +1,39 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL'),
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+      {
+        global: {
+          headers: {
+            Authorization: req.headers.get('Authorization') || '',
+          },
+        },
+      }
+    );
 
-    if (!user) {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!user.couple_profile_id) {
+    const { data: currentUser, error: currentUserError } = await supabase
+      .from('User')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (currentUserError || !currentUser) {
+      return Response.json({ error: 'User record not found' }, { status: 404 });
+    }
+
+    if (!currentUser.couple_profile_id) {
       return Response.json({ error: 'Not in a relationship' }, { status: 400 });
     }
 
@@ -22,78 +46,93 @@ Deno.serve(async (req) => {
     const endDateStr = endDate.toISOString().split('T')[0];
 
     // Fetch all data for the week
-    const [memories, goals, places] = await Promise.all([
-      base44.asServiceRole.entities.Memory.filter({ couple_profile_id: user.couple_profile_id }),
-      base44.asServiceRole.entities.CoupleGoal.filter({ couple_profile_id: user.couple_profile_id }),
-      base44.asServiceRole.entities.FavoritePlace.filter({ couple_profile_id: user.couple_profile_id })
+    const [
+      { data: memories, error: memoriesError },
+      { data: goals, error: goalsError },
+      { data: places, error: placesError }
+    ] = await Promise.all([
+      supabase
+        .from('Memory')
+        .select('*')
+        .eq('couple_profile_id', currentUser.couple_profile_id),
+      supabase
+        .from('CoupleGoal')
+        .select('*')
+        .eq('couple_profile_id', currentUser.couple_profile_id),
+      supabase
+        .from('FavoritePlace')
+        .select('*')
+        .eq('couple_profile_id', currentUser.couple_profile_id)
     ]);
 
+    if (memoriesError) throw memoriesError;
+    if (goalsError) throw goalsError;
+    if (placesError) throw placesError;
+
+    const safeMemories = memories || [];
+    const safeGoals = goals || [];
+    const safePlaces = places || [];
+
     // Filter by date range
-    const weekMemories = memories.filter(m => {
+    const weekMemories = safeMemories.filter((m) => {
       const date = m.created_date?.split('T')[0];
       return date >= startDateStr && date <= endDateStr;
     });
 
-    const weekGoalsCompleted = goals.filter(g => {
+    const weekGoalsCompleted = safeGoals.filter((g) => {
       const date = g.updated_date?.split('T')[0];
       return g.status === 'completed' && date >= startDateStr && date <= endDateStr;
     });
 
-    const weekPlaces = places.filter(p => {
+    const weekPlaces = safePlaces.filter((p) => {
       const date = p.created_date?.split('T')[0];
       return date >= startDateStr && date <= endDateStr;
     });
 
     // Calculate health score
-    const activityScore = Math.min(100, (weekMemories.length * 20) + (weekGoalsCompleted.length * 15) + (weekPlaces.length * 10));
-    const goalProgressScore = goals.length > 0 ? (goals.filter(g => g.status !== 'planned').length / goals.length) * 100 : 50;
+    const activityScore = Math.min(
+      100,
+      (weekMemories.length * 20) +
+      (weekGoalsCompleted.length * 15) +
+      (weekPlaces.length * 10)
+    );
+
+    const goalProgressScore = safeGoals.length > 0
+      ? (safeGoals.filter((g) => g.status !== 'planned').length / safeGoals.length) * 100
+      : 50;
+
     const healthScore = Math.round((activityScore * 0.6) + (goalProgressScore * 0.4));
 
     let aiAnalysis = null;
-    if (user.insights_consent) {
-      // Generate AI insights
-      const prompt = `Analyze this couple's weekly relationship data and provide insights:
-- ${weekMemories.length} new memories created
-- ${weekGoalsCompleted.length} goals completed
-- ${weekPlaces.length} new places added
-- Total goals: ${goals.length} (${goals.filter(g => g.status === 'completed').length} completed)
-- Total memories: ${memories.length}
-- Total places: ${places.length}
 
-Provide:
-1. A warm, encouraging 2-3 sentence summary
-2. 2-3 specific strengths (as an array)
-3. 1-2 gentle suggestions for improvement (as an array)
-
-Be positive, supportive, and specific.`;
-
-      aiAnalysis = await base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            summary: { type: "string" },
-            strengths: { type: "array", items: { type: "string" } },
-            improvements: { type: "array", items: { type: "string" } }
-          }
-        }
-      });
+    if (currentUser.insights_consent) {
+      // Replace this block with your own LLM provider integration
+      // Example placeholder shape kept to preserve logic:
+      aiAnalysis = null;
     }
 
     // Create insight record
-    const insight = await base44.asServiceRole.entities.RelationshipInsight.create({
-      couple_profile_id: user.couple_profile_id,
-      week_start_date: startDateStr,
-      week_end_date: endDateStr,
-      memories_count: weekMemories.length,
-      goals_completed: weekGoalsCompleted.length,
-      places_added: weekPlaces.length,
-      health_score: healthScore,
-      strengths: aiAnalysis?.strengths || [],
-      improvements: aiAnalysis?.improvements || [],
-      summary: aiAnalysis?.summary || `This week you created ${weekMemories.length} memories, completed ${weekGoalsCompleted.length} goals, and added ${weekPlaces.length} places!`,
-      ai_analysis_enabled: !!user.insights_consent
-    });
+    const { data: insight, error: insightError } = await supabase
+      .from('RelationshipInsight')
+      .insert({
+        couple_profile_id: currentUser.couple_profile_id,
+        week_start_date: startDateStr,
+        week_end_date: endDateStr,
+        memories_count: weekMemories.length,
+        goals_completed: weekGoalsCompleted.length,
+        places_added: weekPlaces.length,
+        health_score: healthScore,
+        strengths: aiAnalysis?.strengths || [],
+        improvements: aiAnalysis?.improvements || [],
+        summary: aiAnalysis?.summary || `This week you created ${weekMemories.length} memories, completed ${weekGoalsCompleted.length} goals, and added ${weekPlaces.length} places!`,
+        ai_analysis_enabled: !!currentUser.insights_consent
+      })
+      .select()
+      .single();
+
+    if (insightError) {
+      throw insightError;
+    }
 
     return Response.json({ success: true, insight });
   } catch (error) {
