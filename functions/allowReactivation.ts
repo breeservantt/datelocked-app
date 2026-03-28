@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 Deno.serve(async (req) => {
   try {
@@ -11,16 +11,23 @@ Deno.serve(async (req) => {
 
     console.log('Checking reactivation eligibility for:', email);
 
-    // Use service role to check deactivated users
-    const base44 = createClientFromRequest(req);
-    
-    const users = await base44.asServiceRole.entities.User.filter({
-      email: email
-    });
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL'),
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    );
 
-    if (users.length === 0) {
+    const { data: users, error: fetchError } = await supabase
+      .from('User')
+      .select('*')
+      .eq('email', email);
+
+    if (fetchError) {
+      throw fetchError;
+    }
+
+    if (!users || users.length === 0) {
       console.log('No user found with email:', email);
-      return Response.json({ 
+      return Response.json({
         allowed: true,
         reason: 'new_user',
         message: 'Email is available for registration'
@@ -31,27 +38,33 @@ Deno.serve(async (req) => {
 
     if (user.account_status === 'deactivated') {
       console.log('Found deactivated account for:', email);
-      
-      // Reset the user account to allow re-registration
-      await base44.asServiceRole.entities.User.update(user.id, {
-        account_status: 'active',
-        deactivated_at: null,
-        onboarding_completed: false,
-        relationship_status: 'single',
-        couple_profile_id: '',
-        partner_email: '',
-        profile_photo: '',
-        location: '',
-        biometric_enrolled: false,
-        biometric_device_hash: '',
-        insights_consent: false,
-        subscription_tier: 'free',
-        subscription_expires: null
-      });
+
+      const { error: updateError } = await supabase
+        .from('User')
+        .update({
+          account_status: 'active',
+          deactivated_at: null,
+          onboarding_completed: false,
+          relationship_status: 'single',
+          couple_profile_id: '',
+          partner_email: '',
+          profile_photo: '',
+          location: '',
+          biometric_enrolled: false,
+          biometric_device_hash: '',
+          insights_consent: false,
+          subscription_tier: 'free',
+          subscription_expires: null
+        })
+        .eq('id', user.id);
+
+      if (updateError) {
+        throw updateError;
+      }
 
       console.log('Account reset and ready for re-registration:', email);
 
-      return Response.json({ 
+      return Response.json({
         allowed: true,
         reason: 'reactivated',
         message: 'Deactivated account has been reset. You can now re-register.'
@@ -59,7 +72,7 @@ Deno.serve(async (req) => {
     }
 
     console.log('User exists and is active:', email);
-    return Response.json({ 
+    return Response.json({
       allowed: false,
       reason: 'active_user',
       message: 'This email is already registered with an active account'
@@ -67,8 +80,8 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Reactivation check error:', error);
-    return Response.json({ 
-      error: error.message 
+    return Response.json({
+      error: error.message
     }, { status: 500 });
   }
 });
