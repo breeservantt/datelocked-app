@@ -1,22 +1,35 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL'),
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+      {
+        global: {
+          headers: {
+            Authorization: req.headers.get('Authorization') || '',
+          },
+        },
+      }
+    );
 
-    if (!user || user.role !== 'admin') {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user || user.role !== 'admin') {
       return Response.json({ error: 'Unauthorized. Admin only.' }, { status: 403 });
     }
 
     const origin = new URL(req.url).origin;
-    
+
     const urls = {
       app_url: origin,
       callback_url: `${origin}/Subscription`,
       webhook_url: `${origin}/api/functions/paystackWebhook`,
       webhook_secret: Deno.env.get('PAYSTACK_SECRET_KEY')?.substring(0, 10) + '...',
-      
       paystack_config: {
         callback_url_note: 'This is automatically used in payment initialization',
         webhook_url: `${origin}/api/functions/paystackWebhook`,
