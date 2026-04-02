@@ -1,147 +1,210 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClient } from 'npm:@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, content-type, apikey',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Content-Type': 'application/json',
+}
 
 Deno.serve(async (req) => {
-  try {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
 
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+    if (!supabaseUrl || !anonKey || !serviceKey) {
+      return jsonResponse({ error: 'Missing environment variables' }, 500)
     }
 
-    const { action, code } = await req.json();
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
 
-    // Check subscription for validation
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    })
+
+    const adminClient = createClient(supabaseUrl, serviceKey)
+
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+
+    if (userError || !user) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+
+    const { data: currentUser } = await adminClient
+      .from('User')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+
+    const { action, code } = await req.json()
+
+    // ===== GENERATE CODE =====
+    if (action === 'generate') {
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000)
+
+      await adminClient
+        .from('User')
+        .update({
+          verification_code: verificationCode,
+          verification_code_expires: expiresAt.toISOString(),
+        })
+        .eq('id', currentUser.id)
+
+      return jsonResponse({
+        code: verificationCode,
+        expiresAt: expiresAt.toISOString(),
+      })
+    }
+
+    // ===== VALIDATE CODE =====
     if (action === 'validate') {
-      const isPremium = user.subscription_tier === 'premium' && 
-        user.subscription_expires && 
-        new Date(user.subscription_expires) > new Date();
+      const isPremium =
+        currentUser.subscription_tier === 'premium' &&
+        currentUser.subscription_expires &&
+        new Date(currentUser.subscription_expires) > new Date()
 
       if (!isPremium) {
-        // Check free tier limits
-        const today = new Date().toISOString().split('T')[0];
-        const resetDate = user.verifications_reset_date;
-        
-        let verificationsUsed = user.verifications_used_this_month || 0;
-        
-        // Reset counter if new month
-        if (!resetDate || resetDate !== today.substring(0, 7)) {
-          verificationsUsed = 0;
-          await base44.auth.updateMe({
-            verifications_used_this_month: 0,
-            verifications_reset_date: today.substring(0, 7)
-          });
+        const today = new Date().toISOString().split('T')[0]
+        const resetMonth = today.substring(0, 7)
+
+        let used = currentUser.verifications_used_this_month || 0
+
+        if (!currentUser.verifications_reset_date || currentUser.verifications_reset_date !== resetMonth) {
+          used = 0
+          await adminClient
+            .from('User')
+            .update({
+              verifications_used_this_month: 0,
+              verifications_reset_date: resetMonth,
+            })
+            .eq('id', currentUser.id)
         }
-        
-        if (verificationsUsed >= 3) {
-          return Response.json({ 
-            error: 'Monthly verification limit reached. Upgrade to Premium for unlimited verifications.' 
-          }, { status: 403 });
+
+        if (used >= 3) {
+          return jsonResponse(
+            {
+              error: 'Monthly verification limit reached. Upgrade to Premium.',
+            },
+            403
+          )
         }
       }
-    }
 
-    if (action === 'generate') {
-      // Generate a 6-digit verification code
-      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
-      // Store in user profile temporarily
-      await base44.auth.updateMe({
-        verification_code: verificationCode,
-        verification_code_expires: expiresAt.toISOString()
-      });
-
-      return Response.json({ code: verificationCode, expiresAt: expiresAt.toISOString() });
-    }
-
-    if (action === 'validate') {
       if (!code) {
-        return Response.json({ error: 'Code is required' }, { status: 400 });
+        return jsonResponse({ error: 'Code is required' }, 400)
       }
 
-      // Find user with this verification code
-      const users = await base44.asServiceRole.entities.User.filter({
-        verification_code: code
-      });
+      const { data: users } = await adminClient
+        .from('User')
+        .select('*')
+        .eq('verification_code', code)
 
-      if (users.length === 0) {
-        return Response.json({ error: 'Invalid code' }, { status: 404 });
+      if (!users || users.length === 0) {
+        return jsonResponse({ error: 'Invalid code' }, 404)
       }
 
-      const targetUser = users[0];
+      const targetUser = users[0]
 
-      // Check if code expired
       if (targetUser.verification_code_expires) {
-        const expiresAt = new Date(targetUser.verification_code_expires);
-        if (expiresAt < new Date()) {
-          return Response.json({ error: 'Code expired' }, { status: 400 });
+        if (new Date(targetUser.verification_code_expires) < new Date()) {
+          return jsonResponse({ error: 'Code expired' }, 400)
         }
       }
 
-      // Return status
-      const status = targetUser.relationship_status === 'date_locked' ? 'Date-Locked' : 'Date-Picking';
-      
-      let partnerInfo = null;
+      const status =
+        targetUser.relationship_status === 'date_locked'
+          ? 'Date-Locked'
+          : 'Date-Picking'
+
+      let partnerInfo = null
+
       if (targetUser.relationship_status === 'date_locked' && targetUser.couple_profile_id) {
-        const profiles = await base44.asServiceRole.entities.CoupleProfile.filter({
-          id: targetUser.couple_profile_id
-        });
-        
-        if (profiles.length > 0) {
-          const profile = profiles[0];
-          const partnerEmail = profile.partner1_email === targetUser.email 
-            ? profile.partner2_email 
-            : profile.partner1_email;
-          
-          const partners = await base44.asServiceRole.entities.User.filter({ 
-            email: partnerEmail 
-          });
-          
-          if (partners.length > 0) {
+        const { data: profile } = await adminClient
+          .from('CoupleProfile')
+          .select('*')
+          .eq('id', targetUser.couple_profile_id)
+          .maybeSingle()
+
+        if (profile) {
+          const partnerEmail =
+            profile.partner1_email === targetUser.email
+              ? profile.partner2_email
+              : profile.partner1_email
+
+          const { data: partner } = await adminClient
+            .from('User')
+            .select('*')
+            .eq('email', partnerEmail)
+            .maybeSingle()
+
+          if (partner) {
             partnerInfo = {
-              full_name: partners[0].full_name,
-              profile_photo: partners[0].profile_photo
-            };
+              full_name: partner.full_name,
+              profile_photo: partner.profile_photo,
+            }
           }
         }
       }
 
-      // Update verification count for free tier
-      if (user.subscription_tier !== 'premium') {
-        const verificationsUsed = (user.verifications_used_this_month || 0) + 1;
-        await base44.auth.updateMe({
-          verifications_used_this_month: verificationsUsed
-        });
+      if (currentUser.subscription_tier !== 'premium') {
+        const newCount = (currentUser.verifications_used_this_month || 0) + 1
+
+        await adminClient
+          .from('User')
+          .update({
+            verifications_used_this_month: newCount,
+          })
+          .eq('id', currentUser.id)
       }
 
-      // Log verification for premium users
-      if (user.subscription_tier === 'premium') {
-        await base44.asServiceRole.entities.VerificationLog.create({
-          user_email: user.email,
+      if (currentUser.subscription_tier === 'premium') {
+        await adminClient.from('VerificationLog').insert({
+          user_email: currentUser.email,
           verified_user_email: targetUser.email,
           verified_user_name: targetUser.full_name,
           verification_code: code,
           verification_status: status,
           partner_name: partnerInfo?.full_name || null,
-          verification_timestamp: new Date().toISOString()
-        });
+          verification_timestamp: new Date().toISOString(),
+        })
       }
 
-      return Response.json({
+      return jsonResponse({
         status,
         user: {
           full_name: targetUser.full_name,
           profile_photo: targetUser.profile_photo,
-          location: targetUser.location
+          location: targetUser.location,
         },
         partner: partnerInfo,
-        verifiedAt: new Date().toISOString()
-      });
+        verifiedAt: new Date().toISOString(),
+      })
     }
 
-    return Response.json({ error: 'Invalid action' }, { status: 400 });
+    return jsonResponse({ error: 'Invalid action' }, 400)
   } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    return jsonResponse(
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+      500
+    )
   }
-});
+})
+
+function jsonResponse(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: corsHeaders,
+  })
+}
