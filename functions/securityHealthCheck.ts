@@ -1,155 +1,173 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClient } from 'npm:@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, content-type, apikey',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Content-Type': 'application/json',
+}
 
 Deno.serve(async (req) => {
-  try {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
 
-    // Only admins can run security checks
-    if (user?.role !== 'admin') {
-      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+    const authHeader = req.headers.get('Authorization')
+
+    const userClient = createClient(supabaseUrl!, anonKey!, {
+      global: { headers: { Authorization: authHeader! } },
+    })
+
+    const adminClient = createClient(supabaseUrl!, serviceKey!)
+
+    const {
+      data: { user },
+    } = await userClient.auth.getUser()
+
+    const { data: currentUser } = await adminClient
+      .from('User')
+      .select('*')
+      .eq('id', user?.id)
+      .single()
+
+    if (currentUser?.role !== 'admin') {
+      return jsonResponse({ error: 'Forbidden: Admin access required' }, 403)
     }
 
-    const timestamp = new Date().toISOString();
-    const issues = [];
-    const warnings = [];
-    const info = [];
+    const timestamp = new Date().toISOString()
+    const issues: string[] = []
+    const warnings: string[] = []
+    const info: string[] = []
 
-    console.log(`[${timestamp}] Starting security health check...`);
-
-    // --- 1. Payment Configuration Check --- //
+    // --- Payment Check --- //
     try {
-      const paystackSecret = Deno.env.get('PAYSTACK_SECRET_KEY');
-      const paystackPublic = Deno.env.get('PAYSTACK_PUBLIC_KEY');
+      const paystackSecret = Deno.env.get('PAYSTACK_SECRET_KEY')
 
-      if (!paystackSecret || !paystackPublic) {
-        issues.push('Payment configuration: Missing Paystack keys');
+      if (!paystackSecret) {
+        issues.push('Payment configuration: Missing Paystack key')
       } else {
-        // Validate Paystack connection
         const response = await fetch('https://api.paystack.co/transaction', {
-          method: 'GET',
           headers: {
-            'Authorization': `Bearer ${paystackSecret}`,
-            'Content-Type': 'application/json'
-          }
-        });
+            Authorization: `Bearer ${paystackSecret}`,
+          },
+        })
 
         if (!response.ok) {
-          issues.push(`Payment configuration: Paystack API returned ${response.status}`);
+          issues.push(`Payment configuration failed: ${response.status}`)
         } else {
-          info.push('Payment configuration: Valid');
+          info.push('Payment configuration: OK')
         }
       }
-    } catch (error) {
-      issues.push(`Payment configuration: ${error.message}`);
+    } catch (e) {
+      issues.push('Payment check failed')
     }
 
-    // --- 2. Suspicious User Activity Check --- //
-    try {
-      const usingSR = base44.asServiceRole;
+    // --- Suspicious Activity --- //
+    const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
-      // Check for multiple failed verification attempts
-      const recentLogs = await usingSR.entities.VerificationLog.filter({}, '-verification_timestamp', 100);
-      const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const recentFails = recentLogs.filter(log => 
-        new Date(log.verification_timestamp) > last24h &&
-        log.verification_status === 'failed'
-      );
+    const { data: logs } = await adminClient
+      .from('VerificationLog')
+      .select('*')
+      .order('verification_timestamp', { ascending: false })
+      .limit(100)
 
-      if (recentFails.length > 50) {
-        warnings.push(`Suspicious activity: ${recentFails.length} failed verifications in 24h`);
-      }
+    const recentFails =
+      logs?.filter(
+        (l) =>
+          new Date(l.verification_timestamp) > last24h &&
+          l.verification_status === 'failed'
+      ) || []
 
-      // Check for rapid account creation
-      const allUsers = await usingSR.entities.User.list();
-      const newUsers = allUsers.filter(u => 
-        new Date(u.created_date) > last24h
-      );
-
-      if (newUsers.length > 100) {
-        warnings.push(`Suspicious activity: ${newUsers.length} new accounts in 24h`);
-      }
-
-      // Check for users with unusual verification counts
-      const suspiciousUsers = allUsers.filter(u => 
-        (u.verifications_used_this_month || 0) > 50
-      );
-
-      if (suspiciousUsers.length > 0) {
-        warnings.push(`Suspicious activity: ${suspiciousUsers.length} users with >50 verifications this month`);
-      }
-
-      info.push(`User activity: ${recentFails.length} failed verifications, ${newUsers.length} new users in 24h`);
-    } catch (error) {
-      issues.push(`User activity check failed: ${error.message}`);
+    if (recentFails.length > 50) {
+      warnings.push(`High failed verifications: ${recentFails.length}`)
     }
 
-    // --- 3. Data Integrity Check --- //
-    try {
-      const usingSR = base44.asServiceRole;
+    const { data: users } = await adminClient.from('User').select('*')
 
-      // Check for orphaned couple profiles
-      const coupleProfiles = await usingSR.entities.CoupleProfile.list();
-      const allUsers = await usingSR.entities.User.list();
-      const userEmails = new Set(allUsers.map(u => u.email));
+    const newUsers =
+      users?.filter((u) => new Date(u.created_date) > last24h) || []
 
-      const orphanedProfiles = coupleProfiles.filter(cp => 
-        !userEmails.has(cp.partner1_email) || !userEmails.has(cp.partner2_email)
-      );
-
-      if (orphanedProfiles.length > 0) {
-        warnings.push(`Data integrity: ${orphanedProfiles.length} orphaned couple profiles`);
-      }
-
-      // Check for users with invalid relationship status
-      const invalidUsers = allUsers.filter(u => 
-        u.relationship_status === 'date_locked' && !u.couple_profile_id
-      );
-
-      if (invalidUsers.length > 0) {
-        warnings.push(`Data integrity: ${invalidUsers.length} users marked date-locked without couple profile`);
-      }
-
-      // Check for expired invitation tokens
-      const invitations = await usingSR.entities.RelationshipInvitation.filter({ status: 'pending' });
-      const expiredInvites = invitations.filter(inv => 
-        new Date(inv.expires_at) < new Date()
-      );
-
-      if (expiredInvites.length > 10) {
-        warnings.push(`Data integrity: ${expiredInvites.length} expired pending invitations (need cleanup)`);
-      }
-
-      info.push(`Data integrity: ${coupleProfiles.length} couple profiles, ${orphanedProfiles.length} orphaned, ${invalidUsers.length} invalid statuses`);
-    } catch (error) {
-      issues.push(`Data integrity check failed: ${error.message}`);
+    if (newUsers.length > 100) {
+      warnings.push(`High new accounts: ${newUsers.length}`)
     }
 
-    // --- 4. System Health Check --- //
-    try {
-      const usingSR = base44.asServiceRole;
+    const suspiciousUsers =
+      users?.filter((u) => (u.verifications_used_this_month || 0) > 50) || []
 
-      // Check entity counts
-      const userCount = (await usingSR.entities.User.list()).length;
-      const memoryCount = (await usingSR.entities.Memory.list()).length;
-      const goalCount = (await usingSR.entities.CoupleGoal.list()).length;
-
-      info.push(`System health: ${userCount} users, ${memoryCount} memories, ${goalCount} goals`);
-
-      // Check for any users with account_status issues
-      const allUsers = await usingSR.entities.User.list();
-      const deactivatedCount = allUsers.filter(u => u.account_status === 'deactivated').length;
-
-      if (deactivatedCount > 0) {
-        info.push(`System health: ${deactivatedCount} deactivated accounts`);
-      }
-    } catch (error) {
-      issues.push(`System health check failed: ${error.message}`);
+    if (suspiciousUsers.length > 0) {
+      warnings.push(`${suspiciousUsers.length} users excessive verification`)
     }
 
-    // --- Generate Report --- //
-    const status = issues.length > 0 ? 'CRITICAL' : warnings.length > 0 ? 'WARNING' : 'HEALTHY';
-    
+    // --- Data Integrity --- //
+    const { data: couples } = await adminClient
+      .from('CoupleProfile')
+      .select('*')
+
+    const userEmails = new Set(users?.map((u) => u.email))
+
+    const orphaned =
+      couples?.filter(
+        (c) =>
+          !userEmails.has(c.partner1_email) ||
+          !userEmails.has(c.partner2_email)
+      ) || []
+
+    if (orphaned.length > 0) {
+      warnings.push(`${orphaned.length} orphaned couple profiles`)
+    }
+
+    const invalidUsers =
+      users?.filter(
+        (u) =>
+          u.relationship_status === 'date_locked' &&
+          !u.couple_profile_id
+      ) || []
+
+    if (invalidUsers.length > 0) {
+      warnings.push(`${invalidUsers.length} invalid relationship states`)
+    }
+
+    const { data: invites } = await adminClient
+      .from('RelationshipInvitation')
+      .select('*')
+      .eq('status', 'pending')
+
+    const expiredInvites =
+      invites?.filter((i) => new Date(i.expires_at) < new Date()) || []
+
+    if (expiredInvites.length > 10) {
+      warnings.push(`${expiredInvites.length} expired invites`)
+    }
+
+    // --- System Health --- //
+    const { count: userCount } = await adminClient
+      .from('User')
+      .select('*', { count: 'exact', head: true })
+
+    const { count: memoryCount } = await adminClient
+      .from('Memory')
+      .select('*', { count: 'exact', head: true })
+
+    const { count: goalCount } = await adminClient
+      .from('CoupleGoal')
+      .select('*', { count: 'exact', head: true })
+
+    info.push(
+      `Users: ${userCount}, Memories: ${memoryCount}, Goals: ${goalCount}`
+    )
+
+    const status =
+      issues.length > 0
+        ? 'CRITICAL'
+        : warnings.length > 0
+        ? 'WARNING'
+        : 'HEALTHY'
+
     const report = {
       timestamp,
       status,
@@ -159,63 +177,25 @@ Deno.serve(async (req) => {
       summary: {
         critical_issues: issues.length,
         warnings: warnings.length,
-        info_items: info.length
-      }
-    };
-
-    console.log(`[${timestamp}] Security check complete: ${status}`);
-    console.log(`Issues: ${issues.length}, Warnings: ${warnings.length}`);
-
-    // Send email report ONLY if there are issues or warnings
-    if (issues.length > 0 || warnings.length > 0) {
-      try {
-        const usingSR = base44.asServiceRole;
-        const admins = await usingSR.entities.User.filter({ role: 'admin' });
-        
-        const emailBody = `
-🔒 Date-Locked Security Health Check Report
-Time: ${new Date(timestamp).toLocaleString()}
-Status: ${status}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-${issues.length > 0 ? `
-🚨 CRITICAL ISSUES (${issues.length}):
-${issues.map((issue, i) => `${i + 1}. ${issue}`).join('\n')}
-` : ''}
-
-${warnings.length > 0 ? `
-⚠️ WARNINGS (${warnings.length}):
-${warnings.map((warning, i) => `${i + 1}. ${warning}`).join('\n')}
-` : ''}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-This is an automated security check. Please review and take action.
-        `;
-
-        for (const admin of admins) {
-          await usingSR.integrations.Core.SendEmail({
-            from_name: 'Date-Locked Security Monitor',
-            to: admin.email,
-            subject: `🔒 Security Alert - ${status}`,
-            body: emailBody
-          });
-        }
-        
-        console.log(`Alert email sent to ${admins.length} admin(s)`);
-      } catch (emailError) {
-        console.error('Failed to send alert email:', emailError);
-      }
+        info_items: info.length,
+      },
     }
 
-    return Response.json(report);
+    return jsonResponse(report)
   } catch (error) {
-    console.error('Security health check error:', error);
-    return Response.json({ 
-      error: error.message,
-      timestamp: new Date().toISOString(),
-      status: 'ERROR'
-    }, { status: 500 });
+    return jsonResponse(
+      {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        status: 'ERROR',
+      },
+      500
+    )
   }
-});
+})
+
+function jsonResponse(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: corsHeaders,
+  })
+}
