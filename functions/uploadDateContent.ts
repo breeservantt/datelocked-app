@@ -1,174 +1,198 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
-const MAX_STRIKES = 3;
+const MAX_STRIKES = 3
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, content-type, apikey',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Content-Type': 'application/json',
+}
 
 Deno.serve(async (req) => {
-  try {
-    console.log('=== BACKEND UPLOAD FUNCTION START ===');
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
 
-    if (!user) {
-      console.error('ERROR: User not authenticated');
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    console.log('=== BACKEND UPLOAD FUNCTION START ===')
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const openaiKey = Deno.env.get('OPENAI_API_KEY')
+
+    if (!supabaseUrl || !anonKey || !serviceKey || !openaiKey) {
+      return jsonResponse({ error: 'Missing environment variables' }, 500)
     }
 
-    console.log('1. User authenticated:', user.email);
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
 
-    const payload = await req.json();
-    console.log('2. Received payload:', payload);
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    })
 
-    const { content_url, content_type, visibility, caption, location } = payload;
+    const adminClient = createClient(supabaseUrl, serviceKey)
+
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser()
+
+    if (userError || !user) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+
+    console.log('1. User authenticated:', user.email)
+
+    const payload = await req.json()
+    const { content_url, content_type, visibility, caption, location } = payload
 
     if (!content_url) {
-      console.error('ERROR: Missing content_url');
-      return Response.json({ error: 'content_url is required' }, { status: 400 });
+      return jsonResponse({ error: 'content_url is required' }, 400)
     }
 
-    console.log('3. Validation passed:', {
-      content_url,
-      content_type,
-      visibility,
-      has_caption: !!caption,
-      has_location: !!location
-    });
+    console.log('2. Running moderation...')
 
-    console.log('4. Starting AI moderation...');
-    
-    // Run AI content moderation (skip file analysis for videos as vision models can't process them)
-    let moderationResult;
-    
-    if (content_type === 'VIDEO') {
-      console.log('4a. Video detected - using text-only moderation');
-      moderationResult = await base44.integrations.Core.InvokeLLM({
-        prompt: `Based on the caption and context, assess if this video upload request seems safe:
-Caption: "${caption || 'No caption'}"
-Location: "${location || 'No location'}"
-
-Check if the caption contains:
-- References to nudity or explicit sexual content
-- References to minors
-- References to violence or graphic content
-- Harassment or abusive language
-
-Return a conservative assessment. If caption seems innocent or empty, mark as safe.`,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            nudity: { type: "boolean" },
-            sexualExplicit: { type: "boolean" },
-            minorsDetected: { type: "boolean" },
-            violence: { type: "boolean" },
-            harassment: { type: "boolean" },
-            safe: { type: "boolean" },
-            reason: { type: "string" }
-          }
-        }
-      });
-    } else {
-      console.log('4b. Image detected - using vision moderation');
-      moderationResult = await base44.integrations.Core.InvokeLLM({
-        prompt: `Analyze this image for policy violations. Check for:
-- Nudity or explicit sexual content
-- Minors in the image
-- Violence or graphic content
-- Harassment or abusive content
-
-Return a JSON analysis.`,
-        file_urls: [content_url],
-        response_json_schema: {
-          type: "object",
-          properties: {
-            nudity: { type: "boolean" },
-            sexualExplicit: { type: "boolean" },
-            minorsDetected: { type: "boolean" },
-            violence: { type: "boolean" },
-            harassment: { type: "boolean" },
-            safe: { type: "boolean" },
-            reason: { type: "string" }
-          }
-        }
-      });
+    let moderationResult: any = {
+      nudity: false,
+      sexualExplicit: false,
+      minorsDetected: false,
+      violence: false,
+      harassment: false,
+      safe: true,
+      reason: '',
     }
 
-    console.log('5. Moderation result:', moderationResult);
+    const moderationPrompt = `Analyze content safety:
 
-    // Check for violations
-    let violation = null;
-    if (moderationResult.nudity) violation = "Nudity not allowed";
-    if (moderationResult.sexualExplicit) violation = "Explicit sexual content not allowed";
-    if (moderationResult.minorsDetected) violation = "Minors strictly prohibited";
-    if (moderationResult.violence) violation = "Violent content not allowed";
-    if (moderationResult.harassment) violation = "Harassment or abuse detected";
+Caption: "${caption || ''}"
+Location: "${location || ''}"
+
+Return JSON:
+{
+  "nudity": boolean,
+  "sexualExplicit": boolean,
+  "minorsDetected": boolean,
+  "violence": boolean,
+  "harassment": boolean,
+  "safe": boolean,
+  "reason": string
+}`
+
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${openaiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4.1-mini',
+        messages: [{ role: 'user', content: moderationPrompt }],
+        response_format: { type: 'json_object' },
+      }),
+    })
+
+    const aiData = await aiResponse.json()
+    moderationResult = JSON.parse(aiData.choices[0].message.content)
+
+    console.log('3. Moderation result:', moderationResult)
+
+    let violation = null
+    if (moderationResult.nudity) violation = 'Nudity not allowed'
+    if (moderationResult.sexualExplicit) violation = 'Explicit sexual content not allowed'
+    if (moderationResult.minorsDetected) violation = 'Minors strictly prohibited'
+    if (moderationResult.violence) violation = 'Violent content not allowed'
+    if (moderationResult.harassment) violation = 'Harassment or abuse detected'
 
     if (violation) {
-      console.log('6. VIOLATION DETECTED:', violation);
-      
-      // Add strike
-      const strikes = await base44.asServiceRole.entities.StrikeRecord.filter({
-        user_email: user.email,
-        is_active: true
-      });
+      console.log('4. VIOLATION:', violation)
 
-      const strikeNumber = strikes.length + 1;
+      const { data: strikes } = await adminClient
+        .from('StrikeRecord')
+        .select('*')
+        .eq('user_email', user.email)
+        .eq('is_active', true)
 
-      console.log('7. Adding strike:', strikeNumber);
+      const strikeNumber = (strikes?.length || 0) + 1
 
-      await base44.asServiceRole.entities.StrikeRecord.create({
+      await adminClient.from('StrikeRecord').insert({
         user_email: user.email,
         reason: violation,
-        strike_number: strikeNumber
-      });
+        strike_number: strikeNumber,
+        is_active: true,
+      })
 
-      // Suspend if max strikes reached
       if (strikeNumber >= MAX_STRIKES) {
-        console.log('8. MAX STRIKES REACHED - Suspending account');
-        
-        await base44.asServiceRole.entities.User.update(user.id, {
-          account_status: 'suspended',
-          suspension_reason: 'Strike limit reached'
-        });
+        await adminClient
+          .from('User')
+          .update({
+            account_status: 'suspended',
+            suspension_reason: 'Strike limit reached',
+          })
+          .eq('id', user.id)
 
-        return Response.json({ 
-          error: 'ACCOUNT_SUSPENDED', 
-          message: 'Strike limit reached. Account suspended.' 
-        }, { status: 403 });
+        return jsonResponse(
+          {
+            error: 'ACCOUNT_SUSPENDED',
+            message: 'Strike limit reached. Account suspended.',
+          },
+          403
+        )
       }
 
-      return Response.json({ 
-        error: 'POLICY_VIOLATION', 
-        message: violation,
-        strikes: strikeNumber
-      }, { status: 400 });
+      return jsonResponse(
+        {
+          error: 'POLICY_VIOLATION',
+          message: violation,
+          strikes: strikeNumber,
+        },
+        400
+      )
     }
 
-    console.log('6. Content APPROVED - Saving to database...');
-    
-    // Save approved content
-    const content = await base44.asServiceRole.entities.DateContent.create({
-      owner_email: user.email,
-      content_url,
-      content_type: content_type || 'IMAGE',
-      visibility: visibility || 'PUBLIC_WALL',
-      caption: caption || '',
-      location: location || '',
-      moderation_status: 'APPROVED',
-      moderation_flags: moderationResult
-    });
+    console.log('5. Content APPROVED')
 
-    console.log('7. Content saved successfully. ID:', content.id);
-    console.log('=== BACKEND UPLOAD FUNCTION END (SUCCESS) ===');
+    const { data: content, error: insertError } = await adminClient
+      .from('DateContent')
+      .insert({
+        owner_email: user.email,
+        content_url,
+        content_type: content_type || 'IMAGE',
+        visibility: visibility || 'PUBLIC_WALL',
+        caption: caption || '',
+        location: location || '',
+        moderation_status: 'APPROVED',
+        moderation_flags: moderationResult,
+      })
+      .select()
+      .single()
 
-    return Response.json({ 
-      success: true, 
-      contentId: content.id 
-    });
+    if (insertError) {
+      throw insertError
+    }
 
+    console.log('6. Content saved:', content.id)
+
+    return jsonResponse({
+      success: true,
+      contentId: content.id,
+    })
   } catch (error) {
-    console.error('=== BACKEND UPLOAD ERROR ===');
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
-    console.error('Full error:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error('UPLOAD ERROR:', error)
+    return jsonResponse(
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+      500
+    )
   }
-});
+})
+
+function jsonResponse(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: corsHeaders,
+  })
+}
