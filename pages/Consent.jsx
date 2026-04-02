@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import React, { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,18 +9,7 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Shield, KeyRound, User, Mail, Lock, ArrowRight, RefreshCw, Heart } from "lucide-react";
 
-/**
- * Single streamlined flow:
- * 1) splash
- * 2) auth (sign in / sign up + google)
- * 3) otp verification
- * 4) legal agreement (no checkbox; links only)
- * 5) profile completion
- *
- * NOTE: You must wire the Base44 auth functions in the section marked "WIRE THIS".
- */
-
-const TERMS_URL = "/terms"; // change if you have real routes
+const TERMS_URL = "/terms";
 const PRIVACY_URL = "/privacy";
 const REFUNDS_URL = "/refunds";
 
@@ -29,8 +18,8 @@ const PRIVACY_VERSION = "v1.0";
 const REFUNDS_VERSION = "v1.0";
 
 export default function OnboardingUnified() {
-  const [step, setStep] = useState("splash"); // splash | legal | auth | otp | profile | done
-  const [mode, setMode] = useState("signin"); // signin | signup
+  const [step, setStep] = useState("splash");
+  const [mode, setMode] = useState("signin");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -56,18 +45,25 @@ export default function OnboardingUnified() {
     return fullName.trim().length >= 2 && username.trim().length >= 3;
   }, [fullName, username]);
 
-  // Simple cooldown timer (client-side only)
-  React.useEffect(() => {
+  useEffect(() => {
     if (otpCooldown <= 0) return;
-    const t = setInterval(() => setOtpCooldown((s) => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => {
+      setOtpCooldown((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => clearInterval(timer);
   }, [otpCooldown]);
 
   const safeGo = (next) => {
-    // Prevent double transitions while busy
     if (busy) return;
     setStep(next);
   };
+
+  async function getAccessToken() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session?.access_token || "";
+  }
 
   async function handleStart() {
     safeGo("legal");
@@ -77,21 +73,15 @@ export default function OnboardingUnified() {
     if (busy) return;
     setBusy(true);
     try {
-      // ===== WIRE THIS =====
-      // If Base44 supports Google sign-in, use the correct method your project has.
-      // Common patterns you might have:
-      // await base44.auth.signInWithGoogle();
-      // or await base44.auth.oauth("google");
-      if (typeof base44?.auth?.signInWithGoogle === "function") {
-        await base44.auth.signInWithGoogle();
-      } else if (typeof base44?.auth?.oauth === "function") {
-        await base44.auth.oauth("google");
-      } else {
-        throw new Error("Google sign-in method not found in base44.auth. Please wire it to your project.");
-      }
-      toast.success("Signed in with Google");
-      // If Google flow returns verified email, you may skip OTP; otherwise keep OTP step.
-      safeGo("otp");
+      const redirectTo = `${window.location.origin}/`;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo },
+      });
+
+      if (error) throw error;
+
+      toast.success("Redirecting to Google");
     } catch (e) {
       toast.error(e?.message || "Google sign-in failed");
     } finally {
@@ -102,39 +92,27 @@ export default function OnboardingUnified() {
   async function handleEmailAuth() {
     if (!canAuth || busy) return;
     setBusy(true);
-    try {
-      const e = email.trim().toLowerCase();
-      const p = password.trim();
 
-      // ===== WIRE THIS =====
-      // Replace these with the actual Base44 methods in your project.
-      // Examples you might have:
-      // - await base44.auth.signInWithEmail({ email: e, password: p })
-      // - await base44.auth.signUpWithEmail({ email: e, password: p })
-      // - await base44.auth.login({ email: e, password: p })
-      // - await base44.auth.register({ email: e, password: p })
+    try {
+      const normalizedEmail = email.trim().toLowerCase();
+      const trimmedPassword = password.trim();
 
       if (mode === "signin") {
-        if (typeof base44?.auth?.signInWithEmail === "function") {
-          await base44.auth.signInWithEmail({ email: e, password: p });
-        } else if (typeof base44?.auth?.login === "function") {
-          await base44.auth.login({ email: e, password: p });
-        } else {
-          throw new Error("No email sign-in method found in base44.auth. Please wire it.");
-        }
+        const { error } = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password: trimmedPassword,
+        });
+        if (error) throw error;
         toast.success("Signed in");
       } else {
-        if (typeof base44?.auth?.signUpWithEmail === "function") {
-          await base44.auth.signUpWithEmail({ email: e, password: p });
-        } else if (typeof base44?.auth?.register === "function") {
-          await base44.auth.register({ email: e, password: p });
-        } else {
-          throw new Error("No email sign-up method found in base44.auth. Please wire it.");
-        }
+        const { error } = await supabase.auth.signUp({
+          email: normalizedEmail,
+          password: trimmedPassword,
+        });
+        if (error) throw error;
         toast.success("Account created");
       }
 
-      // Next: send OTP
       await sendOtp();
       safeGo("otp");
     } catch (e) {
@@ -145,29 +123,26 @@ export default function OnboardingUnified() {
   }
 
   async function sendOtp() {
-    if (busy) return;
-    if (otpCooldown > 0) return;
+    if (busy || otpCooldown > 0) return;
 
     setBusy(true);
     try {
-      const e = email.trim().toLowerCase();
+      const normalizedEmail = email.trim().toLowerCase();
+      const token = await getAccessToken();
 
-      // ===== WIRE THIS =====
-      // You need a function that triggers an OTP email.
-      // Depending on your backend/base44 setup, this could be:
-      // - await base44.auth.sendEmailOtp({ email: e })
-      // - await base44.auth.sendOtp({ email: e })
-      // - await base44.functions.sendOtp({ email: e })
-      // If you DON'T have it yet, you must implement it server-side (recommended).
-      if (typeof base44?.auth?.sendEmailOtp === "function") {
-        await base44.auth.sendEmailOtp({ email: e });
-      } else if (typeof base44?.auth?.sendOtp === "function") {
-        await base44.auth.sendOtp({ email: e });
-      } else if (typeof base44?.functions?.sendOtp === "function") {
-        await base44.functions.sendOtp({ email: e });
-      } else {
-        // If your platform uses "magic link" / "email code" by default, you can adapt this step.
-        throw new Error("OTP send method not found. Add base44.auth.sendEmailOtp (or wire to your backend).");
+      const response = await fetch("/api/functions/generateEmailOTP", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+        body: JSON.stringify({ email: normalizedEmail }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Failed to send OTP");
       }
 
       setOtpSent(true);
@@ -183,38 +158,51 @@ export default function OnboardingUnified() {
 
   async function verifyOtp() {
     if (!canVerifyOtp || busy) return;
+
     setBusy(true);
     try {
-      const e = email.trim().toLowerCase();
+      const normalizedEmail = email.trim().toLowerCase();
       const code = otp.trim();
 
-      // ===== WIRE THIS =====
-      // Needs a method that verifies the OTP for the email.
-      // Examples:
-      // - await base44.auth.verifyEmailOtp({ email: e, code })
-      // - await base44.auth.verifyOtp({ email: e, code })
-      // - await base44.functions.verifyOtp({ email: e, code })
-      if (typeof base44?.auth?.verifyEmailOtp === "function") {
-        await base44.auth.verifyEmailOtp({ email: e, code });
-      } else if (typeof base44?.auth?.verifyOtp === "function") {
-        await base44.auth.verifyOtp({ email: e, code });
-      } else if (typeof base44?.functions?.verifyOtp === "function") {
-        await base44.functions.verifyOtp({ email: e, code });
-      } else {
-        throw new Error("OTP verify method not found. Add base44.auth.verifyEmailOtp (or wire to your backend).");
+      const response = await fetch("/api/functions/verifyEmailOTP", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          otp: code,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Invalid OTP code");
       }
 
-      // Save legal acceptance now that we're verified
-      if (typeof base44?.auth?.updateMe === "function") {
-        await base44.auth.updateMe({
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        throw new Error("User not found after OTP verification");
+      }
+
+      const { error: updateError } = await supabase
+        .from("User")
+        .update({
           legalAccepted: true,
           legalAcceptedAt: new Date().toISOString(),
           termsVersion: TERMS_VERSION,
           privacyVersion: PRIVACY_VERSION,
           refundsVersion: REFUNDS_VERSION,
-        });
-      }
-      
+        })
+        .eq("id", user.id);
+
+      if (updateError) throw updateError;
+
       toast.success("Email verified");
       safeGo("profile");
     } catch (e) {
@@ -225,24 +213,34 @@ export default function OnboardingUnified() {
   }
 
   async function acceptLegalAndContinue() {
-    // Just move to auth step - we'll save acceptance after they sign in
     safeGo("auth");
   }
 
   async function completeProfile() {
     if (!canCompleteProfile || busy) return;
+
     setBusy(true);
     try {
-      if (typeof base44?.auth?.updateMe === "function") {
-        await base44.auth.updateMe({
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        throw new Error("User not found");
+      }
+
+      const { error } = await supabase
+        .from("User")
+        .update({
           full_name: fullName.trim(),
           username: username.trim(),
           onboarding_completed: true,
           onboardingCompletedAt: new Date().toISOString(),
-        });
-      } else {
-        throw new Error("base44.auth.updateMe not found. Please wire user profile update.");
-      }
+        })
+        .eq("id", user.id);
+
+      if (error) throw error;
 
       toast.success("Profile completed");
       safeGo("done");
@@ -257,6 +255,42 @@ export default function OnboardingUnified() {
     <div className="min-h-screen w-full flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <AnimatePresence mode="wait">
+          {step === "splash" && (
+            <motion.div
+              key="splash"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+              transition={{ duration: 0.25 }}
+            >
+              <Card className="rounded-2xl shadow-md overflow-hidden">
+                <CardContent className="p-6">
+                  <div className="flex flex-col items-center text-center gap-4">
+                    <div className="w-32 h-32 bg-gradient-to-br from-rose-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg">
+                      <Heart className="w-16 h-16 text-white" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-2xl font-semibold bg-gradient-to-r from-rose-500 to-pink-500 bg-clip-text text-transparent">
+                        Date-Locked
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        No More Heartbreaks
+                      </div>
+                    </div>
+                    <div className="w-full pt-2">
+                      <Button className="w-full rounded-xl" onClick={handleStart}>
+                        Get Started <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Secure dating with verification, clear terms, and control.
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
           {step === "legal" && (
             <motion.div
               key="legal"
@@ -289,17 +323,32 @@ export default function OnboardingUnified() {
                   </div>
 
                   <div className="space-y-2">
-                    <a className="block rounded-xl border p-3 hover:bg-muted transition" href={TERMS_URL} target="_blank" rel="noreferrer">
+                    <a
+                      className="block rounded-xl border p-3 hover:bg-muted transition"
+                      href={TERMS_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       <div className="font-medium">Terms of Service</div>
                       <div className="text-xs text-muted-foreground">Version {TERMS_VERSION}</div>
                     </a>
 
-                    <a className="block rounded-xl border p-3 hover:bg-muted transition" href={PRIVACY_URL} target="_blank" rel="noreferrer">
+                    <a
+                      className="block rounded-xl border p-3 hover:bg-muted transition"
+                      href={PRIVACY_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       <div className="font-medium">Privacy Policy</div>
                       <div className="text-xs text-muted-foreground">Version {PRIVACY_VERSION}</div>
                     </a>
 
-                    <a className="block rounded-xl border p-3 hover:bg-muted transition" href={REFUNDS_URL} target="_blank" rel="noreferrer">
+                    <a
+                      className="block rounded-xl border p-3 hover:bg-muted transition"
+                      href={REFUNDS_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       <div className="font-medium">Refund Policy</div>
                       <div className="text-xs text-muted-foreground">Version {REFUNDS_VERSION}</div>
                     </a>
@@ -326,43 +375,6 @@ export default function OnboardingUnified() {
                   >
                     Back
                   </Button>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {step === "splash" && (
-            <motion.div
-              key="splash"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -16 }}
-              transition={{ duration: 0.25 }}
-            >
-              <Card className="rounded-2xl shadow-md overflow-hidden">
-                <CardContent className="p-6">
-                  <div className="flex flex-col items-center text-center gap-4">
-                    <div className="w-32 h-32 bg-gradient-to-br from-rose-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg">
-                      <Heart className="w-16 h-16 text-white" />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-2xl font-semibold bg-gradient-to-r from-rose-500 to-pink-500 bg-clip-text text-transparent">Date-Locked</div>
-                      <div className="text-sm text-muted-foreground">
-                        No More Heartbreaks
-                      </div>
-                    </div>
-                    <div className="w-full pt-2">
-                      <Button
-                        className="w-full rounded-xl"
-                        onClick={handleStart}
-                      >
-                        Get Started <ArrowRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Secure dating with verification, clear terms, and control.
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
             </motion.div>
@@ -442,7 +454,6 @@ export default function OnboardingUnified() {
                       />
                     </div>
 
-                    {/* ✅ No checkbox. Replace with links. */}
                     <div className="text-xs text-muted-foreground">
                       By signing in or signing up you agree to the{" "}
                       <a className="underline" href={TERMS_URL} target="_blank" rel="noreferrer">
@@ -479,13 +490,15 @@ export default function OnboardingUnified() {
                         onClick={() => setMode((m) => (m === "signin" ? "signup" : "signin"))}
                         disabled={busy}
                       >
-                        {mode === "signin" ? "New here? Create account" : "Already have an account? Sign in"}
+                        {mode === "signin"
+                          ? "New here? Create account"
+                          : "Already have an account? Sign in"}
                       </button>
 
                       <button
                         type="button"
                         className="text-xs underline text-muted-foreground"
-                        onClick={() => toast.message("Hook this to your reset password flow in Base44.")}
+                        onClick={() => toast.message("Hook this to your reset password flow later.")}
                         disabled={busy}
                       >
                         Forgot your password?
@@ -566,80 +579,6 @@ export default function OnboardingUnified() {
                       Send OTP to email
                     </Button>
                   )}
-
-                  <Button
-                    variant="ghost"
-                    className="w-full rounded-xl"
-                    onClick={() => safeGo("legal")}
-                    disabled={busy}
-                  >
-                    Back
-                  </Button>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {step === "legal" && (
-            <motion.div
-              key="legal"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -16 }}
-              transition={{ duration: 0.25 }}
-            >
-              <Card className="rounded-2xl shadow-md">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-rose-500 to-pink-500 rounded-lg flex items-center justify-center">
-                      <Lock className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-xl">Legal agreement</CardTitle>
-                      <div className="text-xs text-muted-foreground">
-                        Review the links below — no checkbox required.
-                      </div>
-                    </div>
-                    <Badge variant="secondary" className="rounded-xl">
-                      Terms
-                    </Badge>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="p-6 pt-4 space-y-4">
-                  <div className="text-sm text-muted-foreground">
-                    By continuing, you confirm you’ve read and agree to the documents below:
-                  </div>
-
-                  <div className="space-y-2">
-                    <a className="block rounded-xl border p-3 hover:bg-muted transition" href={TERMS_URL} target="_blank" rel="noreferrer">
-                      <div className="font-medium">Terms of Service</div>
-                      <div className="text-xs text-muted-foreground">Version {TERMS_VERSION}</div>
-                    </a>
-
-                    <a className="block rounded-xl border p-3 hover:bg-muted transition" href={PRIVACY_URL} target="_blank" rel="noreferrer">
-                      <div className="font-medium">Privacy Policy</div>
-                      <div className="text-xs text-muted-foreground">Version {PRIVACY_VERSION}</div>
-                    </a>
-
-                    <a className="block rounded-xl border p-3 hover:bg-muted transition" href={REFUNDS_URL} target="_blank" rel="noreferrer">
-                      <div className="font-medium">Refund Policy</div>
-                      <div className="text-xs text-muted-foreground">Version {REFUNDS_VERSION}</div>
-                    </a>
-                  </div>
-
-                  <Button
-                    className="w-full rounded-xl"
-                    onClick={acceptLegalAndContinue}
-                    disabled={busy}
-                  >
-                    {busy ? (
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <ArrowRight className="mr-2 h-4 w-4" />
-                    )}
-                    I agree & continue
-                  </Button>
 
                   <Button
                     variant="ghost"
