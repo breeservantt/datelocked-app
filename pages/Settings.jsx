@@ -1,5 +1,5 @@
 import React from 'react';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/lib/supabase';
 import { useNavigate, Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { useQueryClient } from '@tanstack/react-query';
@@ -17,78 +17,13 @@ import {
   MapPin,
   Calendar,
   Mail,
-  Fingerprint,
-  Shield,
   LogOut,
   Loader2,
   Save,
-  AlertTriangle,
-  Unlock,
-  Archive,
-  Image as ImageIcon,
-  Sparkles,
-  X as XIcon,
-  KeyRound,
-  ChevronRight,
-  Lock,
-  FileText
+  AlertTriangle
 } from 'lucide-react';
-import { motion } from 'framer-motion';
-import StatusBadge from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
 import { parseSafeDate } from '@/components/utils/dateHelpers';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-
-/* -----------------------
-   WebAuthn helpers
------------------------- */
-function base64urlToUint8Array(base64url) {
-  const pad = '='.repeat((4 - (base64url.length % 4)) % 4);
-  const base64 = (base64url + pad).replace(/-/g, '+').replace(/_/g, '/');
-  const raw = atob(base64);
-  const arr = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-  return arr;
-}
-
-function uint8ArrayToBase64url(bytes) {
-  let str = '';
-  bytes.forEach((b) => (str += String.fromCharCode(b)));
-  const base64 = btoa(str);
-  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
-
-function normalizeCredentialForServer(cred) {
-  return {
-    id: cred.id,
-    type: cred.type,
-    rawId: uint8ArrayToBase64url(new Uint8Array(cred.rawId)),
-    response: {
-      clientDataJSON: uint8ArrayToBase64url(new Uint8Array(cred.response.clientDataJSON)),
-      attestationObject: cred.response.attestationObject
-        ? uint8ArrayToBase64url(new Uint8Array(cred.response.attestationObject))
-        : null,
-      authenticatorData: cred.response.authenticatorData
-        ? uint8ArrayToBase64url(new Uint8Array(cred.response.authenticatorData))
-        : null,
-      signature: cred.response.signature
-        ? uint8ArrayToBase64url(new Uint8Array(cred.response.signature))
-        : null,
-      userHandle: cred.response.userHandle
-        ? uint8ArrayToBase64url(new Uint8Array(cred.response.userHandle))
-        : null
-    }
-  };
-}
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -96,1020 +31,195 @@ export default function Settings() {
 
   const [user, setUser] = React.useState(null);
   const [isLoading, setIsLoading] = React.useState(true);
-
   const [isSaving, setIsSaving] = React.useState(false);
-  const [isBusyAction, setIsBusyAction] = React.useState(false);
 
-  const [showUnlockDialog, setShowUnlockDialog] = React.useState(false);
-  const [showTerminationDialog, setShowTerminationDialog] = React.useState(false);
-  const [showDeactivateDialog, setShowDeactivateDialog] = React.useState(false);
-
-  const [pendingTermination, setPendingTermination] = React.useState(null);
-  const [archivedMemories, setArchivedMemories] = React.useState([]);
-  const [showArchive, setShowArchive] = React.useState(false);
-
-  // ✅ "Folders"
-  const [openFolder, setOpenFolder] = React.useState(null); // null | 'profile' | 'security'
-
-  // Profile form
   const [formData, setFormData] = React.useState({
     full_name: '',
     location: '',
     profile_photo: ''
   });
 
-  // Auth settings
-  const [authPref, setAuthPref] = React.useState('PASSWORD'); // 'PASSWORD' | 'PIN' | 'BIOMETRIC'
-  const [biometricEnabled, setBiometricEnabled] = React.useState(false);
-  const [pinEnabled, setPinEnabled] = React.useState(false);
+  // ✅ LOAD USER FROM SUPABASE
+  const loadUser = async () => {
+    setIsLoading(true);
+    const { data } = await supabase.auth.getUser();
+    const currentUser = data.user;
 
-  const [pinNew, setPinNew] = React.useState('');
-  const [pinConfirm, setPinConfirm] = React.useState('');
-  const [isAuthSaving, setIsAuthSaving] = React.useState(false);
-
-  // Policy pages (make sure these pages exist in Base44)
-  const PRIVACY_POLICY_URL = createPageUrl('PrivacyPolicy');
-  const SECURITY_POLICY_URL = createPageUrl('SecurityPolicy');
-
-  const getServerErrorMessage = (e) =>
-    e?.response?.data?.error ||
-    e?.response?.data?.message ||
-    e?.response?.data?.detail ||
-    e?.message ||
-    'Unknown error';
-
-  const safeInvoke = React.useCallback(async (fnName, payload = {}) => {
-    try {
-      return await base44.functions.invoke(fnName, payload);
-    } catch (e) {
-      console.error(`Function invoke failed: ${fnName}`, e);
-      const status = e?.response?.status;
-      const msg = getServerErrorMessage(e);
-      alert(status ? `Request failed (${status}) in "${fnName}": ${msg}` : `Could not run "${fnName}": ${msg}`);
-      throw e;
-    }
-  }, []);
-
-  const refreshUser = React.useCallback(async () => {
-    const u = await base44.auth.me();
-    setUser(u);
-
-    setFormData({
-      full_name: u?.full_name || '',
-      location: u?.location || '',
-      profile_photo: u?.profile_photo || ''
-    });
-
-    setAuthPref(u?.auth_preference || 'PASSWORD');
-    setBiometricEnabled(Boolean(u?.biometric_enabled));
-    setPinEnabled(Boolean(u?.pin_enabled));
-
-    return u;
-  }, []);
-
-  const loadAll = React.useCallback(async () => {
-    const currentUser = await refreshUser();
-    if (!currentUser) throw new Error('Unable to load your account.');
-
-    // Pending termination request
-    if (currentUser.couple_profile_id && currentUser.email) {
-      const terminations = await base44.entities.RelationshipTermination.filter({
-        partner_email: currentUser.email,
-        status: 'pending'
+    if (currentUser) {
+      setUser(currentUser);
+      setFormData({
+        full_name: currentUser.user_metadata?.full_name || '',
+        location: currentUser.user_metadata?.location || '',
+        profile_photo: currentUser.user_metadata?.profile_photo || ''
       });
-      setPendingTermination(terminations?.[0] || null);
-    } else {
-      setPendingTermination(null);
     }
 
-    // Archived memories (read-only)
-    if (currentUser.email) {
-      const archived = await base44.entities.ArchivedMemory.filter({
-        user_email: currentUser.email
-      });
-      setArchivedMemories(Array.isArray(archived) ? archived : []);
-    } else {
-      setArchivedMemories([]);
-    }
-  }, [refreshUser]);
+    setIsLoading(false);
+  };
 
   React.useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        setIsLoading(true);
-        await loadAll();
-      } catch (e) {
-        console.error('Settings load error:', e);
-        if (alive) setUser(null);
-      } finally {
-        if (alive) setIsLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [loadAll]);
+    loadUser();
+  }, []);
 
-  // -----------------------------
-  // Profile: photo + save
-  // -----------------------------
+  // ✅ PHOTO UPLOAD (SUPABASE STORAGE)
   const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
-    e.target.value = '';
     if (!file) return;
 
-    try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      if (!file_url) throw new Error('Upload failed');
-      
-      // Immediately save to database
-      await base44.auth.updateMe({ profile_photo: file_url });
-      
-      setFormData((prev) => ({ ...prev, profile_photo: file_url }));
-      await refreshUser();
-      
-      // Invalidate queries so Home page shows new photo
-      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-      queryClient.invalidateQueries({ queryKey: ['partner'] });
-    } catch (error) {
-      console.error('Photo upload failed:', error);
-      alert('Photo upload failed. Please try again.');
+    const filePath = `profiles/${Date.now()}-${file.name}`;
+
+    const { error } = await supabase.storage
+      .from('uploads')
+      .upload(filePath, file);
+
+    if (error) {
+      alert('Upload failed');
+      return;
     }
+
+    const { data } = supabase.storage
+      .from('uploads')
+      .getPublicUrl(filePath);
+
+    const url = data.publicUrl;
+
+    await supabase.auth.updateUser({
+      data: { profile_photo: url }
+    });
+
+    setFormData((prev) => ({ ...prev, profile_photo: url }));
+    await loadUser();
   };
 
+  // ✅ SAVE PROFILE
   const handleSave = async () => {
-    if (isSaving) return;
     setIsSaving(true);
-    try {
-      await base44.auth.updateMe({
-        full_name: (formData.full_name || '').trim(),
-        location: (formData.location || '').trim(),
-        profile_photo: formData.profile_photo || ''
-      });
 
-      await refreshUser();
-      
-      // Invalidate all user-related queries to force refresh on Home page
-      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-      queryClient.invalidateQueries({ queryKey: ['partner'] });
-      queryClient.invalidateQueries({ queryKey: ['coupleProfile'] });
-      
-      alert('Profile updated.');
-    } catch (error) {
-      console.error('Error saving:', error);
-      alert('Failed to save changes. Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // -----------------------------
-  // Security: WebAuthn + PIN
-  // -----------------------------
-  const webauthnSupported = typeof window !== 'undefined' && !!window.PublicKeyCredential;
-  const secureContext = typeof window !== 'undefined' ? window.isSecureContext : false;
-
-  const extractPublicKeyOptions = (begin) => {
-    return (
-      begin?.data?.publicKey ||
-      begin?.publicKey ||
-      (begin?.data && begin?.data?.challenge ? begin.data : null) ||
-      (begin?.challenge ? begin : null) ||
-      null
-    );
-  };
-
-  const enableBiometric = async () => {
-    const ok = window.confirm(
-      'Enable Biometric/Passkey sign-in?\n\nYour device handles biometrics. Date-Locked does not store your fingerprint/face data.'
-    );
-    if (!ok) return;
-
-    if (!webauthnSupported) {
-      alert('This browser/device does not support passkeys (WebAuthn).');
-      return;
-    }
-
-    if (!secureContext) {
-      alert('Passkeys require HTTPS (secure context). Open the app on HTTPS / in a secure environment.');
-      return;
-    }
-
-    setIsAuthSaving(true);
-    try {
-      const begin = await safeInvoke('webauthnBeginRegistration', {});
-      const opts = extractPublicKeyOptions(begin);
-
-      if (!opts?.challenge || !opts?.rp || !opts?.user) {
-        alert('Biometric setup is not configured correctly on the server.');
-        return;
+    await supabase.auth.updateUser({
+      data: {
+        full_name: formData.full_name,
+        location: formData.location,
+        profile_photo: formData.profile_photo
       }
+    });
 
-      const publicKey = {
-        ...opts,
-        challenge: base64urlToUint8Array(opts.challenge),
-        user: { ...opts.user, id: base64urlToUint8Array(opts.user.id) },
-        excludeCredentials: Array.isArray(opts.excludeCredentials)
-          ? opts.excludeCredentials.map((c) => ({ ...c, id: base64urlToUint8Array(c.id) }))
-          : []
-      };
+    await loadUser();
 
-      const cred = await navigator.credentials.create({ publicKey });
-      if (!cred) throw new Error('Passkey creation cancelled.');
+    queryClient.invalidateQueries();
 
-      await safeInvoke('webauthnFinishRegistration', {
-        credential: normalizeCredentialForServer(cred)
-      });
-
-      await base44.auth.updateMe({
-        biometric_enabled: true,
-        auth_preference: 'BIOMETRIC',
-        biometric_enabled_at: new Date().toISOString()
-      });
-
-      await refreshUser();
-    } catch (e) {
-      console.error(e);
-      const name = e?.name;
-      if (name === 'NotAllowedError') {
-        alert('Passkey setup was cancelled or timed out. Please try again and complete the prompt.');
-      } else if (name === 'InvalidStateError') {
-        alert('A passkey already exists for this account/device. Try disabling then enabling again.');
-      } else {
-        const msg = getServerErrorMessage(e);
-        const status = e?.response?.status;
-        alert(status ? `Could not enable biometric/passkey (${status}): ${msg}` : `Could not enable biometric/passkey: ${msg}`);
-      }
-    } finally {
-      setIsAuthSaving(false);
-    }
+    setIsSaving(false);
+    alert('Profile updated');
   };
 
-  const disableBiometric = async () => {
-    setIsAuthSaving(true);
-    try {
-      await safeInvoke('webauthnDisable', {});
-      await base44.auth.updateMe({
-        biometric_enabled: false,
-        auth_preference: pinEnabled ? 'PIN' : 'PASSWORD'
-      });
-      await refreshUser();
-    } catch (e) {
-      console.error(e);
-      const msg = getServerErrorMessage(e);
-      const status = e?.response?.status;
-      alert(status ? `Could not disable biometric/passkey (${status}): ${msg}` : `Could not disable biometric/passkey: ${msg}`);
-    } finally {
-      setIsAuthSaving(false);
-    }
-  };
-
-  const handleToggleBiometric = async (checked) => {
-    if (isAuthSaving) return;
-    if (checked) return enableBiometric();
-    return disableBiometric();
-  };
-
-  const handleSetPin = async () => {
-    if (isAuthSaving) return;
-
-    const a = (pinNew || '').trim();
-    const b = (pinConfirm || '').trim();
-
-    if (!/^\d{4,8}$/.test(a)) {
-      alert('PIN must be 4–8 digits.');
-      return;
-    }
-    if (a !== b) {
-      alert('PIN confirmation does not match.');
-      return;
-    }
-
-    setIsAuthSaving(true);
-    try {
-      await safeInvoke('pinSet', { pin: a });
-
-      await base44.auth.updateMe({
-        pin_enabled: true,
-        auth_preference: biometricEnabled ? 'BIOMETRIC' : 'PIN',
-        pin_last_set_at: new Date().toISOString()
-      });
-
-      setPinNew('');
-      setPinConfirm('');
-      await refreshUser();
-    } catch (e) {
-      console.error(e);
-      const msg = getServerErrorMessage(e);
-      const status = e?.response?.status;
-      alert(status ? `Could not set PIN (${status}): ${msg}` : `Could not set PIN: ${msg}`);
-    } finally {
-      setIsAuthSaving(false);
-    }
-  };
-
-  const handleTogglePin = async (checked) => {
-    if (isAuthSaving) return;
-
-    setIsAuthSaving(true);
-    try {
-      if (!checked) {
-        await safeInvoke('pinDisable', {});
-        await base44.auth.updateMe({
-          pin_enabled: false,
-          auth_preference: biometricEnabled ? 'BIOMETRIC' : 'PASSWORD'
-        });
-      } else {
-        await base44.auth.updateMe({
-          pin_enabled: true,
-          auth_preference: biometricEnabled ? 'BIOMETRIC' : 'PIN'
-        });
-      }
-      await refreshUser();
-    } catch (e) {
-      console.error(e);
-      const msg = getServerErrorMessage(e);
-      const status = e?.response?.status;
-      alert(status ? `Could not update PIN setting (${status}): ${msg}` : `Could not update PIN setting: ${msg}`);
-    } finally {
-      setIsAuthSaving(false);
-    }
-  };
-
-  // -----------------------------
-  // Relationship actions
-  // -----------------------------
-  const handleUnlock = async () => {
-    if (isBusyAction) return;
-    setIsBusyAction(true);
-    try {
-      await safeInvoke('quickDateUnlock', { couple_profile_id: user?.couple_profile_id });
-      setShowUnlockDialog(false);
-      navigate(createPageUrl('Home'), { replace: true });
-    } finally {
-      setIsBusyAction(false);
-    }
-  };
-
-  const handleTerminationRequest = async () => {
-    if (isBusyAction) return;
-    setIsBusyAction(true);
-    try {
-      await safeInvoke('requestRelationshipTermination', { couple_profile_id: user?.couple_profile_id });
-      setShowTerminationDialog(false);
-      alert('Termination request sent to your partner.');
-      await loadAll();
-    } finally {
-      setIsBusyAction(false);
-    }
-  };
-
-  const handleConfirmTermination = async () => {
-    if (isBusyAction) return;
-    setIsBusyAction(true);
-    try {
-      await safeInvoke('confirmRelationshipTermination', { couple_profile_id: user?.couple_profile_id });
-      setPendingTermination(null);
-      navigate(createPageUrl('Home'), { replace: true });
-    } finally {
-      setIsBusyAction(false);
-    }
-  };
-
-  const handleDeclineTermination = async () => {
-    if (isBusyAction) return;
-    setIsBusyAction(true);
-    try {
-      await safeInvoke('declineRelationshipTermination', { couple_profile_id: user?.couple_profile_id });
-      setPendingTermination(null);
-      await loadAll();
-    } finally {
-      setIsBusyAction(false);
-    }
-  };
-
-  const handleDeactivate = async () => {
-    if (isBusyAction) return;
-    setIsBusyAction(true);
-    try {
-      await safeInvoke('deactivateAccount');
-      await base44.auth.logout(createPageUrl('Home'));
-    } finally {
-      setIsBusyAction(false);
-    }
-  };
-
+  // ✅ LOGOUT
   const handleLogout = async () => {
-    try {
-      await base44.auth.logout(createPageUrl('Home'));
-    } catch (e) {
-      console.error('Logout failed:', e);
-      alert('Logout failed. Please try again.');
-    }
+    await supabase.auth.signOut();
+    navigate('/');
   };
 
-  // -----------------------------
-  // UI helpers
-  // -----------------------------
-  const FolderRow = ({ icon: Icon, title, subtitle, onClick }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full text-left flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition"
-    >
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
-          <Icon className="w-5 h-5 text-slate-600" />
-        </div>
-        <div>
-          <p className="font-semibold text-slate-800">{title}</p>
-          {subtitle ? <p className="text-sm text-slate-500">{subtitle}</p> : null}
-        </div>
-      </div>
-      <ChevronRight className="w-5 h-5 text-slate-400" />
-    </button>
-  );
-
-  const BackToFolders = () => (
-    <div className="mb-3">
-      <Button variant="outline" className="w-full" onClick={() => setOpenFolder(null)}>
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Back
-      </Button>
-    </div>
-  );
-
-  // -----------------------------
-  // Loading / error
-  // -----------------------------
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-rose-50 via-white to-pink-50">
-        <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="animate-spin" />
       </div>
     );
   }
 
   if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-rose-50 via-white to-pink-50 p-4">
-        <Card className="max-w-md w-full p-8 text-center border-0 shadow-lg">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <XIcon className="w-8 h-8 text-red-500" />
-          </div>
-          <h3 className="text-lg font-semibold text-slate-800 mb-2">Could not load Settings</h3>
-          <p className="text-slate-600 mb-6">Please try again.</p>
-          <Button onClick={() => window.location.reload()} className="bg-rose-500 hover:bg-rose-600">
-            Retry
-          </Button>
-        </Card>
-      </div>
-    );
+    return <div className="p-6 text-center">User not found</div>;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-rose-50 via-white to-pink-50 pb-24">
-      {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-4 flex items-center gap-3">
-          <Link to={createPageUrl('Home')}>
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-          </Link>
-          <h1 className="text-xl font-semibold text-slate-800">Settings</h1>
+    <div className="min-h-screen bg-white p-4 pb-24">
+
+      <div className="flex items-center gap-3 mb-6">
+        <Link to={createPageUrl('Home')}>
+          <Button variant="ghost">
+            <ArrowLeft />
+          </Button>
+        </Link>
+        <h1 className="text-xl font-semibold">Settings</h1>
+      </div>
+
+      <Card className="p-6 space-y-4">
+
+        {/* PROFILE PHOTO */}
+        <div className="flex justify-center">
+          <div className="relative">
+            <Avatar className="w-24 h-24">
+              <AvatarImage src={formData.profile_photo} />
+              <AvatarFallback>
+                {formData.full_name?.[0] || <User />}
+              </AvatarFallback>
+            </Avatar>
+
+            <label className="absolute bottom-0 right-0 cursor-pointer">
+              <Camera />
+              <input type="file" hidden onChange={handlePhotoUpload} />
+            </label>
+          </div>
         </div>
-      </div>
 
-      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
-        {/* Pending Termination */}
-        {pendingTermination && (
-          <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
-            <Card className="p-4 border-0 shadow-lg bg-gradient-to-r from-red-50 to-rose-50">
-              <div className="flex items-start gap-3 mb-3">
-                <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-semibold text-slate-800 mb-1">Termination Request</p>
-                  <p className="text-sm text-slate-600">
-                    {pendingTermination.initiator_name || pendingTermination.initiator_email} wants to terminate.
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleConfirmTermination}
-                  disabled={isBusyAction}
-                  className="flex-1 bg-red-500 hover:bg-red-600"
-                >
-                  {isBusyAction ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm'}
-                </Button>
-                <Button
-                  onClick={handleDeclineTermination}
-                  disabled={isBusyAction}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  {isBusyAction ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Decline'}
-                </Button>
-              </div>
-            </Card>
-          </motion.div>
-        )}
+        {/* NAME */}
+        <div>
+          <Label>Full Name</Label>
+          <Input
+            value={formData.full_name}
+            onChange={(e) =>
+              setFormData({ ...formData, full_name: e.target.value })
+            }
+          />
+        </div>
 
-        {/* Root folder view */}
-        {openFolder === null && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="space-y-3">
-              <FolderRow
-                icon={User}
-                title="Profile"
-                subtitle="Photo, name, location, email, date of birth"
-                onClick={() => setOpenFolder('profile')}
-              />
-              <FolderRow
-                icon={Lock}
-                title="Security"
-                subtitle="Biometric/passkey and PIN"
-                onClick={() => setOpenFolder('security')}
-              />
+        {/* LOCATION */}
+        <div>
+          <Label>Location</Label>
+          <Input
+            value={formData.location}
+            onChange={(e) =>
+              setFormData({ ...formData, location: e.target.value })
+            }
+          />
+        </div>
 
-              {/* Policies links */}
-              <Card className="p-4 border-0 shadow-md">
-                <div className="flex items-center gap-2 mb-2">
-                  <FileText className="w-5 h-5 text-slate-600" />
-                  <p className="font-semibold text-slate-800">Policies</p>
-                </div>
-                <p className="text-sm text-slate-500 mb-3">
-                  Review how we handle privacy and security.
-                </p>
-                <div className="flex flex-col gap-2">
-                  <Link to={PRIVACY_POLICY_URL} className="text-rose-600 hover:underline text-sm font-medium">
-                    Privacy Policy
-                  </Link>
-                  <Link to={SECURITY_POLICY_URL} className="text-rose-600 hover:underline text-sm font-medium">
-                    Security Policy
-                  </Link>
-                </div>
-              </Card>
-            </div>
-          </motion.div>
-        )}
+        {/* EMAIL */}
+        <div>
+          <Label>Email</Label>
+          <Input value={user.email} disabled />
+        </div>
 
-        {/* PROFILE folder */}
-        {openFolder === 'profile' && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-            <BackToFolders />
+        {/* DOB */}
+        <div>
+          <Label>Date of Birth</Label>
+          <Input
+            value={
+              user.user_metadata?.date_of_birth
+                ? format(
+                    parseSafeDate(user.user_metadata.date_of_birth),
+                    'MMM d, yyyy'
+                  )
+                : ''
+            }
+            disabled
+          />
+        </div>
 
-            <Card className="p-6 border-0 shadow-md">
-              <h2 className="text-lg font-semibold text-slate-800 mb-4">Profile</h2>
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? <Loader2 className="animate-spin" /> : 'Save Changes'}
+        </Button>
 
-              <div className="flex justify-center mb-6">
-                <div className="relative">
-                  <Avatar className="w-24 h-24 border-4 border-white shadow-lg">
-                    <AvatarImage src={formData.profile_photo} />
-                    <AvatarFallback className="bg-gradient-to-br from-rose-100 to-pink-100 text-rose-500 text-2xl">
-                      {formData.full_name?.[0] || <User className="w-8 h-8" />}
-                    </AvatarFallback>
-                  </Avatar>
+      </Card>
 
-                  <label className="absolute -bottom-2 -right-2 w-10 h-10 bg-gradient-to-r from-rose-500 to-pink-500 rounded-full flex items-center justify-center cursor-pointer shadow-lg hover:scale-105 transition-transform">
-                    <Camera className="w-5 h-5 text-white" />
-                    <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
-                  </label>
-                </div>
-              </div>
+      {/* LOGOUT */}
+      <Button
+        variant="outline"
+        className="w-full mt-6"
+        onClick={handleLogout}
+      >
+        <LogOut className="mr-2" />
+        Logout
+      </Button>
 
-              <div className="space-y-4">
-                <div>
-                  <Label>Full Name</Label>
-                  <Input
-                    value={formData.full_name}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, full_name: e.target.value }))}
-                    className="mt-1"
-                  />
-                </div>
-
-                <div>
-                  <Label>Location</Label>
-                  <div className="relative mt-1">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input
-                      value={formData.location}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, location: e.target.value }))}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Email</Label>
-                  <div className="relative mt-1">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input value={user.email || ''} disabled className="pl-10 bg-slate-50" />
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Date of Birth</Label>
-                  <div className="relative mt-1">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input
-                      value={(() => {
-                        const d = parseSafeDate(user?.date_of_birth);
-                        return d ? format(d, 'MMM d, yyyy') : '';
-                      })()}
-                      disabled
-                      className="pl-10 bg-slate-50"
-                    />
-                  </div>
-                </div>
-
-                <Button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="w-full bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600"
-                >
-                  {isSaving ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4 mr-2" />
-                      Save Changes
-                    </>
-                  )}
-                </Button>
-              </div>
-            </Card>
-          </motion.div>
-        )}
-
-        {/* SECURITY folder */}
-        {openFolder === 'security' && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-            <BackToFolders />
-
-            <Card className="p-6 border-0 shadow-md">
-              <h2 className="text-lg font-semibold text-slate-800 mb-1">Security</h2>
-              <p className="text-sm text-slate-500 mb-4">
-                Manage how you sign in. Passkeys require HTTPS and server verification.
-              </p>
-
-              {/* Biometric/Passkey */}
-              <div className="flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
-                  <Fingerprint className="w-5 h-5 text-slate-500" />
-                  <div>
-                    <p className="font-medium text-slate-800">Biometric / Passkey</p>
-                    <p className="text-sm text-slate-500">
-                      {!webauthnSupported
-                        ? 'Not supported on this device'
-                        : !secureContext
-                        ? 'Requires HTTPS (secure context)'
-                        : 'Supported on this device'}
-                    </p>
-                  </div>
-                </div>
-                <Switch
-                  checked={biometricEnabled}
-                  disabled={!webauthnSupported || !secureContext || isAuthSaving}
-                  onCheckedChange={handleToggleBiometric}
-                />
-              </div>
-
-              <Separator />
-
-              {/* PIN */}
-              <div className="flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
-                  <KeyRound className="w-5 h-5 text-slate-500" />
-                  <div>
-                    <p className="font-medium text-slate-800">PIN</p>
-                    <p className="text-sm text-slate-500">
-                      {pinEnabled ? 'Enabled' : 'Disabled'}{' '}
-                      {user?.pin_last_set_at ? `• last set ${format(new Date(user.pin_last_set_at), 'MMM d')}` : ''}
-                    </p>
-                  </div>
-                </div>
-                <Switch checked={pinEnabled} disabled={isAuthSaving} onCheckedChange={handleTogglePin} />
-              </div>
-
-              {pinEnabled && (
-                <div className="mt-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>New PIN</Label>
-                      <Input
-                        value={pinNew}
-                        onChange={(e) => setPinNew(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                        placeholder="4–8 digits"
-                        inputMode="numeric"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label>Confirm</Label>
-                      <Input
-                        value={pinConfirm}
-                        onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                        placeholder="Repeat PIN"
-                        inputMode="numeric"
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-
-                  <Button onClick={handleSetPin} disabled={isAuthSaving} className="w-full">
-                    {isAuthSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Set / Update PIN'}
-                  </Button>
-
-                  <p className="text-xs text-slate-500">
-                    PIN is stored securely as a server-side hash (never stored in plaintext).
-                  </p>
-                </div>
-              )}
-
-              <Separator />
-
-              <div className="pt-4 flex items-center justify-between">
-                <span className="text-sm text-slate-600">Current preference</span>
-                <span className="text-sm font-semibold text-slate-800">
-                  {authPref === 'BIOMETRIC' ? 'Biometric' : authPref === 'PIN' ? 'PIN' : 'Password'}
-                </span>
-              </div>
-
-              {/* Policy links inside Security too */}
-              <div className="mt-5 p-4 rounded-xl border border-slate-200 bg-slate-50">
-                <p className="text-sm font-semibold text-slate-800 mb-2">Policies</p>
-                <div className="flex flex-col gap-2">
-                  <Link to={PRIVACY_POLICY_URL} className="text-rose-600 hover:underline text-sm font-medium">
-                    Privacy Policy
-                  </Link>
-                  <Link to={SECURITY_POLICY_URL} className="text-rose-600 hover:underline text-sm font-medium">
-                    Security Policy
-                  </Link>
-                </div>
-              </div>
-            </Card>
-          </motion.div>
-        )}
-
-        {/* Insights */}
-        {openFolder === null && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }}>
-            <Card className="p-6 border-0 shadow-md">
-              <h2 className="text-lg font-semibold text-slate-800 mb-4">Insights</h2>
-
-              <div className="flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
-                  <Sparkles className="w-5 h-5 text-slate-500" />
-                  <div>
-                    <p className="font-medium text-slate-800">AI-Powered Insights</p>
-                    <p className="text-sm text-slate-500">Allow weekly AI summaries</p>
-                  </div>
-                </div>
-
-                <Switch
-                  checked={!!user?.insights_consent}
-                  onCheckedChange={async (checked) => {
-                    try {
-                      await base44.auth.updateMe({ insights_consent: checked });
-                      await refreshUser();
-                    } catch (e) {
-                      console.error(e);
-                      alert('Could not update setting.');
-                    }
-                  }}
-                />
-              </div>
-
-              {user?.relationship_status === 'date_locked' && (
-                <>
-                  <Separator />
-                  <Link to={createPageUrl('RelationshipInsights')}>
-                    <Button variant="outline" className="w-full mt-3">
-                      <Shield className="w-4 h-4 mr-2" />
-                      View Insights Dashboard
-                    </Button>
-                  </Link>
-                </>
-              )}
-            </Card>
-          </motion.div>
-        )}
-
-        {/* Relationship */}
-        {openFolder === null && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
-            <Card className="p-6 border-0 shadow-md">
-              <h2 className="text-lg font-semibold text-slate-800 mb-4">Relationship</h2>
-
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-slate-600">Current Status</span>
-                <StatusBadge status={user?.relationship_status} />
-              </div>
-
-              {user?.partner_email && (
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-slate-600">Partner</span>
-                  <span className="font-medium text-slate-800">{user.partner_email}</span>
-                </div>
-              )}
-
-              {user?.relationship_status === 'date_locked' && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowTerminationDialog(true)}
-                    className="w-full text-red-500 border-red-200 hover:bg-red-50 mb-3"
-                  >
-                    <AlertTriangle className="w-4 h-4 mr-2" />
-                    Request Termination (Needs Confirmation)
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowUnlockDialog(true)}
-                    className="w-full text-amber-600 border-amber-200 hover:bg-amber-50"
-                  >
-                    <Unlock className="w-4 h-4 mr-2" />
-                    Quick Date-Unlock
-                  </Button>
-                </>
-              )}
-            </Card>
-          </motion.div>
-        )}
-
-        {/* Archive */}
-        {openFolder === null && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
-            <Card className="p-6 border-0 shadow-md">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-slate-800">Archive</h2>
-                <div className="flex items-center gap-2 text-sm text-slate-500">
-                  <Archive className="w-4 h-4" />
-                  <span>{archivedMemories.length} memories</span>
-                </div>
-              </div>
-
-              {archivedMemories.length > 0 ? (
-                <>
-                  <Button variant="outline" onClick={() => setShowArchive((v) => !v)} className="w-full">
-                    <Archive className="w-4 h-4 mr-2" />
-                    {showArchive ? 'Hide' : 'View'} Archived Memories
-                  </Button>
-
-                  {showArchive && (
-                    <div className="mt-4 space-y-3">
-                      {archivedMemories.slice(0, 50).map((memory) => (
-                        <div key={memory.id} className="flex gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50">
-                          {memory.photos?.[0] ? (
-                            <img src={memory.photos[0]} alt="" className="w-16 h-16 rounded-lg object-cover" />
-                          ) : (
-                            <div className="w-16 h-16 bg-slate-200 rounded-lg flex items-center justify-center">
-                              <ImageIcon className="w-6 h-6 text-slate-400" />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-slate-800 truncate">{memory.title}</p>
-                            <p className="text-sm text-slate-500 truncate">{memory.description}</p>
-                            {(() => {
-                              const d = parseSafeDate(memory.date);
-                              return d ? <p className="text-xs text-slate-400 mt-1">{format(d, 'MMM d, yyyy')}</p> : null;
-                            })()}
-                          </div>
-                        </div>
-                      ))}
-                      {archivedMemories.length > 50 && (
-                        <p className="text-xs text-slate-500 text-center">Showing latest 50.</p>
-                      )}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <p className="text-sm text-slate-500 text-center py-4">No archived memories yet</p>
-              )}
-            </Card>
-          </motion.div>
-        )}
-
-        {/* Account */}
-        {openFolder === null && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}>
-            <Card className="p-6 border-0 shadow-md border-red-100">
-              <h2 className="text-lg font-semibold text-slate-800 mb-4">Account</h2>
-
-              <div className="bg-red-50 rounded-lg p-4 mb-4">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm">
-                    <p className="text-red-800 font-medium mb-1">Deactivate Account</p>
-                    <p className="text-red-600">This will disable your account.</p>
-                  </div>
-                </div>
-              </div>
-
-              <Button
-                variant="outline"
-                onClick={() => setShowDeactivateDialog(true)}
-                className="w-full text-red-600 border-red-200 hover:bg-red-50"
-              >
-                <AlertTriangle className="w-4 h-4 mr-2" />
-                Deactivate Account
-              </Button>
-            </Card>
-          </motion.div>
-        )}
-
-        {/* Logout */}
-        {openFolder === null && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <Button variant="outline" onClick={handleLogout} className="w-full">
-              <LogOut className="w-4 h-4 mr-2" />
-              Log Out
-            </Button>
-          </motion.div>
-        )}
-      </div>
-
-      {/* Termination Request Dialog */}
-      <AlertDialog open={showTerminationDialog} onOpenChange={setShowTerminationDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-500" />
-              Request Relationship Termination?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This sends a request to your partner. They must confirm before the relationship ends.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isBusyAction}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleTerminationRequest}
-              className="bg-red-500 hover:bg-red-600"
-              disabled={isBusyAction}
-            >
-              {isBusyAction ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send Request'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Deactivate Account Dialog */}
-      <AlertDialog open={showDeactivateDialog} onOpenChange={setShowDeactivateDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-500" />
-              Deactivate Account?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This will disable your account.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isBusyAction}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeactivate}
-              className="bg-red-500 hover:bg-red-600"
-              disabled={isBusyAction}
-            >
-              {isBusyAction ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Deactivate'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Quick Unlock Dialog */}
-      <AlertDialog open={showUnlockDialog} onOpenChange={setShowUnlockDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-500" />
-              Quick Date-Unlock?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This ends your Date-Lock via a server workflow, keeping both accounts consistent.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isBusyAction}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleUnlock}
-              className="bg-red-500 hover:bg-red-600"
-              disabled={isBusyAction}
-            >
-              <span className="inline-flex items-center gap-2">
-                {isBusyAction ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlock className="w-4 h-4" />}
-                Date-Unlock
-              </span>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
