@@ -1,5 +1,5 @@
 import React from 'react';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/lib/supabase';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Card } from '@/components/ui/card';
@@ -23,6 +23,7 @@ export default function Notifications() {
   const [notifications, setNotifications] = React.useState([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState('');
+  const [user, setUser] = React.useState(null);
 
   const colorClasses = React.useMemo(
     () => ({
@@ -39,33 +40,48 @@ export default function Notifications() {
     setError('');
 
     try {
-      const currentUser = await base44.auth.me();
-      if (!currentUser?.email) throw new Error('Unable to load your profile.');
+      // ✅ GET USER
+      const { data } = await supabase.auth.getUser();
+      const currentUser = data.user;
+
+      if (!currentUser) throw new Error('User not authenticated');
+      setUser(currentUser);
 
       const notifs = [];
 
-      // Fetch all notification sources in parallel
-      const [receivedInvitations, sentInvitations, eventInvites] = await Promise.all([
-        base44.entities.RelationshipInvitation.filter(
-          { recipient_email: currentUser.email },
-          '-created_date',
-          10
-        ),
-        base44.entities.RelationshipInvitation.filter(
-          { sender_email: currentUser.email },
-          '-created_date',
-          10
-        ),
-        currentUser.couple_profile_id
-          ? base44.entities.CoupleGoal.filter(
-              { couple_profile_id: currentUser.couple_profile_id, is_event: true },
-              '-created_date',
-              20
-            )
-          : Promise.resolve([])
-      ]);
+      // ✅ RELATIONSHIP INVITATIONS (RECEIVED)
+      const { data: receivedInvitations } = await supabase
+        .from('RelationshipInvitation')
+        .select('*')
+        .eq('recipient_email', currentUser.email)
+        .order('created_at', { ascending: false })
+        .limit(10);
 
-      // Received relationship invitations
+      // ✅ RELATIONSHIP INVITATIONS (SENT)
+      const { data: sentInvitations } = await supabase
+        .from('RelationshipInvitation')
+        .select('*')
+        .eq('sender_email', currentUser.email)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      // ✅ EVENTS
+      let eventInvites = [];
+      const coupleId = currentUser.user_metadata?.couple_profile_id;
+
+      if (coupleId) {
+        const { data } = await supabase
+          .from('CoupleGoal')
+          .select('*')
+          .eq('couple_profile_id', coupleId)
+          .eq('is_event', true)
+          .order('created_at', { ascending: false });
+
+        eventInvites = data || [];
+      }
+
+      // BUILD NOTIFICATIONS
+
       (receivedInvitations || []).forEach((inv) => {
         if (inv.status === 'pending') {
           notifs.push({
@@ -73,24 +89,25 @@ export default function Notifications() {
             type: 'invitation_received',
             title: 'Relationship Invitation',
             message: `${inv.sender_name || inv.sender_email} wants to Date-Lock with you!`,
-            time: inv.created_date,
+            time: inv.created_at,
             icon: Heart,
             color: 'rose'
           });
-        } else if (inv.status === 'accepted') {
+        }
+
+        if (inv.status === 'accepted') {
           notifs.push({
             id: `${inv.id}_accepted`,
             type: 'invitation_accepted',
             title: 'Date-Locked!',
             message: `You are now Date-Locked with ${inv.sender_name || inv.sender_email}`,
-            time: inv.updated_date || inv.created_date,
+            time: inv.updated_at || inv.created_at,
             icon: Lock,
             color: 'green'
           });
         }
       });
 
-      // Sent relationship invitations
       (sentInvitations || []).forEach((inv) => {
         if (inv.status === 'accepted') {
           notifs.push({
@@ -98,24 +115,25 @@ export default function Notifications() {
             type: 'partner_accepted',
             title: 'Invitation Accepted!',
             message: `${inv.recipient_email} accepted your Date-Lock invitation!`,
-            time: inv.updated_date || inv.created_date,
+            time: inv.updated_at || inv.created_at,
             icon: CheckCircle,
             color: 'green'
           });
-        } else if (inv.status === 'pending') {
+        }
+
+        if (inv.status === 'pending') {
           notifs.push({
             id: `${inv.id}_pending`,
             type: 'invitation_pending',
             title: 'Invitation Pending',
-            message: `Waiting for ${inv.recipient_email} to respond`,
-            time: inv.created_date,
+            message: `Waiting for ${inv.recipient_email}`,
+            time: inv.created_at,
             icon: Clock,
             color: 'amber'
           });
         }
       });
 
-      // Event invitations
       (eventInvites || []).forEach((event) => {
         if (event.invitation_status === 'pending' && event.invited_by !== currentUser.email) {
           notifs.push({
@@ -123,7 +141,7 @@ export default function Notifications() {
             type: 'event_invitation',
             title: 'Event Invitation',
             message: `You're invited to ${event.title}`,
-            time: event.created_date,
+            time: event.created_at,
             icon: Calendar,
             color: 'amber'
           });
@@ -134,8 +152,8 @@ export default function Notifications() {
             id: `${event.id}_event_accepted`,
             type: 'event_accepted',
             title: 'Event Accepted!',
-            message: `Your partner accepted your invitation to ${event.title}`,
-            time: event.updated_date || event.created_date,
+            message: `Your partner accepted ${event.title}`,
+            time: event.updated_at || event.created_at,
             icon: CheckCircle,
             color: 'green'
           });
@@ -146,15 +164,15 @@ export default function Notifications() {
             id: `${event.id}_event_declined`,
             type: 'event_declined',
             title: 'Event Declined',
-            message: `Your partner declined the invitation to ${event.title}`,
-            time: event.updated_date || event.created_date,
+            message: `Your partner declined ${event.title}`,
+            time: event.updated_at || event.created_at,
             icon: Calendar,
             color: 'rose'
           });
         }
       });
 
-      // Sort by time (safe date parsing)
+      // SORT
       notifs.sort((a, b) => {
         const da = parseSafeDate(a.time)?.getTime() ?? 0;
         const db = parseSafeDate(b.time)?.getTime() ?? 0;
@@ -163,123 +181,79 @@ export default function Notifications() {
 
       setNotifications(notifs);
     } catch (e) {
-      console.error('Error loading notifications:', e);
-      setError(e?.message || "Couldn't load notifications. Please try again.");
-      setNotifications([]);
+      console.error(e);
+      setError(e.message || 'Failed to load notifications');
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   React.useEffect(() => {
-    let mounted = true;
-    (async () => {
-      if (!mounted) return;
-      await loadData();
-    })();
-    return () => {
-      mounted = false;
-    };
+    loadData();
   }, [loadData]);
 
+  // LOADING
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-rose-50 via-white to-pink-50">
-        <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="animate-spin" />
       </div>
     );
   }
 
+  // ERROR
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-rose-50 via-white to-pink-50 p-4">
-        <Card className="max-w-md w-full p-8 text-center border-0 shadow-lg">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <XIcon className="w-8 h-8 text-red-500" />
-          </div>
-          <h3 className="text-lg font-semibold text-slate-800 mb-2">Something went wrong</h3>
-          <p className="text-slate-600 mb-6">{error}</p>
-          <Button
-            onClick={loadData}
-            className="bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600"
-          >
-            Try Again
-          </Button>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="p-6 text-center">
+          <XIcon className="mx-auto mb-3 text-red-500" />
+          <p>{error}</p>
+          <Button onClick={loadData}>Retry</Button>
         </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-rose-50 via-white to-pink-50 pb-24">
-      {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-4 flex items-center gap-3">
-          <Link to={createPageUrl('Home')}>
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-          </Link>
-          <h1 className="text-xl font-semibold text-slate-800">Notifications</h1>
-          <div className="ml-auto">
-            <Button variant="outline" size="sm" onClick={loadData}>
-              Refresh
-            </Button>
-          </div>
+    <div className="p-4 max-w-md mx-auto">
+
+      <div className="flex items-center justify-between mb-4">
+        <Link to={createPageUrl('Home')}>
+          <Button variant="ghost"><ArrowLeft /></Button>
+        </Link>
+        <h2 className="font-bold">Notifications</h2>
+        <Button onClick={loadData}>Refresh</Button>
+      </div>
+
+      {notifications.length > 0 ? (
+        <div className="space-y-3">
+          {notifications.map((n) => {
+            const Icon = n.icon;
+
+            return (
+              <Card key={n.id} className="p-3">
+                <div className="flex gap-3">
+                  <Icon />
+                  <div>
+                    <p className="font-medium">{n.title}</p>
+                    <p className="text-sm">{n.message}</p>
+                    {n.time && (
+                      <p className="text-xs text-gray-400">
+                        {formatDistanceToNow(new Date(n.time), { addSuffix: true })}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
         </div>
-      </div>
-
-      <div className="max-w-md mx-auto px-4 py-6">
-        {notifications.length > 0 ? (
-          <div className="space-y-3">
-            <AnimatePresence>
-              {notifications.map((notification) => {
-                const Icon = notification.icon;
-                const timeDate = parseSafeDate(notification.time);
-
-                return (
-                  <motion.div
-                    key={notification.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.18 }}
-                  >
-                    <Card className="p-4 border-0 shadow-md">
-                      <div className="flex items-start gap-4">
-                        <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                            colorClasses[notification.color] || colorClasses.blue
-                          }`}
-                        >
-                          <Icon className="w-5 h-5" />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-800">{notification.title}</p>
-                          <p className="text-sm text-slate-500 mt-0.5">{notification.message}</p>
-
-                          {timeDate ? (
-                            <p className="text-xs text-slate-400 mt-2">
-                              {formatDistanceToNow(timeDate, { addSuffix: true })}
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
-                    </Card>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </div>
-        ) : (
-          <Card className="p-12 text-center border-0 shadow-md">
-            <BellOff className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-700 mb-2">No notifications</h3>
-            <p className="text-slate-500">You're all caught up!</p>
-          </Card>
-        )}
-      </div>
+      ) : (
+        <Card className="p-6 text-center">
+          <BellOff className="mx-auto mb-3" />
+          <p>No notifications</p>
+        </Card>
+      )}
     </div>
   );
 }
