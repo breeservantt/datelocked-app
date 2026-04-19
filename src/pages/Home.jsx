@@ -97,23 +97,23 @@ function StatusPill({ relationshipStatus }) {
 
 function StatCard({ icon, value, label, iconColor, iconWrap }) {
   return (
-    <Card className="rounded-[24px] bg-white/95 px-3 py-3.5 text-center">
+    <div className="rounded-[20px] bg-white px-2.5 py-3 text-center shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
       <div className="flex flex-col items-center">
         <div
-          className={`mb-2.5 flex h-9 w-9 items-center justify-center rounded-full ${iconWrap}`}
+          className={`mb-2.5 flex h-10 w-10 items-center justify-center rounded-full ${iconWrap}`}
         >
-          {React.cloneElement(icon, { className: `h-4 w-4 ${iconColor}` })}
+          {React.cloneElement(icon, { className: `h-4.5 w-4.5 ${iconColor}` })}
         </div>
 
-        <p className="text-[17px] font-bold tracking-[-0.02em] text-slate-900 leading-none">
+        <p className="text-[16px] font-bold leading-none text-slate-900">
           {value}
         </p>
 
-        <p className="mt-2 text-[11px] font-medium tracking-[-0.01em] text-slate-500 truncate">
+        <p className="mt-2 text-[11px] font-medium text-slate-500 truncate">
           {label}
         </p>
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -386,30 +386,15 @@ export default function Home() {
     },
   });
 
-  const { data: memoryCount = 0 } = useQuery({
-    queryKey: ['homeMemoryCount', coupleId],
-    enabled: !!coupleId,
-    retry: 1,
-    staleTime: 60 * 1000,
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from('memories')
-        .select('id', { count: 'exact', head: true })
-        .eq('couple_profile_id', coupleId);
-
-      if (error) throw error;
-      return count || 0;
-    },
-  });
-
-  const { data: goalsData = { count: 0, countdownGoal: null } } = useQuery({
-  queryKey: ['homeGoalsData', coupleId, user?.id],
+  const { data: eventsCount = 0 } = useQuery({
+  queryKey: ['homeEventsCount', coupleId, user?.id],
   enabled: !!user?.id,
   retry: 1,
-  staleTime: 30 * 1000,
-  refetchInterval: 30 * 1000,
+  staleTime: 60 * 1000,
   queryFn: async () => {
-    let query = supabase.from('couple_goals').select('*');
+    let query = supabase
+      .from('couple_goals')
+      .select('*');
 
     if (coupleId) {
       query = query.eq('couple_profile_id', coupleId);
@@ -417,37 +402,66 @@ export default function Home() {
       query = query.eq('owner_id', user.id);
     }
 
-    const { data: goals, error } = await query;
+    const { data, error } = await query;
 
     if (error) throw error;
 
-    const list = Array.isArray(goals) ? goals : [];
-    const now = Date.now();
+    const events = (data || []).filter(
+      (goal) =>
+        goal?.is_event === true &&
+        goal?.invitation_status === 'pending'
+    );
 
-    const datedGoals = list
-      .map((goal) => {
-        const parsedDate = extractGoalDate(goal);
-        if (!parsedDate) return null;
-
-        return {
-          ...goal,
-          _dateMs: parsedDate.getTime(),
-        };
-      })
-      .filter(Boolean);
-
-    const upcoming = [...datedGoals]
-      .filter((goal) => goal._dateMs >= now)
-      .sort((a, b) => a._dateMs - b._dateMs);
-
-    const latestDated = [...datedGoals].sort((a, b) => b._dateMs - a._dateMs);
-
-    return {
-      count: list.length,
-      countdownGoal: upcoming[0] || latestDated[0] || null,
-    };
+    return events.length;
   },
 });
+
+  const { data: goalsData = { count: 0, countdownGoal: null } } = useQuery({
+    queryKey: ['homeGoalsData', coupleId, user?.id],
+    enabled: !!user?.id,
+    retry: 1,
+    staleTime: 30 * 1000,
+    refetchInterval: 30 * 1000,
+    queryFn: async () => {
+      let query = supabase.from('couple_goals').select('*');
+
+      if (coupleId) {
+        query = query.eq('couple_profile_id', coupleId);
+      } else {
+        query = query.eq('owner_id', user.id);
+      }
+
+      const { data: goals, error } = await query;
+
+      if (error) throw error;
+
+      const list = Array.isArray(goals) ? goals : [];
+      const now = Date.now();
+
+      const datedGoals = list
+        .map((goal) => {
+          const parsedDate = extractGoalDate(goal);
+          if (!parsedDate) return null;
+
+          return {
+            ...goal,
+            _dateMs: parsedDate.getTime(),
+          };
+        })
+        .filter(Boolean);
+
+      const upcoming = [...datedGoals]
+        .filter((goal) => goal._dateMs >= now)
+        .sort((a, b) => a._dateMs - b._dateMs);
+
+      const latestDated = [...datedGoals].sort((a, b) => b._dateMs - a._dateMs);
+
+      return {
+        count: list.length,
+        countdownGoal: upcoming[0] || latestDated[0] || null,
+      };
+    },
+  });
 
   const countdownGoal = goalsData.countdownGoal;
 
@@ -664,18 +678,18 @@ export default function Home() {
           </div>
 
           <div className="-mt-8 px-4 pt-4 pb-6">
-            <div className="mb-4 grid grid-cols-3 gap-2.5">
-              <Link to={createPageUrl('Memories')}>
+            <div className="mb-5 grid grid-cols-3 gap-2.5">
+              <Link to={createPageUrl('Memories')} className="block">
                 <StatCard
-                  icon={<Image />}
-                  value={memoryCount}
-                  label="Memories"
-                  iconColor="text-rose-400"
-                  iconWrap="bg-rose-50"
-                />
+  icon={<Clock />}
+  value={eventsCount}
+  label="Events"
+  iconColor="text-amber-500"
+  iconWrap="bg-amber-50"
+/>
               </Link>
 
-              <Link to={createPageUrl('Goals')}>
+              <Link to={createPageUrl('Goals')} className="block">
                 <StatCard
                   icon={<Target />}
                   value={goalsData.count}
@@ -685,24 +699,24 @@ export default function Home() {
                 />
               </Link>
 
-              <Card
-                onClick={handleOpenCountdownGoal}
-                className="cursor-pointer rounded-[24px] bg-white/95 px-3 py-3.5 text-center"
-              >
-                <div className="flex flex-col items-center">
-                  <div className="mb-2.5 flex h-9 w-9 items-center justify-center rounded-full bg-amber-50">
-                    <Clock className="h-4 w-4 text-amber-400" />
-                  </div>
+              <div
+  onClick={handleOpenCountdownGoal}
+  className="cursor-pointer rounded-[20px] bg-white px-2.5 py-3 text-center shadow-[0_10px_24px_rgba(15,23,42,0.05)]"
+>
+  <div className="flex flex-col items-center">
+    <div className="mb-2.5 flex h-10 w-10 items-center justify-center rounded-full bg-amber-50">
+      <Clock className="h-4.5 w-4.5 text-amber-400" />
+    </div>
 
-                  <p className="text-[17px] font-bold tracking-[-0.02em] text-slate-900 leading-none">
-                    {countdownText}
-                  </p>
+    <p className="text-[16px] font-bold leading-none text-slate-900">
+      {countdownText}
+    </p>
 
-                  <p className="mt-2 text-[11px] font-medium tracking-[-0.01em] text-slate-500 truncate">
-                    {getGoalDisplayTitle(countdownGoal)}
-                  </p>
-                </div>
-              </Card>
+    <p className="mt-2 text-[11px] font-medium text-slate-500 truncate">
+      {getGoalDisplayTitle(countdownGoal)}
+    </p>
+  </div>
+</div>
             </div>
 
             <AnimatePresence>
@@ -736,25 +750,25 @@ export default function Home() {
             </AnimatePresence>
 
             {!pendingInvitation && (
-  <div className="mb-4 flex gap-3">
-    <Button
-      type="button"
-      onClick={() => navigate(`${createPageUrl('InvitePartner')}?mode=invite`)}
-      className="flex h-[42px] w-full items-center justify-center gap-2 rounded-[14px] bg-white px-3 text-[13px] font-medium text-rose-500 shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
-    >
-      <Heart className="h-3.5 w-3.5 shrink-0" />
-      <span className="leading-none">Invite</span>
-    </Button>
+              <div className="mb-4 flex gap-3">
+                <Button
+                  type="button"
+                  onClick={() => navigate(`${createPageUrl('InvitePartner')}?mode=invite`)}
+                  className="flex h-[42px] w-full items-center justify-center gap-2 rounded-[14px] bg-white px-3 text-[13px] font-medium text-rose-500 shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
+                >
+                  <Heart className="h-3.5 w-3.5 shrink-0" />
+                  <span className="leading-none">Invite</span>
+                </Button>
 
-    <Button
-      type="button"
-      onClick={() => navigate(`${createPageUrl('InvitePartner')}?mode=accept`)}
-      className="flex h-[42px] w-full items-center justify-center rounded-[14px] bg-rose-500 px-3 text-[13px] font-medium text-white shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
-    >
-      <span className="leading-none">Accept-Date</span>
-    </Button>
-  </div>
-)}
+                <Button
+                  type="button"
+                  onClick={() => navigate(`${createPageUrl('InvitePartner')}?mode=accept`)}
+                  className="flex h-[42px] w-full items-center justify-center rounded-[14px] bg-rose-500 px-3 text-[13px] font-medium text-white shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
+                >
+                  <span className="leading-none">Accept-Date</span>
+                </Button>
+              </div>
+            )}
 
             {partner && (
               <div className="mb-4">
@@ -766,80 +780,70 @@ export default function Home() {
               </div>
             )}
 
-            <div className="space-y-2">
+            <div className="space-y-3">
+              <Link to={createPageUrl('RelationshipInsights')} className="block">
+                <div className="flex items-center justify-between rounded-[26px] bg-gradient-to-r from-[#f2efff] to-[#eef1ff] px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-[58px] w-[58px] items-center justify-center rounded-[20px] bg-gradient-to-br from-[#8b5cf6] to-[#6366f1]">
+                      <CheckCircle className="h-7 w-7 text-white" strokeWidth={2.1} />
+                    </div>
 
-  {/* Relationship Insights */}
-  <Link to={createPageUrl('RelationshipInsights')}>
-    <div className="flex items-center justify-between rounded-[16px] bg-gradient-to-r from-[#f3efff] to-[#eef2ff] px-4 py-3 shadow-[0_6px_14px_rgba(15,23,42,0.08)]">
-      
-      <div className="flex items-center gap-3">
-        <div className="flex h-[44px] w-[44px] items-center justify-center rounded-[14px] bg-gradient-to-br from-[#8b5cf6] to-[#6366f1]">
-          <CheckCircle className="h-5 w-5 text-white" strokeWidth={2.2} />
-        </div>
+                    <div>
+                      <p className="text-[15px] font-semibold leading-none text-[#172033]">
+                        Relationship Insights
+                      </p>
+                      <p className="mt-3 text-[12px] font-medium leading-none text-[#64748b]">
+                        View your weekly health report
+                      </p>
+                    </div>
+                  </div>
 
-        <div>
-          <p className="text-[14px] font-semibold text-slate-800 leading-none">
-            Relationship Insights
-          </p>
-          <p className="text-[12px] text-slate-500 mt-1">
-            View your weekly health report
-          </p>
-        </div>
-      </div>
+                  <ChevronRight className="h-6 w-6 text-[#94a3b8]" strokeWidth={2.2} />
+                </div>
+              </Link>
 
-      <ChevronRight className="h-5 w-5 text-slate-400" />
-    </div>
-  </Link>
+              <Link to={createPageUrl('Memories')} className="block">
+                <div className="flex items-center justify-between rounded-[26px] bg-white px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-[58px] w-[58px] items-center justify-center rounded-[20px] bg-[#fdecef]">
+                      <Plus className="h-7 w-7 text-[#ff4d6d]" strokeWidth={2.1} />
+                    </div>
 
+                    <div>
+                      <p className="text-[15px] font-semibold leading-none text-[#172033]">
+                        Add a Memory
+                      </p>
+                      <p className="mt-3 text-[12px] font-medium leading-none text-[#64748b]">
+                        Capture your special moments
+                      </p>
+                    </div>
+                  </div>
 
-  {/* Add Memory */}
-  <Link to={createPageUrl('Memories')}>
-    <div className="flex items-center justify-between rounded-[16px] bg-white px-4 py-3 shadow-[0_6px_14px_rgba(15,23,42,0.08)]">
-      
-      <div className="flex items-center gap-3">
-        <div className="flex h-[44px] w-[44px] items-center justify-center rounded-[14px] bg-[#fde8ea]">
-          <Plus className="h-5 w-5 text-[#ff4d6d]" strokeWidth={2.2} />
-        </div>
+                  <ChevronRight className="h-6 w-6 text-[#94a3b8]" strokeWidth={2.2} />
+                </div>
+              </Link>
 
-        <div>
-          <p className="text-[14px] font-semibold text-slate-800 leading-none">
-            Add a Memory
-          </p>
-          <p className="text-[12px] text-slate-500 mt-1">
-            Capture your special moments
-          </p>
-        </div>
-      </div>
+              <Link to={createPageUrl('Goals')} className="block">
+                <div className="flex items-center justify-between rounded-[26px] bg-white px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-[58px] w-[58px] items-center justify-center rounded-[20px] bg-[#eaf1ff]">
+                      <Target className="h-7 w-7 text-[#3b82f6]" strokeWidth={2.1} />
+                    </div>
 
-      <ChevronRight className="h-5 w-5 text-slate-400" />
-    </div>
-  </Link>
+                    <div>
+                      <p className="text-[15px] font-semibold leading-none text-[#172033]">
+                        Set a Goal
+                      </p>
+                      <p className="mt-3 text-[12px] font-medium leading-none text-[#64748b]">
+                        Plan your future together
+                      </p>
+                    </div>
+                  </div>
 
-
-  {/* Set Goal */}
-  <Link to={createPageUrl('Goals')}>
-    <div className="flex items-center justify-between rounded-[16px] bg-white px-4 py-3 shadow-[0_6px_14px_rgba(15,23,42,0.08)]">
-      
-      <div className="flex items-center gap-3">
-        <div className="flex h-[44px] w-[44px] items-center justify-center rounded-[14px] bg-[#e8f0ff]">
-          <Target className="h-5 w-5 text-[#3b82f6]" strokeWidth={2.2} />
-        </div>
-
-        <div>
-          <p className="text-[14px] font-semibold text-slate-800 leading-none">
-            Set a Goal
-          </p>
-          <p className="text-[12px] text-slate-500 mt-1">
-            Plan your future together
-          </p>
-        </div>
-      </div>
-
-      <ChevronRight className="h-5 w-5 text-slate-400" />
-    </div>
-  </Link>
-
-</div>
+                  <ChevronRight className="h-6 w-6 text-[#94a3b8]" strokeWidth={2.2} />
+                </div>
+              </Link>
+            </div>
 
             {isDateLocked && canEdit ? null : null}
           </div>
