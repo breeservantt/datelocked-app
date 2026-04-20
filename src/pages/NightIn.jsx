@@ -191,31 +191,34 @@ function BottomNav() {
   const location = useLocation();
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#ece6ea] bg-white/95 pb-2 pt-2 shadow-[0_-6px_18px_rgba(15,23,42,0.06)] backdrop-blur">
-      <div className="mx-auto grid w-full max-w-[390px] grid-cols-7 gap-1 px-2">
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#ece6ea] bg-white/95 pb-[max(6px,env(safe-area-inset-bottom))] pt-1 shadow-[0_-6px_18px_rgba(15,23,42,0.05)] backdrop-blur">
+      <div className="mx-auto grid w-full max-w-[390px] grid-cols-7 gap-0.5 px-2">
         {navItems.map((item) => {
           const href = createPageUrl(item.page);
           const active =
-            location.pathname === href || (href === '/' && location.pathname === '/');
+            location.pathname === href ||
+            (href === "/" && location.pathname === "/");
           const Icon = item.icon;
 
           return (
             <Link
               key={item.label}
               to={href}
-              className={`flex min-h-[64px] flex-col items-center justify-center rounded-[16px] px-1 py-2 transition ${
-                active ? 'bg-[#fdecef]' : 'bg-transparent'
+              className={`flex min-h-[50px] flex-col items-center justify-center rounded-[14px] px-1 py-1 transition ${
+                active ? "bg-[#fdecef]" : "bg-transparent"
               }`}
             >
               <Icon
-                className={`mb-1 h-5 w-5 ${
-                  active ? 'text-[#ef4f75]' : 'text-slate-400'
+                className={`mb-0.5 h-[18px] w-[18px] ${
+                  active ? "text-[#ef4f75]" : "text-slate-400"
                 }`}
-                strokeWidth={2.1}
+                strokeWidth={2}
               />
               <span
-                className={`truncate text-[9px] leading-tight ${
-                  active ? 'font-semibold text-[#ef4f75]' : 'font-medium text-slate-400'
+                className={`truncate text-[8px] leading-none tracking-[-0.01em] ${
+                  active
+                    ? "font-semibold text-[#ef4f75]"
+                    : "font-medium text-slate-400"
                 }`}
               >
                 {item.label}
@@ -425,7 +428,7 @@ export default function NightIn() {
   if (!user) {
     return (
       <>
-        <div className="min-h-screen bg-[#f3edf1] p-4 pb-[96px]">
+        <div className="min-h-screen bg-[#f3edf1] p-4 pb-[74px]">
           <Card className="mx-auto mt-8 w-full max-w-md p-6 text-center">
             <p className="mb-4 text-slate-600">Please sign in to access NightIn</p>
           </Card>

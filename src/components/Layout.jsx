@@ -2,8 +2,8 @@ import Navbar from "./Navbar";
 
 export default function Layout({ children }) {
   return (
-    <div className="min-h-screen bg-black text-white">
-      <main className="p-4">{children}</main>
+    <div className="min-h-screen bg-[#f3edf1]">
+      <main>{children}</main>
     </div>
   );
 }
