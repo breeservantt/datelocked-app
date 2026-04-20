@@ -9,14 +9,29 @@ import {
   X,
   CheckCircle2,
   Clock3,
+  Home as HomeIcon,
+  Heart,
+  Image as ImageIcon,
+  MessageCircle,
+  Fingerprint,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { supabase } from "@/lib/supabase";
 
+const navItems = [
+  { label: "Home", icon: HomeIcon, page: "Home" },
+  { label: "Dating", icon: Heart, page: "Dating" },
+  { label: "Memories", icon: ImageIcon, page: "Memories" },
+  { label: "Goals", icon: Target, page: "Goals" },
+  { label: "NightIn", icon: MapPin, page: "NightIn" },
+  { label: "Chat", icon: MessageCircle, page: "Chat" },
+  { label: "Verify", icon: Fingerprint, page: "VerifyStatus" },
+];
+
 function AppShell({ children }) {
   return (
-    <div className="min-h-screen bg-[#f7f1f4] px-2 py-2">
+    <div className="min-h-screen bg-[#f7f1f4] px-2 py-2 pb-24">
       <div className="mx-auto w-full max-w-[375px] overflow-hidden rounded-[16px] border border-[#ece6ea] bg-[#f7f4f6] shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
         {children}
       </div>
@@ -204,6 +219,49 @@ function StatusBadge({ item }) {
   );
 }
 
+function BottomNav() {
+  const location = useLocation();
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#ece6ea] bg-white/95 pb-2 pt-2 shadow-[0_-6px_18px_rgba(15,23,42,0.06)] backdrop-blur">
+      <div className="mx-auto grid w-full max-w-[390px] grid-cols-7 gap-1 px-2">
+        {navItems.map((item) => {
+          const href = createPageUrl(item.page);
+          const active =
+            location.pathname === href || (href === "/" && location.pathname === "/");
+          const Icon = item.icon;
+
+          return (
+            <Link
+              key={item.label}
+              to={href}
+              className={`flex min-h-[64px] flex-col items-center justify-center rounded-[16px] px-1 py-2 transition ${
+                active ? "bg-[#fdecef]" : "bg-transparent"
+              }`}
+            >
+              <Icon
+                className={`mb-1 h-5 w-5 ${
+                  active ? "text-[#ef4f75]" : "text-slate-400"
+                }`}
+                strokeWidth={2.1}
+              />
+              <span
+                className={`truncate text-[9px] leading-tight ${
+                  active
+                    ? "font-semibold text-[#ef4f75]"
+                    : "font-medium text-slate-400"
+                }`}
+              >
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function formatDate(dateString) {
   if (!dateString) return "";
   const date = new Date(dateString);
@@ -228,52 +286,52 @@ export default function Goals() {
 
   const [eventTitle, setEventTitle] = React.useState("");
   const [eventLocation, setEventLocation] = React.useState("");
-  
+
   React.useEffect(() => {
-  const loadGoals = async () => {
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const loadGoals = async () => {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-    if (userError || !user) {
-      console.error("LOAD AUTH ERROR:", userError);
-      return;
-    }
+      if (userError || !user) {
+        console.error("LOAD AUTH ERROR:", userError);
+        return;
+      }
 
-    const coupleId = user?.user_metadata?.couple_profile_id || null;
+      const coupleId = user?.user_metadata?.couple_profile_id || null;
 
-    let query = supabase
-      .from("couple_goals")
-      .select("*")
-      .order("created_at", { ascending: false });
+      let query = supabase
+        .from("couple_goals")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-    if (coupleId) {
-      query = query.eq("couple_profile_id", coupleId);
-    } else {
-      query = query.eq("owner_id", user.id);
-    }
+      if (coupleId) {
+        query = query.eq("couple_profile_id", coupleId);
+      } else {
+        query = query.eq("owner_id", user.id);
+      }
 
-    const { data, error } = await query;
+      const { data, error } = await query;
 
-    if (error) {
-      console.error("LOAD ERROR:", error);
-      return;
-    }
+      if (error) {
+        console.error("LOAD ERROR:", error);
+        return;
+      }
 
-    if (data) {
-      const mapped = data.map((item) => ({
-        ...item,
-        targetDate: item.target_date ?? item.targetDate ?? "",
-        invitationStatus: item.invitation_status ?? item.invitationStatus ?? "",
-      }));
+      if (data) {
+        const mapped = data.map((item) => ({
+          ...item,
+          targetDate: item.target_date ?? item.targetDate ?? "",
+          invitationStatus: item.invitation_status ?? item.invitationStatus ?? "",
+        }));
 
-      setItems(mapped);
-    }
-  };
+        setItems(mapped);
+      }
+    };
 
-  loadGoals();
-}, []);
+    loadGoals();
+  }, []);
 
   const filteredItems = React.useMemo(() => {
     if (statusFilter === "all") return items;
@@ -319,175 +377,175 @@ export default function Goals() {
   }, [items]);
 
   const handleAddGoal = async () => {
-  if (!goalTitle.trim()) {
-    alert("Enter a goal title first.");
-    return;
-  }
+    if (!goalTitle.trim()) {
+      alert("Enter a goal title first.");
+      return;
+    }
 
-  const {
-  data: { user },
-  error: userError,
-} = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-if (userError || !user) {
-  console.error("AUTH ERROR:", userError);
-  alert("Could not get logged in user.");
-  return;
-}
+    if (userError || !user) {
+      console.error("AUTH ERROR:", userError);
+      alert("Could not get logged in user.");
+      return;
+    }
 
-const coupleId = user?.user_metadata?.couple_profile_id || null;
-console.log("USER:", user);
-console.log("COUPLE ID:", coupleId);
+    const coupleId = user?.user_metadata?.couple_profile_id || null;
+    console.log("USER:", user);
+    console.log("COUPLE ID:", coupleId);
 
-const newGoal = {
-  id: crypto.randomUUID(),
-  owner_id: user.id,
-  couple_profile_id: coupleId,
-  title: goalTitle.trim(),
-  description: goalDescription.trim(),
-  target_date: goalDate || null,
-  status: "planned",
-  type: "goal",
-};
+    const newGoal = {
+      id: crypto.randomUUID(),
+      owner_id: user.id,
+      couple_profile_id: coupleId,
+      title: goalTitle.trim(),
+      description: goalDescription.trim(),
+      target_date: goalDate || null,
+      status: "planned",
+      type: "goal",
+    };
 
-const { data, error } = await supabase
-  .from("couple_goals")
-  .insert(newGoal)
-  .select()
-  .single();
+    const { data, error } = await supabase
+      .from("couple_goals")
+      .insert(newGoal)
+      .select()
+      .single();
 
-console.log("ADD GOAL RESULT:", { data, error });
+    console.log("ADD GOAL RESULT:", { data, error });
 
-if (error) {
-  console.error("ADD GOAL ERROR:", error);
-  alert(error.message || "Failed to save goal.");
-  return;
-}
+    if (error) {
+      console.error("ADD GOAL ERROR:", error);
+      alert(error.message || "Failed to save goal.");
+      return;
+    }
 
-setItems((prev) => [
-  {
-    ...data,
-    targetDate: data.target_date ?? "",
-    invitationStatus: data.invitation_status ?? "",
-  },
-  ...prev,
-]);
+    setItems((prev) => [
+      {
+        ...data,
+        targetDate: data.target_date ?? "",
+        invitationStatus: data.invitation_status ?? "",
+      },
+      ...prev,
+    ]);
 
-setGoalTitle("");
-setGoalDescription("");
-setGoalDate("");
-setShowGoalModal(false);
-};
-
-  const handleCreateInvitation = async () => {
-  if (!eventTitle.trim()) return;
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const coupleId = user?.user_metadata?.couple_profile_id;
-  if (!coupleId) return;
-
-  const newEvent = {
-    id: crypto.randomUUID(),
-    couple_profile_id: coupleId,
-    title: eventTitle.trim(),
-    description: eventLocation.trim()
-      ? `Location: ${eventLocation.trim()}`
-      : "Waiting for partner response",
-    status: "pending",
-    invitation_status: "pending",
-    type: "event",
-    invitedPartner: true,
+    setGoalTitle("");
+    setGoalDescription("");
+    setGoalDate("");
+    setShowGoalModal(false);
   };
 
-  const { data, error } = await supabase
-    .from("couple_goals")
-    .insert(newEvent)
-    .select()
-    .single();
+  const handleCreateInvitation = async () => {
+    if (!eventTitle.trim()) return;
 
-  if (error) {
-    console.error("CREATE EVENT ERROR:", error);
-    return;
-  }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  setItems((prev) => [
-    {
-      ...data,
-      targetDate: data.target_date ?? "",
-      invitationStatus: data.invitation_status ?? "",
-    },
-    ...prev,
-  ]);
+    const coupleId = user?.user_metadata?.couple_profile_id;
+    if (!coupleId) return;
 
-  setEventTitle("");
-  setEventLocation("");
-  setShowEventModal(false);
-};
+    const newEvent = {
+      id: crypto.randomUUID(),
+      couple_profile_id: coupleId,
+      title: eventTitle.trim(),
+      description: eventLocation.trim()
+        ? `Location: ${eventLocation.trim()}`
+        : "Waiting for partner response",
+      status: "pending",
+      invitation_status: "pending",
+      type: "event",
+      invitedPartner: true,
+    };
+
+    const { data, error } = await supabase
+      .from("couple_goals")
+      .insert(newEvent)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("CREATE EVENT ERROR:", error);
+      return;
+    }
+
+    setItems((prev) => [
+      {
+        ...data,
+        targetDate: data.target_date ?? "",
+        invitationStatus: data.invitation_status ?? "",
+      },
+      ...prev,
+    ]);
+
+    setEventTitle("");
+    setEventLocation("");
+    setShowEventModal(false);
+  };
 
   const acceptInvitation = async (id) => {
-  const { data, error } = await supabase
-    .from("couple_goals")
-    .update({
-      invitation_status: "accepted",
-      status: "in_progress",
-    })
-    .eq("id", id)
-    .select()
-    .single();
+    const { data, error } = await supabase
+      .from("couple_goals")
+      .update({
+        invitation_status: "accepted",
+        status: "in_progress",
+      })
+      .eq("id", id)
+      .select()
+      .single();
 
-  if (error) {
-    console.error("ACCEPT ERROR:", error);
-    return;
-  }
+    if (error) {
+      console.error("ACCEPT ERROR:", error);
+      return;
+    }
 
-  setItems((prev) =>
-    prev.map((item) =>
-      item.id === id
-        ? {
-            ...item,
-            ...data,
-            invitationStatus: "accepted",
-            status: "in_progress",
-          }
-        : item
-    )
-  );
-};
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              ...data,
+              invitationStatus: "accepted",
+              status: "in_progress",
+            }
+          : item
+      )
+    );
+  };
 
   const declineInvitation = async (id) => {
-  const { data, error } = await supabase
-    .from("couple_goals")
-    .update({
-      invitation_status: "declined",
-      status: "declined",
-      description: "Invitation declined",
-    })
-    .eq("id", id)
-    .select()
-    .single();
+    const { data, error } = await supabase
+      .from("couple_goals")
+      .update({
+        invitation_status: "declined",
+        status: "declined",
+        description: "Invitation declined",
+      })
+      .eq("id", id)
+      .select()
+      .single();
 
-  if (error) {
-    console.error("DECLINE ERROR:", error);
-    return;
-  }
+    if (error) {
+      console.error("DECLINE ERROR:", error);
+      return;
+    }
 
-  setItems((prev) =>
-    prev.map((item) =>
-      item.id === id
-        ? {
-            ...item,
-            ...data,
-            invitationStatus: "declined",
-            status: "declined",
-            description: "Invitation declined",
-          }
-        : item
-    )
-  );
-};
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              ...data,
+              invitationStatus: "declined",
+              status: "declined",
+              description: "Invitation declined",
+            }
+          : item
+      )
+    );
+  };
 
   return (
     <>
@@ -714,6 +772,8 @@ setShowGoalModal(false);
           <span>Create Invitation</span>
         </Button>
       </Modal>
+
+      <BottomNav />
     </>
   );
 }

@@ -17,7 +17,7 @@ export function createPageUrl(pageName) {
     RelationshipInsights: "/relationship-insights",
     Settings: "/settings",
     Terms: "/terms",
-    VerifyStatus: "/verify-status",
+    VerifyStatus: "/verifystatus",
   };
 
   return routes[pageName] || "/";

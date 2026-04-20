@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   ArrowLeft,
   Loader2,
@@ -10,6 +10,11 @@ import {
   Check,
   CheckCheck,
   Image as ImageIcon,
+  Home as HomeIcon,
+  Heart,
+  Target,
+  MapPin,
+  Fingerprint,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
@@ -26,6 +31,16 @@ const createPageUrl = (pageName) => {
   if (pageName === "Home") return "/";
   return `/${pageName.toLowerCase()}`;
 };
+
+const navItems = [
+  { label: "Home", icon: HomeIcon, page: "Home" },
+  { label: "Dating", icon: Heart, page: "Dating" },
+  { label: "Memories", icon: ImageIcon, page: "Memories" },
+  { label: "Goals", icon: Target, page: "Goals" },
+  { label: "NightIn", icon: MapPin, page: "NightIn" },
+  { label: "Chat", icon: MessageCircle, page: "Chat" },
+  { label: "Verify", icon: Fingerprint, page: "VerifyStatus" },
+];
 
 function AppShell({ children }) {
   return (
@@ -243,6 +258,49 @@ function ChatInputTray({
         </div>
       </div>
     </AppCard>
+  );
+}
+
+function BottomNav() {
+  const location = useLocation();
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#ece6ea] bg-white/95 pb-2 pt-2 shadow-[0_-6px_18px_rgba(15,23,42,0.06)] backdrop-blur">
+      <div className="mx-auto grid w-full max-w-[390px] grid-cols-7 gap-1 px-2">
+        {navItems.map((item) => {
+          const href = createPageUrl(item.page);
+          const active =
+            location.pathname === href || (href === "/" && location.pathname === "/");
+          const Icon = item.icon;
+
+          return (
+            <Link
+              key={item.label}
+              to={href}
+              className={`flex min-h-[64px] flex-col items-center justify-center rounded-[16px] px-1 py-2 transition ${
+                active ? "bg-[#fdecef]" : "bg-transparent"
+              }`}
+            >
+              <Icon
+                className={`mb-1 h-5 w-5 ${
+                  active ? "text-[#ef4f75]" : "text-slate-400"
+                }`}
+                strokeWidth={2.1}
+              />
+              <span
+                className={`truncate text-[9px] leading-tight ${
+                  active
+                    ? "font-semibold text-[#ef4f75]"
+                    : "font-medium text-slate-400"
+                }`}
+              >
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -650,91 +708,264 @@ export default function Chat() {
 
   if (isLoading) {
     return (
-      <AppShell>
-        <div className="flex min-h-[520px] items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-[#8ec5ff]" />
-        </div>
-      </AppShell>
+      <>
+        <AppShell>
+          <div className="flex min-h-[520px] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-[#8ec5ff]" />
+          </div>
+        </AppShell>
+        <BottomNav />
+      </>
     );
   }
 
   if (!user) {
     return (
-      <AppShell>
-        <div className="px-4 py-4">
-          <ChatTrayEmpty
-            title="Couldn’t load chat"
-            text="Please sign in and try again."
-          />
-        </div>
-      </AppShell>
+      <>
+        <AppShell>
+          <div className="px-4 py-4">
+            <ChatTrayEmpty
+              title="Couldn’t load chat"
+              text="Please sign in and try again."
+            />
+          </div>
+        </AppShell>
+        <BottomNav />
+      </>
     );
   }
 
   return (
-    <AppShell>
-      <AppHeader title="Chat" subtitle="Partner and group conversations" />
+    <>
+      <AppShell>
+        <AppHeader title="Chat" subtitle="Partner and group conversations" />
 
-      <div className="space-y-4 px-4 py-4">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`${activeTab}-${selectedGroup?.id || "main"}`}
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -18 }}
-            className="space-y-4"
-          >
-            {!selectedGroup ? (
-              <div className="flex items-center gap-2">
-                <TabButton
-                  active={activeTab === "partner"}
-                  onClick={() => setActiveTab("partner")}
-                >
-                  Partner
-                </TabButton>
-
-                <TabButton
-                  active={activeTab === "groups"}
-                  onClick={() => setActiveTab("groups")}
-                >
-                  Groups
-                </TabButton>
-
-                {activeTab === "groups" ? (
-                  <TabButton active={false} onClick={() => {}} iconOnly>
-                    <Plus className="h-5 w-5" />
+        <div className="space-y-4 px-4 py-4">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`${activeTab}-${selectedGroup?.id || "main"}`}
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -18 }}
+              className="space-y-4"
+            >
+              {!selectedGroup ? (
+                <div className="flex items-center gap-2">
+                  <TabButton
+                    active={activeTab === "partner"}
+                    onClick={() => setActiveTab("partner")}
+                  >
+                    Partner
                   </TabButton>
-                ) : null}
-              </div>
-            ) : null}
 
-            {!selectedGroup && activeTab === "partner" ? (
-              <>
-                <GradientInfoCard className="p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-gradient-to-br from-[#8ec5ff] to-[#a9bfff] text-white shadow-sm">
-                      <MessageCircle className="h-6 w-6" />
+                  <TabButton
+                    active={activeTab === "groups"}
+                    onClick={() => setActiveTab("groups")}
+                  >
+                    Groups
+                  </TabButton>
+
+                  {activeTab === "groups" ? (
+                    <TabButton active={false} onClick={() => {}} iconOnly>
+                      <Plus className="h-5 w-5" />
+                    </TabButton>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {!selectedGroup && activeTab === "partner" ? (
+                <>
+                  <GradientInfoCard className="p-5">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-gradient-to-br from-[#8ec5ff] to-[#a9bfff] text-white shadow-sm">
+                        <MessageCircle className="h-6 w-6" />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h2 className="text-lg font-semibold text-slate-800">
+                          Partner Chat
+                        </h2>
+                        <p className="mt-1 text-sm text-slate-500">
+                          Direct conversation with your partner.
+                        </p>
+                      </div>
+
+                      <AvatarCircle
+                        src={partner?.profile_photo}
+                        fallback={partner?.full_name?.[0] || null}
+                        className="h-12 w-12 border border-white shadow-sm"
+                      />
                     </div>
+                  </GradientInfoCard>
 
-                    <div className="flex-1 min-w-0">
-                      <h2 className="text-lg font-semibold text-slate-800">
-                        Partner Chat
-                      </h2>
-                      <p className="mt-1 text-sm text-slate-500">
-                        Direct conversation with your partner.
-                      </p>
+                  {user?.couple_profile_id && displayedMessages.length > 0 ? (
+                    <>
+                      <AppCard className="p-4">
+                        <div className="space-y-4">
+                          {displayedMessages.map((msg) => {
+                            const isMe = msg.sender_email === user.email;
+                            const createdDate = parseSafeDate(msg.created_date);
+
+                            return (
+                              <div
+                                key={msg.id}
+                                className={`flex ${isMe ? "justify-end" : "justify-start"}`}
+                              >
+                                <div className={`max-w-[78%] ${isMe ? "order-2" : "order-1"}`}>
+                                  <div
+                                    className={`rounded-[18px] px-4 py-3 ${
+                                      isMe
+                                        ? "bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black"
+                                        : "border border-slate-200 bg-white text-slate-800"
+                                    }`}
+                                  >
+                                    {msg.content?.startsWith("📷 ") ? (
+                                      <img
+                                        src={msg.content.substring(3)}
+                                        alt="Shared"
+                                        className="max-w-full rounded-[12px]"
+                                        style={{ maxHeight: "300px" }}
+                                      />
+                                    ) : msg.content?.startsWith("🎥 ") ? (
+                                      <video
+                                        src={msg.content.substring(3)}
+                                        controls
+                                        className="max-w-full rounded-[12px]"
+                                        style={{ maxHeight: "300px" }}
+                                      />
+                                    ) : (
+                                      <p className="text-sm leading-relaxed break-words">
+                                        {msg.content}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div
+                                    className={`mt-1 flex items-center gap-1 px-1 text-xs text-slate-400 ${
+                                      isMe ? "justify-end" : "justify-start"
+                                    }`}
+                                  >
+                                    {createdDate ? (
+                                      <span>{format(createdDate, "h:mm a")}</span>
+                                    ) : null}
+
+                                    {isMe ? (
+                                      msg.read ? (
+                                        <CheckCheck className="h-3 w-3 text-blue-500" />
+                                      ) : (
+                                        <Check className="h-3 w-3" />
+                                      )
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          <div ref={messagesEndRef} />
+                        </div>
+                      </AppCard>
+
+                      <ChatInputTray
+                        fileInputRef={fileInputRef}
+                        isUploading={isUploading}
+                        isSending={isSending}
+                        newMessage={newMessage}
+                        setNewMessage={setNewMessage}
+                        handleSend={handleSend}
+                        handleFileUpload={handleFileUpload}
+                        inputRef={inputRef}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <ChatTrayEmpty
+                        title={
+                          user?.couple_profile_id
+                            ? "No messages yet"
+                            : "Partner chat not linked"
+                        }
+                        text={
+                          user?.couple_profile_id
+                            ? "Start the conversation with your partner."
+                            : "This page is open to all users. You can still use group chat right now."
+                        }
+                      />
+
+                      <ChatInputTray
+                        fileInputRef={fileInputRef}
+                        isUploading={isUploading}
+                        isSending={isSending}
+                        newMessage={newMessage}
+                        setNewMessage={setNewMessage}
+                        handleSend={handleSend}
+                        handleFileUpload={handleFileUpload}
+                        inputRef={inputRef}
+                      />
+                    </>
+                  )}
+                </>
+              ) : null}
+
+              {!selectedGroup && activeTab === "groups" ? (
+                <>
+                  <GradientInfoCard className="p-5">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-sm">
+                        <Users className="h-6 w-6" />
+                      </div>
+
+                      <div className="flex-1">
+                        <h2 className="text-lg font-semibold text-slate-800">
+                          Your Groups
+                        </h2>
+                        <p className="mt-1 text-sm text-slate-500">
+                          All users can create and join group chats.
+                        </p>
+                      </div>
                     </div>
+                  </GradientInfoCard>
 
-                    <AvatarCircle
-                      src={partner?.profile_photo}
-                      fallback={partner?.full_name?.[0] || null}
-                      className="h-12 w-12 border border-white shadow-sm"
+                  {myGroups.length > 0 ? (
+                    <AppCard className="p-3">
+                      <GroupChatList groups={myGroups} onSelectGroup={setSelectedGroup} />
+                    </AppCard>
+                  ) : (
+                    <ChatTrayEmpty
+                      title="No groups yet"
+                      text="Create your first group and start chatting."
                     />
-                  </div>
-                </GradientInfoCard>
+                  )}
+                </>
+              ) : null}
 
-                {user?.couple_profile_id && displayedMessages.length > 0 ? (
-                  <>
+              {selectedGroup ? (
+                <>
+                  <GradientInfoCard className="p-5">
+                    <div className="flex items-start gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedGroup(null)}
+                        className="mt-0.5 rounded-[10px] p-1.5 transition hover:bg-white"
+                      >
+                        <ArrowLeft className="h-5 w-5 text-slate-700" />
+                      </button>
+
+                      <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-sm">
+                        <Users className="h-6 w-6" />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h2 className="truncate text-lg font-semibold text-slate-800">
+                          {selectedGroup.name}
+                        </h2>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {selectedGroup.memberCount || 0} members
+                        </p>
+                      </div>
+                    </div>
+                  </GradientInfoCard>
+
+                  {displayedMessages.length > 0 ? (
                     <AppCard className="p-4">
                       <div className="space-y-4">
                         {displayedMessages.map((msg) => {
@@ -747,6 +978,12 @@ export default function Chat() {
                               className={`flex ${isMe ? "justify-end" : "justify-start"}`}
                             >
                               <div className={`max-w-[78%] ${isMe ? "order-2" : "order-1"}`}>
+                                {!isMe ? (
+                                  <p className="mb-1 px-1 text-xs text-slate-500">
+                                    {msg.sender_name}
+                                  </p>
+                                ) : null}
+
                                 <div
                                   className={`rounded-[18px] px-4 py-3 ${
                                     isMe
@@ -783,14 +1020,6 @@ export default function Chat() {
                                   {createdDate ? (
                                     <span>{format(createdDate, "h:mm a")}</span>
                                   ) : null}
-
-                                  {isMe ? (
-                                    msg.read ? (
-                                      <CheckCheck className="h-3 w-3 text-blue-500" />
-                                    ) : (
-                                      <Check className="h-3 w-3" />
-                                    )
-                                  ) : null}
                                 </div>
                               </div>
                             </div>
@@ -799,192 +1028,31 @@ export default function Chat() {
                         <div ref={messagesEndRef} />
                       </div>
                     </AppCard>
-
-                    <ChatInputTray
-                      fileInputRef={fileInputRef}
-                      isUploading={isUploading}
-                      isSending={isSending}
-                      newMessage={newMessage}
-                      setNewMessage={setNewMessage}
-                      handleSend={handleSend}
-                      handleFileUpload={handleFileUpload}
-                      inputRef={inputRef}
-                    />
-                  </>
-                ) : (
-                  <>
+                  ) : (
                     <ChatTrayEmpty
-                      title={
-                        user?.couple_profile_id
-                          ? "No messages yet"
-                          : "Partner chat not linked"
-                      }
-                      text={
-                        user?.couple_profile_id
-                          ? "Start the conversation with your partner."
-                          : "This page is open to all users. You can still use group chat right now."
-                      }
+                      title="No group messages yet"
+                      text="Start the conversation in this group."
                     />
+                  )}
 
-                    <ChatInputTray
-                      fileInputRef={fileInputRef}
-                      isUploading={isUploading}
-                      isSending={isSending}
-                      newMessage={newMessage}
-                      setNewMessage={setNewMessage}
-                      handleSend={handleSend}
-                      handleFileUpload={handleFileUpload}
-                      inputRef={inputRef}
-                    />
-                  </>
-                )}
-              </>
-            ) : null}
-
-            {!selectedGroup && activeTab === "groups" ? (
-              <>
-                <GradientInfoCard className="p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-sm">
-                      <Users className="h-6 w-6" />
-                    </div>
-
-                    <div className="flex-1">
-                      <h2 className="text-lg font-semibold text-slate-800">
-                        Your Groups
-                      </h2>
-                      <p className="mt-1 text-sm text-slate-500">
-                        All users can create and join group chats.
-                      </p>
-                    </div>
-                  </div>
-                </GradientInfoCard>
-
-                {myGroups.length > 0 ? (
-                  <AppCard className="p-3">
-                    <GroupChatList groups={myGroups} onSelectGroup={setSelectedGroup} />
-                  </AppCard>
-                ) : (
-                  <ChatTrayEmpty
-                    title="No groups yet"
-                    text="Create your first group and start chatting."
+                  <ChatInputTray
+                    fileInputRef={fileInputRef}
+                    isUploading={isUploading}
+                    isSending={isSending}
+                    newMessage={newMessage}
+                    setNewMessage={setNewMessage}
+                    handleSend={handleSend}
+                    handleFileUpload={handleFileUpload}
+                    inputRef={inputRef}
                   />
-                )}
-              </>
-            ) : null}
+                </>
+              ) : null}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </AppShell>
 
-            {selectedGroup ? (
-              <>
-                <GradientInfoCard className="p-5">
-                  <div className="flex items-start gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedGroup(null)}
-                      className="mt-0.5 rounded-[10px] p-1.5 transition hover:bg-white"
-                    >
-                      <ArrowLeft className="h-5 w-5 text-slate-700" />
-                    </button>
-
-                    <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-sm">
-                      <Users className="h-6 w-6" />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <h2 className="truncate text-lg font-semibold text-slate-800">
-                        {selectedGroup.name}
-                      </h2>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {selectedGroup.memberCount || 0} members
-                      </p>
-                    </div>
-                  </div>
-                </GradientInfoCard>
-
-                {displayedMessages.length > 0 ? (
-                  <AppCard className="p-4">
-                    <div className="space-y-4">
-                      {displayedMessages.map((msg) => {
-                        const isMe = msg.sender_email === user.email;
-                        const createdDate = parseSafeDate(msg.created_date);
-
-                        return (
-                          <div
-                            key={msg.id}
-                            className={`flex ${isMe ? "justify-end" : "justify-start"}`}
-                          >
-                            <div className={`max-w-[78%] ${isMe ? "order-2" : "order-1"}`}>
-                              {!isMe ? (
-                                <p className="mb-1 px-1 text-xs text-slate-500">
-                                  {msg.sender_name}
-                                </p>
-                              ) : null}
-
-                              <div
-                                className={`rounded-[18px] px-4 py-3 ${
-                                  isMe
-                                    ? "bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black"
-                                    : "border border-slate-200 bg-white text-slate-800"
-                                }`}
-                              >
-                                {msg.content?.startsWith("📷 ") ? (
-                                  <img
-                                    src={msg.content.substring(3)}
-                                    alt="Shared"
-                                    className="max-w-full rounded-[12px]"
-                                    style={{ maxHeight: "300px" }}
-                                  />
-                                ) : msg.content?.startsWith("🎥 ") ? (
-                                  <video
-                                    src={msg.content.substring(3)}
-                                    controls
-                                    className="max-w-full rounded-[12px]"
-                                    style={{ maxHeight: "300px" }}
-                                  />
-                                ) : (
-                                  <p className="text-sm leading-relaxed break-words">
-                                    {msg.content}
-                                  </p>
-                                )}
-                              </div>
-
-                              <div
-                                className={`mt-1 flex items-center gap-1 px-1 text-xs text-slate-400 ${
-                                  isMe ? "justify-end" : "justify-start"
-                                }`}
-                              >
-                                {createdDate ? (
-                                  <span>{format(createdDate, "h:mm a")}</span>
-                                ) : null}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div ref={messagesEndRef} />
-                    </div>
-                  </AppCard>
-                ) : (
-                  <ChatTrayEmpty
-                    title="No group messages yet"
-                    text="Start the conversation in this group."
-                  />
-                )}
-
-                <ChatInputTray
-                  fileInputRef={fileInputRef}
-                  isUploading={isUploading}
-                  isSending={isSending}
-                  newMessage={newMessage}
-                  setNewMessage={setNewMessage}
-                  handleSend={handleSend}
-                  handleFileUpload={handleFileUpload}
-                  inputRef={inputRef}
-                />
-              </>
-            ) : null}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-    </AppShell>
+      <BottomNav />
+    </>
   );
 }

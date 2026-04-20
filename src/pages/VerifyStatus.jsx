@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   ArrowLeft,
   Key,
@@ -11,16 +11,27 @@ import {
   Loader2,
   Copy,
   History,
+  Home as HomeIcon,
+  Heart,
+  Image as ImageIcon,
+  Target,
+  MessageCircle,
+  Fingerprint,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { createPageUrl } from "@/utils";
 
-const createPageUrl = (pageName) => {
-  if (pageName === "Home") return "/";
-  return `/${pageName.toLowerCase()}`;
-};
+const navItems = [
+  { label: "Home", icon: HomeIcon, page: "Home" },
+  { label: "Dating", icon: Heart, page: "Dating" },
+  { label: "Memories", icon: ImageIcon, page: "Memories" },
+  { label: "Goals", icon: Target, page: "Goals" },
+  { label: "NightIn", icon: MapPin, page: "NightIn" },
+  { label: "Chat", icon: MessageCircle, page: "Chat" },
+  { label: "Verify", icon: Fingerprint, page: "VerifyStatus" },
+];
 
 const verifyApi = {
   auth: {
@@ -93,37 +104,30 @@ const verifyApi = {
 
 function AppShell({ children }) {
   return (
-    <div className="min-h-screen bg-[#f7f1f4] px-3 py-3">
-      <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-[18px] border border-[#ece6ea] bg-[#f7f4f6] shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+    <div className="min-h-screen bg-[#f7f1f4] px-2 py-2 pb-24">
+      <div className="mx-auto w-full max-w-[375px] overflow-hidden rounded-[16px] border border-[#ece6ea] bg-[#f7f4f6] shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
         {children}
       </div>
     </div>
   );
 }
 
-function AppHeader({ title, subtitle }) {
+function AppHeader({ title }) {
   return (
-    <div className="border-b border-slate-200 bg-[#f8f6f7] px-5 py-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Link to={createPageUrl("Home")}>
-            <button
-              type="button"
-              className="rounded-[10px] p-1.5 transition hover:bg-slate-100"
-            >
-              <ArrowLeft className="h-6 w-6 text-slate-700" />
-            </button>
-          </Link>
+    <div className="border-b border-slate-200 bg-[#f8f6f7] px-4 py-4">
+      <div className="flex items-center gap-3">
+        <Link to={createPageUrl("Home")}>
+          <button
+            type="button"
+            className="rounded-[10px] p-1.5 transition hover:bg-slate-100"
+          >
+            <ArrowLeft className="h-5 w-5 text-slate-700" />
+          </button>
+        </Link>
 
-          <div>
-            <h1 className="text-[1.9rem] font-semibold tracking-[-0.02em] text-slate-800">
-              {title}
-            </h1>
-            {subtitle ? (
-              <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
-            ) : null}
-          </div>
-        </div>
+        <h1 className="text-[1.6rem] font-semibold tracking-[-0.02em] text-slate-800">
+          Date Status
+        </h1>
       </div>
     </div>
   );
@@ -132,17 +136,7 @@ function AppHeader({ title, subtitle }) {
 function AppCard({ children, className = "" }) {
   return (
     <div
-      className={`overflow-hidden rounded-[14px] border border-slate-100 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.06)] ${className}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-function GradientInfoCard({ children, className = "" }) {
-  return (
-    <div
-      className={`rounded-[14px] border border-blue-100 bg-gradient-to-r from-[#eef6ff] via-[#f4f8ff] to-[#eaf3ff] shadow-[0_4px_12px_rgba(15,23,42,0.06)] ${className}`}
+      className={`overflow-hidden rounded-[12px] border border-slate-100 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.06)] ${className}`}
     >
       {children}
     </div>
@@ -156,7 +150,7 @@ function TabButton({ active, children, onClick, iconOnly = false }) {
       onClick={onClick}
       className={`${
         iconOnly ? "w-12" : "flex-1"
-      } flex h-11 items-center justify-center rounded-[12px] px-3 text-sm font-medium transition ${
+      } flex h-11 items-center justify-center rounded-[10px] px-3 text-xs font-medium transition ${
         active
           ? "bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)]"
           : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
@@ -169,13 +163,29 @@ function TabButton({ active, children, onClick, iconOnly = false }) {
 
 function EmptyState({ icon, title, text }) {
   return (
-    <AppCard className="px-6 py-10 text-center">
-      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-        {icon}
+    <AppCard className="px-4 py-8">
+      <div className="flex min-h-[190px] flex-col items-center justify-center text-center">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 shadow-[0_3px_10px_rgba(15,23,42,0.08)]">
+          {icon}
+        </div>
+
+        <h3 className="text-[1.5rem] font-semibold leading-none text-slate-700">
+          {title}
+        </h3>
+
+        <p className="mt-3 text-center text-sm text-slate-500">{text}</p>
       </div>
-      <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
-      <p className="mt-2 text-sm text-slate-500">{text}</p>
     </AppCard>
+  );
+}
+
+function GradientInfoCard({ children, className = "" }) {
+  return (
+    <div
+      className={`rounded-[12px] border border-blue-100 bg-gradient-to-r from-[#eef6ff] via-[#f4f8ff] to-[#eaf3ff] shadow-[0_4px_12px_rgba(15,23,42,0.06)] ${className}`}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -199,8 +209,50 @@ function AvatarCircle({ src, fallback, className = "" }) {
   );
 }
 
+function BottomNav() {
+  const location = useLocation();
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#ece6ea] bg-white/95 pb-2 pt-2 shadow-[0_-6px_18px_rgba(15,23,42,0.06)] backdrop-blur">
+      <div className="mx-auto grid w-full max-w-[390px] grid-cols-7 gap-1 px-2">
+        {navItems.map((item) => {
+          const href = createPageUrl(item.page);
+          const active =
+            location.pathname === href || (href === "/" && location.pathname === "/");
+          const Icon = item.icon;
+
+          return (
+            <Link
+              key={item.label}
+              to={href}
+              className={`flex min-h-[64px] flex-col items-center justify-center rounded-[16px] px-1 py-2 transition ${
+                active ? "bg-[#fdecef]" : "bg-transparent"
+              }`}
+            >
+              <Icon
+                className={`mb-1 h-5 w-5 ${
+                  active ? "text-[#ef4f75]" : "text-slate-400"
+                }`}
+                strokeWidth={2.1}
+              />
+              <span
+                className={`truncate text-[9px] leading-tight ${
+                  active
+                    ? "font-semibold text-[#ef4f75]"
+                    : "font-medium text-slate-400"
+                }`}
+              >
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function VerifyStatus() {
-  const [user, setUser] = React.useState(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [myCode, setMyCode] = React.useState(null);
   const [codeExpiry, setCodeExpiry] = React.useState(null);
@@ -221,8 +273,6 @@ export default function VerifyStatus() {
 
     try {
       const currentUser = await verifyApi.auth.me();
-      setUser(currentUser);
-
       const history = await verifyApi.verification.getHistory(currentUser.email);
       setVerificationHistory(history);
 
@@ -238,6 +288,9 @@ export default function VerifyStatus() {
           setMyCode(null);
           setCodeExpiry(null);
         }
+      } else {
+        setMyCode(null);
+        setCodeExpiry(null);
       }
     } catch (loadError) {
       console.error("Error loading verify status page:", loadError);
@@ -294,31 +347,25 @@ export default function VerifyStatus() {
 
   if (isLoading) {
     return (
-      <AppShell>
-        <div className="flex min-h-[520px] items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-[#8ec5ff]" />
-        </div>
-      </AppShell>
+      <>
+        <AppShell>
+          <div className="flex min-h-[520px] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-[#8ec5ff]" />
+          </div>
+        </AppShell>
+        <BottomNav />
+      </>
     );
   }
 
   return (
-    <AppShell>
-      <AppHeader
-        title="Date Status"
-        subtitle="Create a code or verify someone’s status"
-      />
+    <>
+      <AppShell>
+        <AppHeader title="Date Status" />
 
-      <div className="space-y-4 px-4 py-4">
-        <AnimatePresence mode="wait">
+        <div className="space-y-4 px-3 py-3">
           {!verificationResult ? (
-            <motion.div
-              key="verify"
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -18 }}
-              className="space-y-4"
-            >
+            <>
               <div className="flex gap-2">
                 <TabButton
                   active={view === "my-code"}
@@ -345,14 +392,14 @@ export default function VerifyStatus() {
 
               {view === "my-code" ? (
                 <>
-                  <GradientInfoCard className="p-5">
+                  <GradientInfoCard className="p-4">
                     <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-sm">
-                        <Key className="h-6 w-6" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-sm">
+                        <Key className="h-5 w-5" />
                       </div>
 
                       <div className="flex-1">
-                        <h2 className="text-lg font-semibold text-slate-800">
+                        <h2 className="text-base font-semibold text-slate-800">
                           Your Verification Code
                         </h2>
                         <p className="mt-1 text-sm text-slate-500">
@@ -397,13 +444,13 @@ export default function VerifyStatus() {
                   <Button
                     onClick={generateCode}
                     disabled={isGenerating}
-                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[12px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
+                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
                   >
                     {isGenerating ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <>
-                        <RefreshCw className="h-5 w-5" />
+                        <RefreshCw className="h-4 w-4" />
                         <span>{myCode ? "Generate New Code" : "Generate Code"}</span>
                       </>
                     )}
@@ -426,14 +473,14 @@ export default function VerifyStatus() {
                 </>
               ) : view === "verify-other" ? (
                 <>
-                  <GradientInfoCard className="p-5">
+                  <GradientInfoCard className="p-4">
                     <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-gradient-to-br from-[#8ec5ff] to-[#a9bfff] text-white shadow-sm">
-                        <CheckCircle className="h-6 w-6" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-gradient-to-br from-[#8ec5ff] to-[#a9bfff] text-white shadow-sm">
+                        <CheckCircle className="h-5 w-5" />
                       </div>
 
                       <div className="flex-1">
-                        <h2 className="text-lg font-semibold text-slate-800">
+                        <h2 className="text-base font-semibold text-slate-800">
                           Verify Status
                         </h2>
                         <p className="mt-1 text-sm text-slate-500">
@@ -443,21 +490,19 @@ export default function VerifyStatus() {
                     </div>
                   </GradientInfoCard>
 
-                  <AppCard className="p-5">
-                    <div className="mx-auto w-full max-w-[280px]">
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={6}
-                        value={inputCode}
-                        onChange={(e) => {
-                          setInputCode(e.target.value.replace(/\D/g, ""));
-                          setError("");
-                        }}
-                        placeholder="000000"
-                        className="mb-4 h-20 w-full rounded-[18px] border-2 border-slate-300 px-6 text-center font-mono text-[2rem] tracking-[0.35em] text-slate-800 placeholder:tracking-[0.35em] placeholder:text-[#bfd0e6] focus:border-[#8ec5ff] focus:ring-0"
-                      />
-                    </div>
+                  <AppCard className="p-4">
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={inputCode}
+                      onChange={(e) => {
+                        setInputCode(e.target.value.replace(/\D/g, ""));
+                        setError("");
+                      }}
+                      placeholder="000000"
+                      className="mb-4 h-16 w-full rounded-[12px] border border-slate-300 px-4 text-center font-mono text-[1.6rem] tracking-[0.30em] text-slate-800 placeholder:tracking-[0.30em] placeholder:text-[#bfd0e6] focus:border-[#8ec5ff] focus:ring-0"
+                    />
 
                     {error ? (
                       <p className="mb-4 text-center text-sm text-red-500">{error}</p>
@@ -466,13 +511,13 @@ export default function VerifyStatus() {
                     <Button
                       onClick={validateCode}
                       disabled={isValidating || inputCode.length !== 6}
-                      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[12px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
+                      className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
                     >
                       {isValidating ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <>
-                          <CheckCircle className="h-5 w-5" />
+                          <CheckCircle className="h-4 w-4" />
                           <span>Verify Status</span>
                         </>
                       )}
@@ -496,16 +541,16 @@ export default function VerifyStatus() {
                 </>
               ) : (
                 <div className="space-y-3">
-                  <h3 className="text-lg font-semibold text-slate-800">
+                  <div className="text-base font-semibold text-slate-800">
                     Verification History
-                  </h3>
+                  </div>
 
                   {verificationHistory.length > 0 ? (
                     verificationHistory.map((log) => (
                       <AppCard key={log.id} className="p-4">
                         <div className="flex items-start gap-3">
                           <AvatarCircle
-                            src={log.verified_user_name?.profile_photo}
+                            src={null}
                             fallback={log.verified_user_name?.[0] || "U"}
                             className="h-10 w-10"
                           />
@@ -543,14 +588,9 @@ export default function VerifyStatus() {
                   )}
                 </div>
               )}
-            </motion.div>
+            </>
           ) : (
-            <motion.div
-              key="result"
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="space-y-4"
-            >
+            <div className="space-y-4">
               <GradientInfoCard className="p-5 text-center">
                 <div
                   className={`mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full ${
@@ -670,21 +710,23 @@ export default function VerifyStatus() {
                     setInputCode("");
                     setError("");
                   }}
-                  className="h-11 flex-1 rounded-[12px] border-slate-200 bg-white text-slate-700 shadow-[0_4px_12px_rgba(15,23,42,0.06)] hover:bg-slate-50"
+                  className="h-10 flex-1 rounded-[10px] border-slate-200 bg-white text-slate-700 shadow-[0_4px_12px_rgba(15,23,42,0.06)] hover:bg-slate-50"
                 >
                   Verify Another
                 </Button>
 
                 <Link to={createPageUrl("Home")} className="flex-1">
-                  <Button className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[12px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]">
+                  <Button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]">
                     Done
                   </Button>
                 </Link>
               </div>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
-      </div>
-    </AppShell>
+        </div>
+      </AppShell>
+
+      <BottomNav />
+    </>
   );
 }

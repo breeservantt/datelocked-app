@@ -17,9 +17,13 @@ import {
   Video,
   Trash2,
   Play,
+  Home as HomeIcon,
+  Target,
+  MessageCircle,
+  Fingerprint,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { supabase } from "@/lib/supabase";
 import confetti from "canvas-confetti";
@@ -34,6 +38,16 @@ const categories = [
   { value: "milestone", label: "Milestone", icon: Star },
   { value: "restaurant", label: "Restaurant", icon: Utensils },
   { value: "other", label: "Other", icon: ImageIcon },
+];
+
+const navItems = [
+  { label: "Home", icon: HomeIcon, page: "Home" },
+  { label: "Dating", icon: Heart, page: "Dating" },
+  { label: "Memories", icon: ImageIcon, page: "Memories" },
+  { label: "Goals", icon: Target, page: "Goals" },
+  { label: "NightIn", icon: MapPin, page: "NightIn" },
+  { label: "Chat", icon: MessageCircle, page: "Chat" },
+  { label: "Verify", icon: Fingerprint, page: "VerifyStatus" },
 ];
 
 const emptyMemory = {
@@ -170,6 +184,49 @@ function VideoPreview({ src }) {
         </div>
       </div>
     </MediaFrame>
+  );
+}
+
+function BottomNav() {
+  const location = useLocation();
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#ece6ea] bg-white/95 pb-2 pt-2 shadow-[0_-6px_18px_rgba(15,23,42,0.06)] backdrop-blur">
+      <div className="mx-auto grid w-full max-w-[390px] grid-cols-7 gap-1 px-2">
+        {navItems.map((item) => {
+          const href = createPageUrl(item.page);
+          const active =
+            location.pathname === href || (href === "/" && location.pathname === "/");
+          const Icon = item.icon;
+
+          return (
+            <Link
+              key={item.label}
+              to={href}
+              className={`flex min-h-[64px] flex-col items-center justify-center rounded-[16px] px-1 py-2 transition ${
+                active ? "bg-[#fdecef]" : "bg-transparent"
+              }`}
+            >
+              <Icon
+                className={`mb-1 h-5 w-5 ${
+                  active ? "text-[#ef4f75]" : "text-slate-400"
+                }`}
+                strokeWidth={2.1}
+              />
+              <span
+                className={`truncate text-[9px] leading-tight ${
+                  active
+                    ? "font-semibold text-[#ef4f75]"
+                    : "font-medium text-slate-400"
+                }`}
+              >
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -519,63 +576,72 @@ export default function Memories() {
 
   if (userLoading || memoriesLoading) {
     return (
-      <AppShell>
-        <div className="flex min-h-[520px] items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-[#ff4d6d]" />
-        </div>
-      </AppShell>
+      <>
+        <AppShell>
+          <div className="flex min-h-[520px] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-[#ff4d6d]" />
+          </div>
+        </AppShell>
+        <BottomNav />
+      </>
     );
   }
 
   if (userError) {
     return (
-      <AppShell>
-        <div className="px-4 py-4">
-          <AppCard className="px-4 py-8 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-              <X className="h-8 w-8 text-red-500" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-800">
-              Something went wrong
-            </h3>
-            <p className="mt-2 text-sm text-slate-500">
-              Failed to load your profile.
-            </p>
-            <Button
-              onClick={() => refetchUser()}
-              className="mt-5 h-11 w-full rounded-[14px] bg-[#ff4d6d] text-white hover:bg-[#f03d5f]"
-            >
-              Try Again
-            </Button>
-          </AppCard>
-        </div>
-      </AppShell>
+      <>
+        <AppShell>
+          <div className="px-4 py-4">
+            <AppCard className="px-4 py-8 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+                <X className="h-8 w-8 text-red-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-800">
+                Something went wrong
+              </h3>
+              <p className="mt-2 text-sm text-slate-500">
+                Failed to load your profile.
+              </p>
+              <Button
+                onClick={() => refetchUser()}
+                className="mt-5 h-11 w-full rounded-[14px] bg-[#ff4d6d] text-white hover:bg-[#f03d5f]"
+              >
+                Try Again
+              </Button>
+            </AppCard>
+          </div>
+        </AppShell>
+        <BottomNav />
+      </>
     );
   }
 
   if (memoriesError) {
     return (
-      <AppShell>
-        <div className="px-4 py-4">
-          <AppCard className="px-4 py-8 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-              <X className="h-8 w-8 text-red-500" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-800">
-              Something went wrong
-            </h3>
-            <p className="mt-2 text-sm text-slate-500">
-              Failed to load memories.
-            </p>
-            <Button
-              onClick={() => refetchMemories()}
-              className="mt-5 h-11 w-full rounded-[14px] bg-[#ff4d6d] text-white hover:bg-[#f03d5f]"
-            >
-              Try Again
-            </Button>
-          </AppCard>
-        </div>
-      </AppShell>
+      <>
+        <AppShell>
+          <div className="px-4 py-4">
+            <AppCard className="px-4 py-8 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+                <X className="h-8 w-8 text-red-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-800">
+                Something went wrong
+              </h3>
+              <p className="mt-2 text-sm text-slate-500">
+                Failed to load memories.
+              </p>
+              <Button
+                onClick={() => refetchMemories()}
+                className="mt-5 h-11 w-full rounded-[14px] bg-[#ff4d6d] text-white hover:bg-[#f03d5f]"
+              >
+                Try Again
+              </Button>
+            </AppCard>
+          </div>
+        </AppShell>
+        <BottomNav />
+      </>
     );
   }
 
@@ -589,7 +655,7 @@ export default function Memories() {
         />
 
         <div className="space-y-4 px-4 py-4">
-          <AppCard className="px-3 py-4 min-h-[118px]">
+          <AppCard className="min-h-[118px] px-3 py-4">
             <div className="flex w-full gap-3 overflow-x-auto pb-2">
               <button
                 type="button"
@@ -777,7 +843,7 @@ export default function Memories() {
                 <img
                   src={photo}
                   alt=""
-                  className="w-full h-auto object-contain"
+                  className="h-auto w-full object-contain"
                   loading="lazy"
                 />
                 <button
@@ -878,7 +944,7 @@ export default function Memories() {
                     src={selectedMemory.photos[0]}
                     alt=""
                     loading="lazy"
-                    className="w-full h-auto object-contain"
+                    className="h-auto w-full object-contain"
                   />
                 </MediaFrame>
               </AppCard>
@@ -954,7 +1020,7 @@ export default function Memories() {
                       <img
                         src={photo}
                         alt=""
-                        className="w-full h-auto object-contain"
+                        className="h-auto w-full object-contain"
                         loading="lazy"
                       />
                     </div>
@@ -983,6 +1049,8 @@ export default function Memories() {
           </>
         ) : null}
       </Modal>
+
+      <BottomNav />
     </>
   );
 }

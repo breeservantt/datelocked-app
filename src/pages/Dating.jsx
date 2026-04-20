@@ -15,12 +15,29 @@ import {
   Play,
   MoreHorizontal,
   Flag,
+  Home as HomeIcon,
+  Target,
+  MessageCircle,
+  Fingerprint,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { Link, useLocation } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 
 const PUBLIC_MAX_H = "max-h-[1200px]";
 const MY_MAX_H = "max-h-[750px]";
+
+const navItems = [
+  { label: "Home", icon: HomeIcon, page: "Home" },
+  { label: "Dating", icon: Heart, page: "Dating" },
+  { label: "Memories", icon: ImageIcon, page: "Memories" },
+  { label: "Goals", icon: Target, page: "Goals" },
+  { label: "NightIn", icon: MapPin, page: "NightIn" },
+  { label: "Chat", icon: MessageCircle, page: "Chat" },
+  { label: "Verify", icon: Fingerprint, page: "VerifyStatus" },
+];
 
 const ROMANTIC_MESSAGES = [
   "Love grows strongest in the quiet moments when you choose each other again and again.",
@@ -48,7 +65,7 @@ function getNextFiveHourRefreshMs() {
   return Math.max(nextBoundary - now, 1000);
 }
 
-function MediaFrame({ children, maxHClass = PUBLIC_MAX_H }) {
+function MediaFrame({ children }) {
   return (
     <div className="relative w-full overflow-hidden bg-black">
       <div className="w-full">{children}</div>
@@ -57,9 +74,9 @@ function MediaFrame({ children, maxHClass = PUBLIC_MAX_H }) {
   );
 }
 
-function VideoPreview({ src, maxHClass = PUBLIC_MAX_H }) {
+function VideoPreview({ src }) {
   return (
-    <MediaFrame maxHClass={maxHClass}>
+    <MediaFrame>
       <div className="flex w-full items-center justify-center">
         <video
           src={src}
@@ -228,6 +245,47 @@ function FloatingUploadButton({ onClick, disabled = false }) {
         </div>
       </div>
     </button>
+  );
+}
+
+function BottomNav() {
+  const location = useLocation();
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#ece6ea] bg-white/95 pb-2 pt-2 shadow-[0_-6px_18px_rgba(15,23,42,0.06)] backdrop-blur">
+      <div className="mx-auto grid w-full max-w-[390px] grid-cols-7 gap-1 px-2">
+        {navItems.map((item) => {
+          const href = createPageUrl(item.page);
+          const active =
+            location.pathname === href || (href === "/" && location.pathname === "/");
+          const Icon = item.icon;
+
+          return (
+            <Link
+              key={item.label}
+              to={href}
+              className={`flex min-h-[64px] flex-col items-center justify-center rounded-[16px] px-1 py-2 transition ${
+                active ? "bg-[#fdecef]" : "bg-transparent"
+              }`}
+            >
+              <Icon
+                className={`mb-1 h-5 w-5 ${
+                  active ? "text-[#ef4f75]" : "text-slate-400"
+                }`}
+                strokeWidth={2.1}
+              />
+              <span
+                className={`truncate text-[9px] leading-tight ${
+                  active ? "font-semibold text-[#ef4f75]" : "font-medium text-slate-400"
+                }`}
+              >
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -464,299 +522,381 @@ export default function Dating() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f1f4] px-3 py-3">
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,video/*"
-        onChange={handleImmediateUpload}
-        className="hidden"
-      />
+    <>
+      <div className="min-h-screen bg-[#f3edf1] px-3 py-3 pb-[96px]">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*"
+          onChange={handleImmediateUpload}
+          className="hidden"
+        />
 
-      <div className="mx-auto w-full max-w-[430px] overflow-hidden rounded-[18px] border border-[#ece6ea] bg-[#f7f4f6] shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
-        <div className="border-b border-slate-200 bg-[#f8f6f7] px-5 py-5">
-          <h1 className="text-[1.9rem] font-semibold tracking-[-0.02em] text-slate-800">
-            Date-Locking
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Share your special moments safely
-          </p>
-        </div>
+        <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-[28px] border border-[#e8e2e7] bg-[#f7f3f6] shadow-[0_12px_40px_rgba(15,23,42,0.10)]">
+          <div className="bg-gradient-to-r from-[#5e9cff] via-[#2f6df0] to-[#6aa7ff] px-5 pb-8 pt-7">
+            <div className="min-w-0">
+              <p className="text-[14px] text-white/80">Welcome to</p>
+              <h1 className="truncate text-[22px] font-semibold text-white">Dating</h1>
+              <p className="mt-1 text-[12px] text-white/80">
+                Share your special moments safely
+              </p>
+            </div>
 
-        <div className="space-y-4 px-4 py-4">
-          <AnimatePresence>
-            {showAdvice && dailyAdvice && (
-              <motion.div
-                initial={{ opacity: 0, y: -16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -16 }}
-              >
-                <Card className="overflow-hidden rounded-[14px] border border-rose-100 bg-gradient-to-r from-pink-50 via-rose-50 to-red-50 shadow-[0_4px_12px_rgba(15,23,42,0.06)]">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-400 to-pink-500">
-                        <Sparkles className="h-4 w-4 text-white" />
-                      </div>
-
-                      <div className="flex-1">
-                        <p className="mb-1 text-xs font-semibold text-rose-600">
-                          💕 Relationship Insight
-                        </p>
-                        <p className="text-sm leading-relaxed text-slate-700">
-                          {dailyAdvice}
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setShowAdvice(false)}
-                        className="rounded-[10px] p-1 text-slate-400 transition hover:bg-white hover:text-slate-600"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <div className="space-y-4">
-            <button
-              type="button"
-              onClick={() => setShowMyContent((v) => !v)}
-              className="flex w-full items-center justify-between rounded-[14px] bg-white px-4 py-4 text-left shadow-[0_4px_12px_rgba(15,23,42,0.06)] transition hover:bg-slate-50"
-            >
-              <span className="text-lg font-semibold text-slate-800">My Content</span>
-              <span className="text-xl text-slate-500">{showMyContent ? "▼" : "▶"}</span>
-            </button>
-
-            {showMyContent && (
-              <div>
-                {myContentLoading ? (
-                  <div className="text-sm text-slate-500">Loading your content...</div>
-                ) : myContentState.length === 0 ? (
-                  <Card className="rounded-[14px] border border-slate-100 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.06)]">
-                    <CardContent className="p-6 text-center text-slate-500">
-                      No content yet.
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="grid grid-cols-1 gap-4">
-                    {myContentState.map((content) => (
-                      <Card
-                        key={content.id}
-                        className="overflow-hidden rounded-[14px] border border-slate-100 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.06)]"
-                      >
-                        <CardContent className="p-0">
-                          <div className="relative">
-                            {content.content_type === "VIDEO" ? (
-                              <button
-                                type="button"
-                                onClick={() => setActiveVideo(content.content_url)}
-                                className="block w-full"
-                              >
-                                <VideoPreview src={content.content_url} maxHClass={MY_MAX_H} />
-                              </button>
-                            ) : (
-                              <MediaFrame maxHClass={MY_MAX_H}>
-                                <img
-                                  src={content.content_url}
-                                  alt=""
-                                  loading="lazy"
-                                  className="w-full h-auto cursor-pointer object-contain"
-                                  onClick={() => setZoomedImage(content.content_url)}
-                                />
-                              </MediaFrame>
-                            )}
-                          </div>
-
-                          <div className="space-y-3 p-4">
-                            <div className="flex items-center justify-between">
-                              <Badge
-                                variant={
-                                  content.visibility === "PUBLIC_WALL"
-                                    ? "default"
-                                    : "secondary"
-                                }
-                              >
-                                {content.visibility === "PUBLIC_WALL" ? "Public" : "Private"}
-                              </Badge>
-
-                              <div className="flex items-center gap-1 text-xs text-slate-500">
-                                <Eye className="h-3 w-3" />
-                                {content.view_count || 0}
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(content.id)}
-                              className="flex h-10 w-full items-center justify-center rounded-[12px] border border-red-200 bg-white text-red-600 transition hover:bg-red-50 hover:text-red-700"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+            <div className="mt-4 rounded-[18px] bg-white/95 px-3 py-3 shadow-[0_8px_18px_rgba(15,23,42,0.10)] backdrop-blur-sm">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-rose-100">
+                    <Heart className="h-6 w-6 text-rose-500" />
                   </div>
-                )}
+
+                  <div>
+                    <p className="text-[15px] font-semibold text-slate-800">
+                      Dating Hub
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      Explore connection and shared moments
+                    </p>
+                  </div>
+                </div>
+
+                <ChevronRight className="h-5 w-5 text-slate-400" />
               </div>
-            )}
+            </div>
           </div>
 
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-slate-800">Public Wall</h2>
-
-            {publicLoading ? (
-              <div className="text-sm text-slate-500">Loading public content...</div>
-            ) : publicContentState.length === 0 ? (
-              <Card className="rounded-[14px] border border-slate-100 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.06)]">
-                <CardContent className="p-12 text-center text-slate-500">
-                  No public content yet. Be the first to share!
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 gap-4">
-                {publicContentState.map((content) => (
-                  <Card
-                    key={content.id}
-                    className="overflow-hidden rounded-[14px] border border-slate-100 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.06)]"
-                  >
-                    <CardContent className="p-0">
-                      <div className="relative">
-                        {content.content_type === "VIDEO" ? (
-                          <button
-                            type="button"
-                            onClick={() => setActiveVideo(content.content_url)}
-                            className="block w-full"
-                          >
-                            <VideoPreview src={content.content_url} maxHClass={PUBLIC_MAX_H} />
-                          </button>
-                        ) : (
-                          <MediaFrame maxHClass={PUBLIC_MAX_H}>
-                            <img
-                              src={content.content_url}
-                              alt=""
-                              loading="lazy"
-                              className="h-full w-full cursor-pointer object-cover"
-                              onClick={() => setZoomedImage(content.content_url)}
-                            />
-                          </MediaFrame>
-                        )}
-
-                        {content.owner_email !== user.email ? (
-                          <div
-                            className="absolute right-5 top-5 z-20"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setOpenMenuId((prev) =>
-                                  prev === content.id ? null : content.id
-                                )
-                              }
-                              className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/92 shadow-sm backdrop-blur"
-                              aria-label="Open post options"
-                            >
-                              <MoreHorizontal className="h-5 w-5 text-slate-700" />
-                            </button>
-
-                            {openMenuId === content.id && (
-                              <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-[12px] border border-slate-200 bg-white shadow-lg">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleQuickReport(content);
-                                    setOpenMenuId(null);
-                                  }}
-                                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50"
-                                >
-                                  <Flag className="h-4 w-4 text-rose-500" />
-                                  Report Content
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div
-                            className="absolute right-5 top-5 z-20"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(content.id)}
-                              className="flex h-10 w-10 items-center justify-center rounded-full border border-red-200 bg-white/92 shadow-sm backdrop-blur"
-                              aria-label="Delete post"
-                            >
-                              <Trash2 className="h-5 w-5 text-red-600" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-3 p-4">
-                        {content.caption ? (
-                          <p className="text-sm text-slate-700">{content.caption}</p>
-                        ) : null}
-
-                        {content.location ? (
-                          <div className="flex items-center gap-1 text-xs text-slate-500">
-                            <MapPin className="h-3 w-3" />
-                            {content.location}
-                          </div>
-                        ) : null}
-
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-slate-700">
-                            {content.owner_email.split("@")[0]}
-                          </span>
-
-                          <Badge variant="outline" className="flex items-center gap-1">
-                            <Eye className="h-3 w-3" />
-                            {content.view_count || 0}
-                          </Badge>
+          <div className="-mt-4 space-y-4 px-4 pt-4 pb-6">
+            <AnimatePresence>
+              {showAdvice && dailyAdvice && (
+                <motion.div
+                  initial={{ opacity: 0, y: -16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -16 }}
+                >
+                  <Card className="overflow-hidden rounded-[20px] border border-rose-100 bg-gradient-to-r from-pink-50 via-rose-50 to-red-50 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-400 to-pink-500">
+                          <Sparkles className="h-4 w-4 text-white" />
                         </div>
 
-                        {content.owner_email !== user.email ? (
-                          <div className="border-t border-slate-100 pt-2">
-                            <button
-                              type="button"
-                              onClick={() => handleReaction(content.id, "heart")}
-                              className={`flex items-center gap-1.5 rounded-full px-3 py-2 transition-all ${
-                                hasUserHearted(content.id)
-                                  ? "bg-rose-100 text-rose-600"
-                                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                              }`}
-                            >
-                              <Heart
-                                className={`h-4 w-4 ${
-                                  hasUserHearted(content.id) ? "fill-rose-600" : ""
-                                }`}
-                              />
-                              <span className="text-sm font-medium">
-                                {getHeartCount(content.id)}
-                              </span>
-                            </button>
-                          </div>
-                        ) : null}
+                        <div className="flex-1">
+                          <p className="mb-1 text-xs font-semibold text-rose-600">
+                            💕 Relationship Insight
+                          </p>
+                          <p className="text-sm leading-relaxed text-slate-700">
+                            {dailyAdvice}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowAdvice(false)}
+                          className="rounded-[10px] p-1 text-slate-400 transition hover:bg-white hover:text-slate-600"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
                       </div>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={() => setShowMyContent((v) => !v)}
+                className="flex w-full items-center justify-between rounded-[20px] bg-white px-4 py-4 text-left shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:bg-slate-50"
+              >
+                <span className="text-lg font-semibold text-slate-800">My Content</span>
+                <span className="text-xl text-slate-500">{showMyContent ? "▼" : "▶"}</span>
+              </button>
+
+              {showMyContent && (
+                <div>
+                  {myContentLoading ? (
+                    <div className="text-sm text-slate-500">Loading your content...</div>
+                  ) : myContentState.length === 0 ? (
+                    <Card className="rounded-[20px] border border-slate-100 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                      <CardContent className="p-6 text-center text-slate-500">
+                        No content yet.
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4">
+                      {myContentState.map((content) => (
+                        <Card
+                          key={content.id}
+                          className="overflow-hidden rounded-[20px] border border-slate-100 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
+                        >
+                          <CardContent className="p-0">
+                            <div className="relative">
+                              {content.content_type === "VIDEO" ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveVideo(content.content_url)}
+                                  className="block w-full"
+                                >
+                                  <VideoPreview src={content.content_url} />
+                                </button>
+                              ) : (
+                                <MediaFrame>
+                                  <img
+                                    src={content.content_url}
+                                    alt=""
+                                    loading="lazy"
+                                    className="h-auto w-full cursor-pointer object-contain"
+                                    onClick={() => setZoomedImage(content.content_url)}
+                                  />
+                                </MediaFrame>
+                              )}
+                            </div>
+
+                            <div className="space-y-3 p-4">
+                              <div className="flex items-center justify-between">
+                                <Badge
+                                  variant={
+                                    content.visibility === "PUBLIC_WALL"
+                                      ? "default"
+                                      : "secondary"
+                                  }
+                                >
+                                  {content.visibility === "PUBLIC_WALL" ? "Public" : "Private"}
+                                </Badge>
+
+                                <div className="flex items-center gap-1 text-xs text-slate-500">
+                                  <Eye className="h-3 w-3" />
+                                  {content.view_count || 0}
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(content.id)}
+                                className="flex h-10 w-full items-center justify-center rounded-[12px] border border-red-200 bg-white text-red-600 transition hover:bg-red-50 hover:text-red-700"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold text-slate-800">Public Wall</h2>
+
+              {publicLoading ? (
+                <div className="text-sm text-slate-500">Loading public content...</div>
+              ) : publicContentState.length === 0 ? (
+                <Card className="rounded-[20px] border border-slate-100 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                  <CardContent className="p-12 text-center text-slate-500">
+                    No public content yet. Be the first to share!
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 gap-4">
+                  {publicContentState.map((content) => (
+                    <Card
+                      key={content.id}
+                      className="overflow-hidden rounded-[20px] border border-slate-100 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
+                    >
+                      <CardContent className="p-0">
+                        <div className="relative">
+                          {content.content_type === "VIDEO" ? (
+                            <button
+                              type="button"
+                              onClick={() => setActiveVideo(content.content_url)}
+                              className="block w-full"
+                            >
+                              <VideoPreview src={content.content_url} />
+                            </button>
+                          ) : (
+                            <MediaFrame>
+                              <img
+                                src={content.content_url}
+                                alt=""
+                                loading="lazy"
+                                className="h-full w-full cursor-pointer object-cover"
+                                onClick={() => setZoomedImage(content.content_url)}
+                              />
+                            </MediaFrame>
+                          )}
+
+                          {content.owner_email !== user.email ? (
+                            <div
+                              className="absolute right-5 top-5 z-20"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setOpenMenuId((prev) =>
+                                    prev === content.id ? null : content.id
+                                  )
+                                }
+                                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/92 shadow-sm backdrop-blur"
+                                aria-label="Open post options"
+                              >
+                                <MoreHorizontal className="h-5 w-5 text-slate-700" />
+                              </button>
+
+                              {openMenuId === content.id && (
+                                <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-[12px] border border-slate-200 bg-white shadow-lg">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleQuickReport(content);
+                                      setOpenMenuId(null);
+                                    }}
+                                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                  >
+                                    <Flag className="h-4 w-4 text-rose-500" />
+                                    Report Content
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div
+                              className="absolute right-5 top-5 z-20"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(content.id)}
+                                className="flex h-10 w-10 items-center justify-center rounded-full border border-red-200 bg-white/92 shadow-sm backdrop-blur"
+                                aria-label="Delete post"
+                              >
+                                <Trash2 className="h-5 w-5 text-red-600" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-3 p-4">
+                          {content.caption ? (
+                            <p className="text-sm text-slate-700">{content.caption}</p>
+                          ) : null}
+
+                          {content.location ? (
+                            <div className="flex items-center gap-1 text-xs text-slate-500">
+                              <MapPin className="h-3 w-3" />
+                              {content.location}
+                            </div>
+                          ) : null}
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-slate-700">
+                              {content.owner_email.split("@")[0]}
+                            </span>
+
+                            <Badge variant="outline" className="flex items-center gap-1">
+                              <Eye className="h-3 w-3" />
+                              {content.view_count || 0}
+                            </Badge>
+                          </div>
+
+                          {content.owner_email !== user.email ? (
+                            <div className="border-t border-slate-100 pt-2">
+                              <button
+                                type="button"
+                                onClick={() => handleReaction(content.id, "heart")}
+                                className={`flex items-center gap-1.5 rounded-full px-3 py-2 transition-all ${
+                                  hasUserHearted(content.id)
+                                    ? "bg-rose-100 text-rose-600"
+                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                }`}
+                              >
+                                <Heart
+                                  className={`h-4 w-4 ${
+                                    hasUserHearted(content.id) ? "fill-rose-600" : ""
+                                  }`}
+                                />
+                                <span className="text-sm font-medium">
+                                  {getHeartCount(content.id)}
+                                </span>
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
+
+        <FloatingUploadButton
+          onClick={handleFloatingUploadClick}
+          disabled={isUploading}
+        />
+
+        <AnimatePresence>
+          {zoomedImage && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4"
+              onClick={() => setZoomedImage(null)}
+            >
+              <button
+                type="button"
+                onClick={() => setZoomedImage(null)}
+                className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              <img
+                src={zoomedImage}
+                alt=""
+                className="max-h-[90vh] max-w-full rounded-[18px] object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {activeVideo && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4"
+              onClick={() => setActiveVideo(null)}
+            >
+              <button
+                type="button"
+                onClick={() => setActiveVideo(null)}
+                className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              <video
+                src={activeVideo}
+                controls
+                autoPlay
+                playsInline
+                className="max-h-[90vh] max-w-full rounded-[18px] object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      <FloatingUploadButton
-        onClick={handleFloatingUploadClick}
-        disabled={isUploading}
-      />
-    </div>
+      <BottomNav />
+    </>
   );
 }

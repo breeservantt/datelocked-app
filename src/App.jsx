@@ -40,7 +40,13 @@ function NotFound() {
 function AppRoutes() {
   const location = useLocation();
 
-  const noLayoutRoutes = ["/login", "/goals", "/memories"];
+  const noLayoutRoutes = [
+    "/login",
+    "/goals",
+    "/memories",
+    "/verifystatus",
+  ];
+
   const shouldUseLayout = !noLayoutRoutes.includes(location.pathname);
 
   const routes = (
@@ -63,7 +69,7 @@ function AppRoutes() {
         <Route path="/relationship-insights" element={<RelationshipInsights />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/terms" element={<Terms />} />
-        <Route path="/verify-status" element={<VerifyStatus />} />
+        <Route path="/verifystatus" element={<VerifyStatus />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>

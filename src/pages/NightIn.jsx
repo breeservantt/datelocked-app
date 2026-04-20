@@ -1218,66 +1218,76 @@ function LoveIslandGame({ payload, currentUserId, setPayload }) {
 function DateFitGame({ payload, currentUserId, setPayload }) {
   const myId = String(currentUserId);
 
-  const programName = payload?.program || 'Balanced';
+  const DAYS = [
+    {
+      day: 1,
+      title: 'Day 1 — Warm Start',
+      minutes: 8,
+      intensity: 'Easy',
+      task: '2 rounds: 10 squats, 10 arm circles, 20s plank.',
+    },
+    {
+      day: 2,
+      title: 'Day 2 — Strength Base',
+      minutes: 12,
+      intensity: 'Medium',
+      task: '3 rounds: 10 squats, 10 pushups, 20s plank.',
+    },
+    {
+      day: 3,
+      title: 'Day 3 — Light Cardio',
+      minutes: 10,
+      intensity: 'Easy',
+      task: '8 minutes march in place + 2 minutes step touches.',
+    },
+    {
+      day: 4,
+      title: 'Day 4 — Upper Focus',
+      minutes: 12,
+      intensity: 'Medium',
+      task: '3 rounds: 8 pushups, 12 chair dips, 20s wall sit.',
+    },
+    {
+      day: 5,
+      title: 'Day 5 — Cardio Push',
+      minutes: 8,
+      intensity: 'Medium',
+      task: '6 rounds: 20s jumping jacks, 40s rest.',
+    },
+    {
+      day: 6,
+      title: 'Day 6 — Leg Day',
+      minutes: 12,
+      intensity: 'Medium',
+      task: '3 rounds: 12 squats, 12 lunges each side, 20 calf raises.',
+    },
+    {
+      day: 7,
+      title: 'Day 7 — Bond Day',
+      minutes: 6,
+      intensity: 'Easy',
+      task: 'Write one line: “I’m building with you because…” and reflect together.',
+    },
+  ];
+
   const weekDay = Math.min(Math.max(Number(payload?.weekDay || 1), 1), 7);
-  const program = DATE_FIT_PROGRAMS[programName] || DATE_FIT_PROGRAMS.Balanced;
-  const todayPlan = program[weekDay - 1] || program[0];
-
-  const pack = payload?.pack || todayPlan.pack;
-  const idx = Number(payload?.index ?? todayPlan.workoutIndex);
-
-  const workouts = DATE_FIT_PACKS[pack] || DATE_FIT_PACKS.WarmUp;
-  const workout = workouts[idx % workouts.length];
-
-  const done = payload?.done || {};
-  const statusMap = payload?.status || {};
-  const myStatus = statusMap?.[myId] || null;
-  const myDone = !!done?.[myId];
+  const todayPlan = DAYS[weekDay - 1] || DAYS[0];
 
   const score = payload?.score || {};
   const streak = payload?.streak || {};
+  const statusMap = payload?.status || {};
+  const lastDayCompleted = payload?.lastDayCompleted || {};
+
   const myScore = Number(score?.[myId] || 0);
   const myStreak = Number(streak?.[myId] || 0);
-  const canGoNextDay = myStatus === 'DONE' || myStatus === 'REST';
+  const myStatus = statusMap?.[myId] || null;
 
-  const statusLabel = (s) => (s === 'DONE' ? 'Done' : s === 'REST' ? 'Rest' : '—');
-
-  const setProgram = (name) => {
-    const selectedProgram = DATE_FIT_PROGRAMS[name] || DATE_FIT_PROGRAMS.Balanced;
-    const first = selectedProgram[0];
-
-    setPayload((p) => ({
-      ...p,
-      program: name,
-      weekDay: 1,
-      done: {},
-      status: {},
-      pack: first?.pack || 'WarmUp',
-      index: first?.workoutIndex ?? 0,
-    }));
-  };
-
-  const setDay = (day) => {
-    const d = Math.min(Math.max(Number(day || 1), 1), 7);
-    const plan = program[d - 1] || program[0];
-
-    setPayload((p) => ({
-      ...p,
-      weekDay: d,
-      done: {},
-      status: {},
-      pack: plan.pack,
-      index: plan.workoutIndex,
-    }));
-  };
+  const canContinue = myStatus === 'DONE' || myStatus === 'SKIPPED';
 
   const markDone = () => {
-    if (myStatus === 'REST') return;
+    if (myStatus) return;
 
     setPayload((p) => {
-      const nextDone = { ...(p.done || {}) };
-      nextDone[myId] = true;
-
       const nextStatus = { ...(p.status || {}) };
       nextStatus[myId] = 'DONE';
 
@@ -1286,21 +1296,21 @@ function DateFitGame({ payload, currentUserId, setPayload }) {
 
       const nextStreak = { ...(p.streak || {}) };
       const nextLast = { ...(p.lastDayCompleted || {}) };
-      const lastDay = Number(nextLast[myId] || 0);
+      const currentDay = Number(p.weekDay || 1);
+      const previousDay = Number(nextLast[myId] || 0);
 
       let s = Number(nextStreak[myId] || 0);
-      if (lastDay === (p.weekDay || weekDay) - 1 || (lastDay === 7 && (p.weekDay || weekDay) === 1)) {
+      if (previousDay === currentDay - 1 || (previousDay === 7 && currentDay === 1)) {
         s += 1;
       } else {
         s = 1;
       }
 
       nextStreak[myId] = Math.min(7, s);
-      nextLast[myId] = p.weekDay || weekDay;
+      nextLast[myId] = currentDay;
 
       return {
         ...p,
-        done: nextDone,
         status: nextStatus,
         score: nextScore,
         streak: nextStreak,
@@ -1309,53 +1319,41 @@ function DateFitGame({ payload, currentUserId, setPayload }) {
     });
   };
 
-  const markRest = () => {
-    if (myDone) return;
+  const markSkip = () => {
+    if (myStatus) return;
 
     setPayload((p) => {
       const nextStatus = { ...(p.status || {}) };
-      nextStatus[myId] = 'REST';
+      nextStatus[myId] = 'SKIPPED';
 
-      const nextScore = { ...(p.score || {}) };
-      nextScore[myId] = Number(nextScore[myId] || 0) + 3;
+      const nextStreak = { ...(p.streak || {}) };
+      nextStreak[myId] = 0;
 
       return {
         ...p,
         status: nextStatus,
-        score: nextScore,
-      };
-    });
-  };
-
-  const undoMyChoice = () => {
-    setPayload((p) => {
-      const nextDone = { ...(p.done || {}) };
-      delete nextDone[myId];
-
-      const nextStatus = { ...(p.status || {}) };
-      delete nextStatus[myId];
-
-      return {
-        ...p,
-        done: nextDone,
-        status: nextStatus,
+        streak: nextStreak,
       };
     });
   };
 
   const nextDay = () => {
-    if (!canGoNextDay) return;
-    const next = weekDay >= 7 ? 1 : weekDay + 1;
-    setDay(next);
-  };
+    if (!canContinue) return;
 
-  const pickWorkoutFromProgram = () => {
+    const next = weekDay >= 7 ? 1 : weekDay + 1;
+
     setPayload((p) => ({
       ...p,
-      pack: todayPlan.pack,
-      index: todayPlan.workoutIndex,
+      weekDay: next,
+      status: {
+        ...(p.status || {}),
+        [myId]: null,
+      },
     }));
   };
+
+  const statusLabel =
+    myStatus === 'DONE' ? 'Done' : myStatus === 'SKIPPED' ? 'Skipped' : 'Pending';
 
   return (
     <div className="space-y-4">
@@ -1365,10 +1363,13 @@ function DateFitGame({ payload, currentUserId, setPayload }) {
             <div className="flex h-[50px] w-[50px] items-center justify-center rounded-[18px] bg-[#eefcf3]">
               <Dumbbell className="h-6 w-6 text-[#22c55e]" strokeWidth={2.1} />
             </div>
+
             <div>
-              <p className="text-[15px] font-semibold leading-none text-[#172033]">Date-Fit</p>
+              <p className="text-[15px] font-semibold leading-none text-[#172033]">
+                Date-Fit
+              </p>
               <p className="mt-2 text-[12px] font-medium leading-none text-[#64748b]">
-                Clean solo mode, no coupleId gate
+                One day, one task, one choice
               </p>
             </div>
           </div>
@@ -1385,139 +1386,91 @@ function DateFitGame({ payload, currentUserId, setPayload }) {
               <Flame className="h-3.5 w-3.5 text-rose-500" />
               Your streak
             </div>
-            <div className="mt-2 text-[18px] font-bold text-slate-900">{myStreak}/7</div>
+            <div className="mt-2 text-[18px] font-bold text-slate-900">
+              {myStreak}/7
+            </div>
           </div>
 
           <div className="rounded-[18px] bg-white px-3 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
             <div className="flex items-center gap-1 text-[11px] text-slate-500">
               <CalendarDays className="h-3.5 w-3.5 text-blue-500" />
-              Day status
+              Status
             </div>
-            <div className="mt-2 text-[18px] font-bold text-slate-900">{statusLabel(myStatus)}</div>
+            <div className="mt-2 text-[18px] font-bold text-slate-900">
+              {statusLabel}
+            </div>
           </div>
         </div>
       </div>
 
       <div className="rounded-[20px] bg-[#f8fafc] p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-[14px] font-semibold text-slate-900">Weekly Program</p>
-          <Badge className="bg-[#eaf1ff] text-[#3b82f6]">{programName}</Badge>
-        </div>
-
-        <select
-          value={programName}
-          onChange={(e) => setProgram(e.target.value)}
-          className="h-[42px] w-full rounded-[14px] border border-slate-200 bg-white px-3 text-[13px] text-slate-700 outline-none"
-        >
-          {Object.keys(DATE_FIT_PROGRAMS).map((k) => (
-            <option key={k} value={k}>
-              {k}
-            </option>
-          ))}
-        </select>
-
-        <div className="mt-3 grid grid-cols-7 gap-1">
-          {Array.from({ length: 7 }, (_, i) => i + 1).map((d) => {
-            const active = d === weekDay;
-
-            return (
-              <button
-                key={d}
-                type="button"
-                onClick={() => setDay(d)}
-                className={`h-9 rounded-[12px] border text-[12px] font-semibold transition ${
-                  active ? 'border-rose-500 bg-rose-500 text-white' : 'bg-white text-slate-700'
-                }`}
-              >
-                {d}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="mt-3 rounded-[18px] bg-white p-4">
+        <div className="rounded-[18px] bg-white p-4">
           <div className="text-[11px] text-slate-500">Today (Day {weekDay})</div>
-          <div className="mt-1 text-[14px] font-semibold text-slate-900">{todayPlan.title}</div>
+          <div className="mt-1 text-[14px] font-semibold text-slate-900">
+            {todayPlan.title}
+          </div>
           <div className="mt-2 text-[12px] text-slate-600">
             {todayPlan.minutes} min • {todayPlan.intensity}
           </div>
-          <div className="mt-2 text-[12px] text-slate-500">{todayPlan.notes}</div>
-
-          <Button
-            type="button"
-            onClick={pickWorkoutFromProgram}
-            className="mt-3 h-[40px] rounded-[14px] bg-white text-rose-500 shadow-[0_6px_14px_rgba(15,23,42,0.08)] hover:bg-slate-50"
-          >
-            Use today’s plan
-          </Button>
+          <div className="mt-3 text-[12px] text-slate-600">{todayPlan.task}</div>
         </div>
       </div>
 
-      <div className="rounded-[20px] bg-[#f8fafc] p-4">
-        <div className="flex items-center justify-between">
-          <Badge className="bg-[#eefcf3] text-[#22c55e]">Pack: {pack}</Badge>
-          <Badge className="bg-[#fff7ed] text-[#f59e0b]">Challenge {idx + 1}</Badge>
+      {myStatus === 'DONE' ? (
+        <div className="rounded-[18px] bg-[#eefcf3] p-4 text-center text-[13px] font-semibold text-emerald-700">
+          Strong discipline 🔥
         </div>
+      ) : null}
 
-        <div className="mt-3 text-[14px] font-semibold text-slate-900">{workout.title}</div>
-        <div className="mt-2 text-[12px] text-slate-600">{workout.task}</div>
-      </div>
+      {myStatus === 'SKIPPED' ? (
+        <div className="rounded-[18px] bg-[#fff7ed] p-4 text-center text-[13px] font-semibold text-amber-700">
+          You missed today. Show up tomorrow.
+        </div>
+      ) : null}
 
-      <div className="grid grid-cols-3 gap-1.5">
-  <button
+      <div className="grid grid-cols-2 gap-2">
+  <Button
     type="button"
     onClick={markDone}
-    disabled={myStatus === 'DONE'}
-    className={`flex h-[34px] items-center justify-center gap-1.5 rounded-[12px] text-[12px] font-medium shadow-[0_6px_14px_rgba(15,23,42,0.08)] transition ${
-      myStatus === 'DONE'
-        ? 'bg-rose-500 text-white'
-        : 'bg-white text-rose-500 hover:bg-rose-50'
-    } disabled:opacity-60`}
+    disabled={!!myStatus}
+    className="flex h-[44px] w-full items-center justify-center rounded-full bg-rose-500 px-4 text-[15px] font-semibold leading-none text-white shadow-[0_6px_14px_rgba(15,23,42,0.08)] whitespace-nowrap hover:bg-rose-600 disabled:opacity-60"
   >
-    <CheckCircle2 className="h-3.5 w-3.5" />
-    Done
-  </button>
+    <span className="flex w-full items-center justify-center leading-none">
+      Done
+    </span>
+  </Button>
 
-  <button
+  <Button
     type="button"
-    onClick={markRest}
-    disabled={myStatus === 'REST'}
-    className={`flex h-[34px] items-center justify-center gap-1.5 rounded-[12px] text-[12px] font-medium shadow-[0_6px_14px_rgba(15,23,42,0.08)] transition ${
-      myStatus === 'REST'
-        ? 'bg-rose-500 text-white'
-        : 'bg-white text-rose-500 hover:bg-rose-50'
-    } disabled:opacity-60`}
+    onClick={markSkip}
+    disabled={!!myStatus}
+    className="flex h-[44px] w-full items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-[15px] font-semibold leading-none text-slate-600 shadow-[0_6px_14px_rgba(15,23,42,0.08)] whitespace-nowrap hover:bg-slate-50 disabled:opacity-60"
   >
-    <Coffee className="h-3.5 w-3.5" />
-    Rest
-  </button>
-
-  <button
-    type="button"
-    onClick={undoMyChoice}
-    disabled={!myStatus}
-    className="flex h-[34px] items-center justify-center gap-1.5 rounded-[12px] bg-white text-slate-400 text-[12px] font-medium shadow-[0_6px_14px_rgba(15,23,42,0.08)] transition hover:bg-slate-50 disabled:opacity-50"
-  >
-    Undo
-  </button>
+    <span className="flex w-full items-center justify-center leading-none">
+      Skip
+    </span>
+  </Button>
 </div>
 
       <Button
         type="button"
         onClick={nextDay}
+        disabled={!canContinue}
         className={`flex h-[42px] w-full items-center justify-center rounded-[14px] px-3 text-[13px] font-medium shadow-[0_6px_14px_rgba(15,23,42,0.08)] ${
-          canGoNextDay ? 'bg-rose-500 text-white hover:bg-rose-600' : 'bg-white text-slate-400'
+          canContinue
+            ? 'bg-rose-500 text-white hover:bg-rose-600'
+            : 'bg-white text-slate-400'
         }`}
       >
-        {canGoNextDay ? (
+        {canContinue ? (
           <>
             <ChevronRight className="mr-2 h-4 w-4" />
-            Next Day
+            Continue
           </>
         ) : (
           <>
             <Lock className="mr-2 h-4 w-4" />
-            Choose Done or Rest
+            Choose Done or Skip
           </>
         )}
       </Button>
