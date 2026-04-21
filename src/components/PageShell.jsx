@@ -2,23 +2,30 @@ import React from "react";
 
 export default function PageShell({
   children,
-  maxWidth = "max-w-sm",
-  centered = false,
-  padded = true,
   className = "",
   contentClassName = "",
+  showBottomNav = false,
+  bottomNav = null,
+  backgroundClassName = "bg-gradient-to-b from-rose-50 via-white to-pink-50",
 }) {
   return (
-    <div className={`min-h-screen bg-gradient-to-b from-rose-50 via-white to-pink-50 ${className}`}>
+    <div className={`min-h-screen w-full ${backgroundClassName} flex justify-center`}>
       <div
-        className={[
-          "mx-auto w-full",
-          maxWidth,
-          padded ? "px-4 py-6" : "",
-          centered ? "min-h-screen flex items-center justify-center" : "",
-        ].join(" ")}
+        className={`relative flex h-screen w-full max-w-[430px] flex-col overflow-hidden bg-transparent ${className}`}
       >
-        <div className={contentClassName}>{children}</div>
+        <main
+          className={`flex-1 overflow-y-auto px-4 pt-4 ${
+            showBottomNav || bottomNav ? "pb-24" : "pb-6"
+          } ${contentClassName}`}
+        >
+          {children}
+        </main>
+
+        {(showBottomNav || bottomNav) && (
+          <div className="absolute bottom-0 left-0 right-0 z-50 border-t border-rose-100 bg-white/95 backdrop-blur-sm">
+            {bottomNav}
+          </div>
+        )}
       </div>
     </div>
   );

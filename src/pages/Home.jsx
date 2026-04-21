@@ -2,6 +2,7 @@ import React from 'react';
 import { supabase } from '@/lib/supabase';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { calculateInteractionScore } from "@/components/utils/interactionScore";
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -192,7 +193,13 @@ function getGoalDisplayTitle(goal) {
   );
 }
 
-function InteractionGauge({ chats = 0, goals = 0, memories = 0, dates = 0 }) {
+function InteractionGauge({
+  chats = 0,
+  goals = 0,
+  memories = 0,
+  dates = 0,
+  className = '',
+}) {
   const navigate = useNavigate();
 
   const chatScore = Math.min(chats * 2, 25);
@@ -565,6 +572,14 @@ export default function Home() {
     },
   });
 
+  const { total: interactionScore, level: interactionLevel } =
+  calculateInteractionScore({
+    chats: chatsCount,
+    goals: goalsData.count,
+    memories: memoriesCount,
+    dates: eventsCount,
+  });
+
   const countdownGoal = goalsData.countdownGoal;
 
   const countdownText = React.useMemo(() => {
@@ -788,7 +803,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="-mt-8 px-4 pt-4 pb-6">
+          <div className="-mt-10 px-4 pt-5 pb-6">
             <div className="mb-5 grid grid-cols-3 gap-2.5">
               <Link to={createPageUrl('Memories')} className="block">
                 <StatCard
@@ -860,45 +875,36 @@ export default function Home() {
               )}
             </AnimatePresence>
 
-            {!pendingInvitation && (
-              <div className="mb-4 flex gap-3">
-                <Button
-                  type="button"
-                  onClick={() => navigate(`${createPageUrl('InvitePartner')}?mode=invite`)}
-                  className="flex h-[42px] w-full items-center justify-center gap-2 rounded-[14px] bg-white px-3 text-[13px] font-medium text-rose-500 shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
-                >
-                  <Heart className="h-3.5 w-3.5 shrink-0" />
-                  <span className="leading-none">Invite</span>
-                </Button>
+            {!pendingInvitation && !isDateLocked && (
+  <div className="mb-4 flex gap-3">
+    <Button
+      type="button"
+      onClick={() => navigate(`${createPageUrl('InvitePartner')}?mode=invite`)}
+      className="flex h-[42px] w-full items-center justify-center gap-2 rounded-[14px] bg-white px-3 text-[13px] font-medium text-rose-500 shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
+    >
+      <Heart className="h-3.5 w-3.5 shrink-0" />
+      <span className="leading-none">Invite</span>
+    </Button>
 
-                <Button
-                  type="button"
-                  onClick={() => navigate(`${createPageUrl('InvitePartner')}?mode=accept`)}
-                  className="flex h-[42px] w-full items-center justify-center rounded-[14px] bg-rose-500 px-3 text-[13px] font-medium text-white shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
-                >
-                  <span className="leading-none">Accept-Date</span>
-                </Button>
-              </div>
-            )}
+    <Button
+      type="button"
+      onClick={() => navigate(`${createPageUrl('InvitePartner')}?mode=accept`)}
+      className="flex h-[42px] w-full items-center justify-center rounded-[14px] bg-rose-500 px-3 text-[13px] font-medium text-white shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
+    >
+      <span className="leading-none">Accept-Date</span>
+    </Button>
+  </div>
+)}
 
-            {partner && (
-              <div className="mb-4">
-                <PartnerCard
-                  partner={partner}
-                  coupleProfile={coupleProfile}
-                  isLocked={isDateLocked}
-                />
-              </div>
-            )}
+<InteractionGauge
+  chats={chatsCount}
+  goals={goalsData.count}
+  memories={memoriesCount}
+  dates={eventsCount}
+  className="mb-4"
+/>
 
-            <div className="space-y-3">
-              <InteractionGauge
-                chats={chatsCount}
-                goals={goalsData.count}
-                memories={memoriesCount}
-                dates={eventsCount}
-              />
-
+            <div className="space-y-3 mt-3">
               <Link to={createPageUrl('Memories')} className="block">
                 <div className="flex items-center justify-between rounded-[26px] bg-white px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
                   <div className="flex items-center gap-4">

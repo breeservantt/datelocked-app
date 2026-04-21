@@ -1,5 +1,6 @@
 import React from 'react';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/lib/supabase';
+import { calculateInteractionScore } from '@/components/utils/interactionScore';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Card } from '@/components/ui/card';
@@ -17,76 +18,288 @@ import {
   Loader2,
   BarChart3,
   Award,
-  X as XIcon
+  X as XIcon,
+  MessageCircle,
+  CalendarDays,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import { parseSafeDate } from '@/components/utils/dateHelpers';
+
+async function tryProfileTablesById(userId) {
+  for (const table of ['profiles', 'users']) {
+    const { data, error } = await supabase
+      .from(table)
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!error && data) return data;
+  }
+  return null;
+}
+
+function buildStrengths({ total, chatsCount, goalsCompleted, memoriesCount, eventsCount }) {
+  const strengths = [];
+
+  if (chatsCount >= 20) strengths.push('Strong communication activity this period.');
+  if (goalsCompleted >= 1) strengths.push('You are completing goals together.');
+  if (memoriesCount >= 3) strengths.push('You are actively capturing shared moments.');
+  if (eventsCount >= 1) strengths.push('You are planning or attending shared events.');
+  if (total >= 75) strengths.push('Your overall interaction level is strong.');
+
+  if (strengths.length === 0) {
+    strengths.push('Your connection has room to grow with more shared activity.');
+  }
+
+  return strengths;
+}
+
+function buildImprovements({ total, chatsCount, goalsCompleted, memoriesCount, eventsCount }) {
+  const improvements = [];
+
+  if (chatsCount < 10) improvements.push('Increase message activity to strengthen day-to-day connection.');
+  if (goalsCompleted < 1) improvements.push('Complete shared goals together to build momentum.');
+  if (memoriesCount < 3) improvements.push('Create and save more memories together.');
+  if (eventsCount < 1) improvements.push('Plan more date or event activities together.');
+  if (total < 40) improvements.push('Focus on regular communication and shared actions to improve your score.');
+
+  if (improvements.length === 0) {
+    improvements.push('Keep maintaining your current rhythm and consistency.');
+  }
+
+  return improvements;
+}
 
 export default function RelationshipInsights() {
   const [user, setUser] = React.useState(null);
-  const [insights, setInsights] = React.useState([]);
   const [latestInsight, setLatestInsight] = React.useState(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [error, setError] = React.useState('');
 
   const loadData = React.useCallback(async () => {
-    setIsLoading(true);
-    setError('');
+  setIsLoading(true);
+  setError('');
+
+  try {
+    const {
+      data: { user: authUser },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError) throw authError;
+    if (!authUser) throw new Error('Unable to load your profile.');
+
+    const profile = await tryProfileTablesById(authUser.id);
+
+    const currentUser = {
+      id: authUser.id,
+      email: authUser.email,
+      full_name:
+        profile?.full_name ||
+        authUser.user_metadata?.full_name ||
+        authUser.user_metadata?.name ||
+        authUser.email?.split('@')[0] ||
+        'User',
+      couple_profile_id: profile?.couple_profile_id || null,
+      insights_consent: profile?.insights_consent || false,
+    };
+
+    setUser(currentUser);
+
+    let messages = [];
+    let goals = [];
+    let memories = [];
 
     try {
-      const currentUser = await base44.auth.me();
-      if (!currentUser) throw new Error('Unable to load your profile.');
+      let messagesQuery = supabase.from('messages').select('*');
 
-      setUser(currentUser);
-
-      if (!currentUser.couple_profile_id) {
-        setInsights([]);
-        setLatestInsight(null);
-        return;
+      if (currentUser.couple_profile_id) {
+        messagesQuery = messagesQuery.eq(
+          'couple_profile_id',
+          currentUser.couple_profile_id
+        );
+      } else {
+        messagesQuery = messagesQuery.eq('sender_email', currentUser.email);
       }
 
-      const allInsights = await base44.entities.RelationshipInsight.filter(
-        { couple_profile_id: currentUser.couple_profile_id },
-        '-created_date',
-        10
-      );
-
-      const list = Array.isArray(allInsights) ? allInsights : [];
-      setInsights(list);
-      setLatestInsight(list.length > 0 ? list[0] : null);
+      const { data, error } = await messagesQuery;
+      if (error) {
+        console.error('Messages query error:', error);
+      } else {
+        messages = Array.isArray(data) ? data : [];
+      }
     } catch (e) {
-      console.error('Error loading insights:', e);
-      setError(e?.message || 'Failed to load insights. Please try again.');
-      setInsights([]);
-      setLatestInsight(null);
-    } finally {
-      setIsLoading(false);
+      console.error('Messages load failed:', e);
     }
-  }, []);
+
+    try {
+      let goalsQuery = supabase.from('couple_goals').select('*');
+
+      if (currentUser.couple_profile_id) {
+        goalsQuery = goalsQuery.eq(
+          'couple_profile_id',
+          currentUser.couple_profile_id
+        );
+      } else {
+        goalsQuery = goalsQuery.eq('owner_id', currentUser.id);
+      }
+
+      const { data, error } = await goalsQuery;
+      if (error) {
+        console.error('Goals query error:', error);
+      } else {
+        goals = Array.isArray(data) ? data : [];
+      }
+    } catch (e) {
+      console.error('Goals load failed:', e);
+    }
+
+    try {
+      let memoriesQuery = supabase.from('memories').select('*');
+
+      if (currentUser.couple_profile_id) {
+        memoriesQuery = memoriesQuery.eq(
+          'couple_profile_id',
+          currentUser.couple_profile_id
+        );
+      } else {
+        memoriesQuery = memoriesQuery.eq('created_by', currentUser.id);
+      }
+
+      const { data, error } = await memoriesQuery;
+      if (error) {
+        console.error('Memories query error:', error);
+      } else {
+        memories = Array.isArray(data) ? data : [];
+      }
+    } catch (e) {
+      console.error('Memories load failed:', e);
+    }
+
+    const chatsCount = messages.length;
+    const goalsCount = goals.length;
+    const goalsCompleted = goals.filter((g) => g?.status === 'completed').length;
+    const memoriesCount = memories.length;
+    const eventsCount = goals.filter((g) => g?.is_event === true).length;
+    const placesAdded = goals.filter((g) => g?.event_location || g?.location).length;
+
+    const { total, level } = calculateInteractionScore({
+      chats: chatsCount,
+      goals: goalsCount,
+      memories: memoriesCount,
+      dates: eventsCount,
+    });
+
+    const summary =
+      total >= 75
+        ? 'Strong interaction between you and your partner.'
+        : total >= 40
+        ? 'Your relationship is growing steadily.'
+        : 'Low interaction detected. Increase chats and shared activities.';
+
+    setLatestInsight({
+      id: 'live-insight',
+      health_score: total,
+      summary,
+      strengths: buildStrengths({
+        total,
+        chatsCount,
+        goalsCompleted,
+        memoriesCount,
+        eventsCount,
+      }),
+      improvements: buildImprovements({
+        total,
+        chatsCount,
+        goalsCompleted,
+        memoriesCount,
+        eventsCount,
+      }),
+      memories_count: memoriesCount,
+      goals_completed: goalsCompleted,
+      goals_count: goalsCount,
+      places_added: placesAdded,
+      chats_count: chatsCount,
+      dates_count: eventsCount,
+      interaction_level: level,
+      week_start_date: new Date(),
+      week_end_date: new Date(),
+    });
+  } catch (e) {
+    console.error('Error loading insights:', e);
+    setError(e?.message || 'Failed to load insights.');
+    setLatestInsight(null);
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
 
   React.useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      if (!mounted) return;
-      await loadData();
-    })();
-
-    return () => {
-      mounted = false;
-    };
+    loadData();
   }, [loadData]);
+
+  React.useEffect(() => {
+  if (!user?.id) return;
+
+  const messageChannel = supabase
+    .channel(`insights-messages-${user.id}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'messages',
+      },
+      () => {
+        loadData();
+      }
+    )
+    .subscribe();
+
+  const goalChannel = supabase
+    .channel(`insights-goals-${user.id}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'couple_goals',
+      },
+      () => {
+        loadData();
+      }
+    )
+    .subscribe();
+
+  const memoryChannel = supabase
+    .channel(`insights-memories-${user.id}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'memories',
+      },
+      () => {
+        loadData();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(messageChannel);
+    supabase.removeChannel(goalChannel);
+    supabase.removeChannel(memoryChannel);
+  };
+}, [user?.id, loadData]);
 
   const generateInsights = React.useCallback(async () => {
     if (isGenerating) return;
-
     setIsGenerating(true);
     setError('');
 
     try {
-      await base44.functions.invoke('generateWeeklyInsights');
       await loadData();
     } catch (e) {
       console.error('Error generating insights:', e);
@@ -111,7 +324,6 @@ export default function RelationshipInsights() {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-rose-50 via-white to-pink-50 pb-24">
@@ -145,35 +357,9 @@ export default function RelationshipInsights() {
     );
   }
 
-  // Not date-locked / no couple profile
-  if (!user?.couple_profile_id) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-rose-50 via-white to-pink-50 pb-24">
-        <div className="bg-white border-b sticky top-0 z-10">
-          <div className="max-w-md mx-auto px-4 py-4 flex items-center gap-3">
-            <Link to={createPageUrl('Home')}>
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-            </Link>
-            <h1 className="text-xl font-semibold text-slate-800">Relationship Insights</h1>
-          </div>
-        </div>
-
-        <div className="max-w-md mx-auto px-4 py-12 text-center">
-          <Heart className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-slate-800 mb-2">Date-Lock Required</h2>
-          <p className="text-slate-500">
-            You need to be Date-Locked with a partner to access relationship insights.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-rose-50 via-white to-pink-50 pb-24">
-      {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -195,7 +381,7 @@ export default function RelationshipInsights() {
             ) : (
               <>
                 <Sparkles className="w-4 h-4 mr-2" />
-                Generate
+                Refresh
               </>
             )}
           </Button>
@@ -203,29 +389,6 @@ export default function RelationshipInsights() {
       </div>
 
       <div className="max-w-md mx-auto px-4 py-6 space-y-6">
-        {/* AI Consent Notice */}
-        {!user?.insights_consent && (
-          <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
-            <Card className="p-4 border-0 shadow-md bg-gradient-to-r from-blue-50 to-indigo-50">
-              <div className="flex items-start gap-3">
-                <Sparkles className="w-5 h-5 text-blue-500 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-slate-800 mb-1">Enable AI Insights</p>
-                  <p className="text-sm text-slate-600 mb-3">
-                    Enable AI Insights in Settings for deeper weekly analysis.
-                  </p>
-                  <Link to={createPageUrl('Settings')}>
-                    <Button size="sm" variant="outline">
-                      Go to Settings
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </Card>
-          </motion.div>
-        )}
-
-        {/* Latest Insight */}
         {latestInsight ? (
           <>
             <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}>
@@ -235,15 +398,10 @@ export default function RelationshipInsights() {
                     {latestInsight.health_score}
                   </div>
                   <p className="text-slate-600 font-medium">Relationship Health Score</p>
-                  {(() => {
-                    const startDate = parseSafeDate(latestInsight.week_start_date);
-                    const endDate = parseSafeDate(latestInsight.week_end_date);
-                    return startDate && endDate ? (
-                      <p className="text-xs text-slate-400 mt-1">
-                        {format(startDate, 'MMM d')} - {format(endDate, 'MMM d, yyyy')}
-                      </p>
-                    ) : null;
-                  })()}
+                  <p className="text-xs text-slate-400 mt-1">
+                    {format(new Date(latestInsight.week_start_date), 'MMM d')} -{' '}
+                    {format(new Date(latestInsight.week_end_date), 'MMM d, yyyy')}
+                  </p>
                 </div>
 
                 <Progress value={latestInsight.health_score} className="h-3 mb-4" />
@@ -254,35 +412,9 @@ export default function RelationshipInsights() {
                   </div>
                 ) : null}
 
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="text-center">
-                    <div className="w-12 h-12 bg-rose-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-                      <Heart className="w-6 h-6 text-rose-500" />
-                    </div>
-                    <p className="text-2xl font-bold text-slate-800">{latestInsight.memories_count}</p>
-                    <p className="text-xs text-slate-500">Memories</p>
-                  </div>
-
-                  <div className="text-center">
-                    <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-                      <Target className="w-6 h-6 text-green-500" />
-                    </div>
-                    <p className="text-2xl font-bold text-slate-800">{latestInsight.goals_completed}</p>
-                    <p className="text-xs text-slate-500">Goals</p>
-                  </div>
-
-                  <div className="text-center">
-                    <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-                      <MapPin className="w-6 h-6 text-amber-500" />
-                    </div>
-                    <p className="text-2xl font-bold text-slate-800">{latestInsight.places_added}</p>
-                    <p className="text-xs text-slate-500">Places</p>
-                  </div>
-                </div>
               </Card>
             </motion.div>
 
-            {/* Strengths */}
             {Array.isArray(latestInsight.strengths) && latestInsight.strengths.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                 <Card className="p-6 border-0 shadow-md">
@@ -302,7 +434,6 @@ export default function RelationshipInsights() {
               </motion.div>
             )}
 
-            {/* Improvements */}
             {Array.isArray(latestInsight.improvements) && latestInsight.improvements.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                 <Card className="p-6 border-0 shadow-md">
@@ -322,56 +453,55 @@ export default function RelationshipInsights() {
               </motion.div>
             )}
 
-            {/* Previous Insights */}
-            {insights.length > 1 && (
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-                <Card className="p-6 border-0 shadow-md">
-                  <div className="flex items-center gap-2 mb-4">
-                    <BarChart3 className="w-5 h-5 text-slate-500" />
-                    <h2 className="text-lg font-semibold text-slate-800">Previous Weeks</h2>
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className="p-6 border-0 shadow-md">
+                <div className="flex items-center gap-2 mb-4">
+                  <BarChart3 className="w-5 h-5 text-slate-500" />
+                  <h2 className="text-lg font-semibold text-slate-800">Activity Breakdown</h2>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <MessageCircle className="w-5 h-5 text-blue-500" />
+                      <p className="text-sm font-medium text-slate-800">Messages</p>
+                    </div>
+                    <div className="text-lg font-bold text-slate-800">{latestInsight.chats_count}</div>
                   </div>
 
-                  <div className="space-y-3">
-                    {insights.slice(1, 5).map((insight) => {
-                      const startDate = parseSafeDate(insight.week_start_date);
-                      const endDate = parseSafeDate(insight.week_end_date);
-                      const scoreColor =
-                        insight.health_score >= 80
-                          ? 'text-green-500'
-                          : insight.health_score >= 60
-                          ? 'text-amber-500'
-                          : 'text-red-500';
-
-                      return (
-                        <div key={insight.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                          <div className="flex-1">
-                            {startDate && endDate ? (
-                              <p className="text-sm font-medium text-slate-800">
-                                {format(startDate, 'MMM d')} - {format(endDate, 'MMM d')}
-                              </p>
-                            ) : (
-                              <p className="text-sm font-medium text-slate-800">Week</p>
-                            )}
-                            <p className="text-xs text-slate-500">
-                              {insight.memories_count} memories • {insight.goals_completed} goals
-                            </p>
-                          </div>
-                          <div className={`text-2xl font-bold ${scoreColor}`}>{insight.health_score}</div>
-                        </div>
-                      );
-                    })}
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Target className="w-5 h-5 text-green-500" />
+                      <p className="text-sm font-medium text-slate-800">Goals</p>
+                    </div>
+                    <div className="text-lg font-bold text-slate-800">{latestInsight.goals_count}</div>
                   </div>
-                </Card>
-              </motion.div>
-            )}
+
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Heart className="w-5 h-5 text-rose-500" />
+                      <p className="text-sm font-medium text-slate-800">Memories</p>
+                    </div>
+                    <div className="text-lg font-bold text-slate-800">{latestInsight.memories_count}</div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <MapPin className="w-5 h-5 text-amber-500" />
+                      <p className="text-sm font-medium text-slate-800">Places Added</p>
+                    </div>
+                    <div className="text-lg font-bold text-slate-800">{latestInsight.places_added}</div>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
           </>
         ) : (
-          // No Data
           <div className="text-center py-12">
             <BarChart3 className="w-16 h-16 text-slate-300 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-slate-800 mb-2">No Insights Yet</h2>
             <p className="text-slate-500 mb-6">
-              Generate your first weekly insight to see relationship health analysis.
+              Your live relationship insights will appear here after activity is detected.
             </p>
             <Button
               onClick={generateInsights}
@@ -383,7 +513,7 @@ export default function RelationshipInsights() {
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 mr-2" />
-                  Generate Insights
+                  Refresh Insights
                 </>
               )}
             </Button>
