@@ -59,3 +59,14 @@ button, a {
     --radius: 0.5rem;
   }
 }
+
+html, body, #root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+body {
+  overflow-x: hidden;
+}

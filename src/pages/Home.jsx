@@ -532,6 +532,8 @@ export default function Home() {
     }
   }, [pendingInvitation?.invitation_token, navigate, queryClient]);
 
+
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f3edf1]">
@@ -540,21 +542,30 @@ export default function Home() {
     );
   }
 
-  if (isError || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f3edf1] p-4">
-        <Card className="w-full max-w-md p-6 text-center">
-          <p className="mb-4 text-slate-600">Unable to load your profile</p>
-          <Button
-            onClick={() => window.location.reload()}
-            className="bg-rose-500 hover:bg-rose-600"
-          >
-            Retry
-          </Button>
-        </Card>
+ if (isError || !user) {
+  return (
+    <>
+      <div className="min-h-screen bg-[#f7f1f4] px-3 py-3 pb-24 flex items-center justify-center">
+        <div className="mx-auto w-full max-w-[390px]">
+          <Card className="w-full p-6 text-center">
+            <p className="mb-4 text-slate-600">
+              Unable to load your profile
+            </p>
+
+            <Button
+              onClick={() => window.location.reload()}
+              className="bg-rose-500 hover:bg-rose-600"
+            >
+              Retry
+            </Button>
+          </Card>
+        </div>
       </div>
-    );
-  }
+
+      <BottomNav />
+    </>
+  );
+}
 
   const hasProfilePhoto = Boolean(user?.profile_photo);
 

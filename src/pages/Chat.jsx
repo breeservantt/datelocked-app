@@ -55,24 +55,13 @@ function AppShell({ children }) {
 function AppHeader({ title, subtitle }) {
   return (
     <div className="border-b border-slate-200 bg-[#f8f6f7] px-5 py-5">
-      <div className="flex items-start gap-3">
-        <Link to={createPageUrl("Home")}>
-          <button
-            type="button"
-            className="rounded-[10px] p-1.5 transition hover:bg-slate-100"
-          >
-            <ArrowLeft className="h-6 w-6 text-slate-700" />
-          </button>
-        </Link>
-
-        <div>
-          <h1 className="text-[1.9rem] font-semibold tracking-[-0.02em] text-slate-800">
-            {title}
-          </h1>
-          {subtitle ? (
-            <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
-          ) : null}
-        </div>
+      <div className="flex flex-col items-center justify-center text-center">
+        <h1 className="text-[1.9rem] font-semibold tracking-[-0.02em] text-slate-800">
+          {title}
+        </h1>
+        {subtitle ? (
+          <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+        ) : null}
       </div>
     </div>
   );
@@ -943,13 +932,7 @@ export default function Chat() {
                 <>
                   <GradientInfoCard className="p-5">
                     <div className="flex items-start gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedGroup(null)}
-                        className="mt-0.5 rounded-[10px] p-1.5 transition hover:bg-white"
-                      >
-                        <ArrowLeft className="h-5 w-5 text-slate-700" />
-                      </button>
+
 
                       <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-sm">
                         <Users className="h-6 w-6" />
