@@ -280,6 +280,7 @@ export default function Goals() {
 
   const [showGoalModal, setShowGoalModal] = React.useState(false);
   const [showEventModal, setShowEventModal] = React.useState(false);
+  const [showPerfectSpotModal, setShowPerfectSpotModal] = React.useState(false);
 
   const [goalTitle, setGoalTitle] = React.useState("");
   const [goalDescription, setGoalDescription] = React.useState("");
@@ -486,6 +487,17 @@ export default function Goals() {
     setShowEventModal(false);
   };
 
+  const handlePerfectSpot = () => {
+    setShowPerfectSpotModal(true);
+  };
+
+  const handlePerfectSpotType = async (type) => {
+    setShowPerfectSpotModal(false);
+
+    // type = "mall" | "restaurant" | "plaza"
+    console.log("Perfect Spot type selected:", type);
+  };
+
   const acceptInvitation = async (id) => {
     const { data, error } = await supabase
       .from("couple_goals")
@@ -554,7 +566,7 @@ export default function Goals() {
         <AppHeader title="Our Goals" />
 
         <div className="space-y-4 px-3 py-3">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <SmallActionButton
               onClick={() => setShowGoalModal(true)}
               icon={<Target className="h-4 w-4 text-slate-700" />}
@@ -562,9 +574,15 @@ export default function Goals() {
             />
 
             <SmallActionButton
+              onClick={handlePerfectSpot}
+              icon={<MapPin className="h-4 w-4 text-slate-700" />}
+              text="Perfect Spot"
+            />
+
+            <SmallActionButton
               onClick={() => setShowEventModal(true)}
               icon={<Send className="h-4 w-4 text-slate-700" />}
-              text="Event Invitation"
+              text="Events"
             />
           </div>
 
@@ -729,6 +747,46 @@ export default function Goals() {
         >
           <Target className="h-4 w-4" />
           <span>Save Goal</span>
+        </Button>
+      </Modal>
+
+      <Modal
+        open={showPerfectSpotModal}
+        onClose={() => setShowPerfectSpotModal(false)}
+        title="Perfect Spot"
+      >
+        <div className="grid grid-cols-3 gap-2">
+          <Button
+            type="button"
+            onClick={() => handlePerfectSpotType("mall")}
+            className="inline-flex h-10 items-center justify-center rounded-[10px] border border-slate-200 bg-white text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
+          >
+            Mall
+          </Button>
+
+          <Button
+            type="button"
+            onClick={() => handlePerfectSpotType("restaurant")}
+            className="inline-flex h-10 items-center justify-center rounded-[10px] border border-slate-200 bg-white text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
+          >
+            Restaurant
+          </Button>
+
+          <Button
+            type="button"
+            onClick={() => handlePerfectSpotType("plaza")}
+            className="inline-flex h-10 items-center justify-center rounded-[10px] border border-slate-200 bg-white text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
+          >
+            Plaza
+          </Button>
+        </div>
+
+        <Button
+          type="button"
+          onClick={() => setShowPerfectSpotModal(false)}
+          className="inline-flex h-10 w-full items-center justify-center rounded-[10px] bg-slate-100 text-slate-700 shadow-none hover:bg-slate-200"
+        >
+          Close
         </Button>
       </Modal>
 

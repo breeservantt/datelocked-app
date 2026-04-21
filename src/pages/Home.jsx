@@ -23,6 +23,7 @@ import {
   MapPin,
   MessageCircle,
   Fingerprint,
+  CalendarDays,
 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import PartnerCard from '@/components/profile/PartnerCard';
@@ -127,7 +128,7 @@ function BottomNav() {
           const href = createPageUrl(item.page);
           const active =
             location.pathname === href ||
-            (href === "/" && location.pathname === "/");
+            (href === '/' && location.pathname === '/');
           const Icon = item.icon;
 
           return (
@@ -135,20 +136,20 @@ function BottomNav() {
               key={item.label}
               to={href}
               className={`flex min-h-[50px] flex-col items-center justify-center rounded-[14px] px-1 py-1 transition ${
-                active ? "bg-[#fdecef]" : "bg-transparent"
+                active ? 'bg-[#fdecef]' : 'bg-transparent'
               }`}
             >
               <Icon
                 className={`mb-0.5 h-[18px] w-[18px] ${
-                  active ? "text-[#ef4f75]" : "text-slate-400"
+                  active ? 'text-[#ef4f75]' : 'text-slate-400'
                 }`}
                 strokeWidth={2}
               />
               <span
                 className={`truncate text-[8px] leading-none tracking-[-0.01em] ${
                   active
-                    ? "font-semibold text-[#ef4f75]"
-                    : "font-medium text-slate-400"
+                    ? 'font-semibold text-[#ef4f75]'
+                    : 'font-medium text-slate-400'
                 }`}
               >
                 {item.label}
@@ -188,6 +189,68 @@ function getGoalDisplayTitle(goal) {
     goal?.goal_title ||
     goal?.event_title ||
     'Award Celebrati...'
+  );
+}
+
+function InteractionGauge({ chats = 0, goals = 0, memories = 0, dates = 0 }) {
+  const navigate = useNavigate();
+
+  const chatScore = Math.min(chats * 2, 25);
+  const goalScore = Math.min(goals * 8, 25);
+  const memoryScore = Math.min(memories * 6, 25);
+  const dateScore = Math.min(dates * 10, 25);
+
+  const totalScore = Math.max(
+    0,
+    Math.min(100, Math.round(chatScore + goalScore + memoryScore + dateScore))
+  );
+
+  const levelLabel =
+    totalScore >= 75 ? 'Strong' : totalScore >= 40 ? 'Growing' : 'Low';
+
+  return (
+    <button
+      type="button"
+      onClick={() => navigate(createPageUrl('RelationshipInsights'))}
+      className="w-full rounded-[26px] bg-gradient-to-r from-[#f2efff] to-[#eef1ff] px-5 py-5 text-left shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-4">
+          <div className="flex h-[58px] w-[58px] items-center justify-center rounded-[20px] bg-gradient-to-br from-[#8b5cf6] to-[#6366f1]">
+            <CheckCircle className="h-7 w-7 text-white" strokeWidth={2.1} />
+          </div>
+
+          <div>
+            <p className="text-[15px] font-semibold leading-none text-[#172033]">
+              Interaction Gauge
+            </p>
+            <p className="mt-3 text-[12px] font-medium leading-none text-[#64748b]">
+              Tap to view relationship insights
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-full bg-white/70 px-3 py-1 text-[12px] font-medium text-slate-700">
+          {levelLabel}
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <div className="relative h-[16px] w-full overflow-hidden rounded-full bg-white/70">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] transition-all duration-500"
+            style={{ width: `${totalScore}%` }}
+          />
+        </div>
+
+        <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+          <span>Low</span>
+          <span className="font-semibold text-slate-700">{totalScore}%</span>
+          <span>High</span>
+        </div>
+      </div>
+
+    </button>
   );
 }
 
@@ -390,34 +453,34 @@ export default function Home() {
   });
 
   const { data: eventsCount = 0 } = useQuery({
-  queryKey: ['homeEventsCount', coupleId, user?.id],
-  enabled: !!user?.id,
-  retry: 1,
-  staleTime: 60 * 1000,
-  queryFn: async () => {
-    let query = supabase
-      .from('couple_goals')
-      .select('*');
+    queryKey: ['homeEventsCount', coupleId, user?.id],
+    enabled: !!user?.id,
+    retry: 1,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      let query = supabase
+        .from('couple_goals')
+        .select('*');
 
-    if (coupleId) {
-      query = query.eq('couple_profile_id', coupleId);
-    } else {
-      query = query.eq('owner_id', user.id);
-    }
+      if (coupleId) {
+        query = query.eq('couple_profile_id', coupleId);
+      } else {
+        query = query.eq('owner_id', user.id);
+      }
 
-    const { data, error } = await query;
+      const { data, error } = await query;
 
-    if (error) throw error;
+      if (error) throw error;
 
-    const events = (data || []).filter(
-      (goal) =>
-        goal?.is_event === true &&
-        goal?.invitation_status === 'pending'
-    );
+      const events = (data || []).filter(
+        (goal) =>
+          goal?.is_event === true &&
+          goal?.invitation_status === 'pending'
+      );
 
-    return events.length;
-  },
-});
+      return events.length;
+    },
+  });
 
   const { data: goalsData = { count: 0, countdownGoal: null } } = useQuery({
     queryKey: ['homeGoalsData', coupleId, user?.id],
@@ -463,6 +526,42 @@ export default function Home() {
         count: list.length,
         countdownGoal: upcoming[0] || latestDated[0] || null,
       };
+    },
+  });
+
+  const { data: memoriesCount = 0 } = useQuery({
+    queryKey: ['homeMemoriesCount', coupleId, user?.id],
+    enabled: !!user?.id,
+    retry: 1,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      let query = supabase.from('memories').select('*', { count: 'exact', head: false });
+
+      if (coupleId) {
+        query = query.eq('couple_profile_id', coupleId);
+      } else {
+        query = query.eq('created_by', user.id);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return Array.isArray(data) ? data.length : 0;
+    },
+  });
+
+  const { data: chatsCount = 0 } = useQuery({
+    queryKey: ['homeChatsCount', coupleId],
+    enabled: !!coupleId,
+    retry: 1,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('couple_profile_id', coupleId);
+
+      if (error) throw error;
+      return Array.isArray(data) ? data.length : 0;
     },
   });
 
@@ -532,8 +631,6 @@ export default function Home() {
     }
   }, [pendingInvitation?.invitation_token, navigate, queryClient]);
 
-
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f3edf1]">
@@ -542,30 +639,30 @@ export default function Home() {
     );
   }
 
- if (isError || !user) {
-  return (
-    <>
-      <div className="min-h-screen bg-[#f7f1f4] px-3 py-3 pb-24 flex items-center justify-center">
-        <div className="mx-auto w-full max-w-[390px]">
-          <Card className="w-full p-6 text-center">
-            <p className="mb-4 text-slate-600">
-              Unable to load your profile
-            </p>
+  if (isError || !user) {
+    return (
+      <>
+        <div className="min-h-screen bg-[#f7f1f4] px-3 py-3 pb-24 flex items-center justify-center">
+          <div className="mx-auto w-full max-w-[390px]">
+            <Card className="w-full p-6 text-center">
+              <p className="mb-4 text-slate-600">
+                Unable to load your profile
+              </p>
 
-            <Button
-              onClick={() => window.location.reload()}
-              className="bg-rose-500 hover:bg-rose-600"
-            >
-              Retry
-            </Button>
-          </Card>
+              <Button
+                onClick={() => window.location.reload()}
+                className="bg-rose-500 hover:bg-rose-600"
+              >
+                Retry
+              </Button>
+            </Card>
+          </div>
         </div>
-      </div>
 
-      <BottomNav />
-    </>
-  );
-}
+        <BottomNav />
+      </>
+    );
+  }
 
   const hasProfilePhoto = Boolean(user?.profile_photo);
 
@@ -695,12 +792,12 @@ export default function Home() {
             <div className="mb-5 grid grid-cols-3 gap-2.5">
               <Link to={createPageUrl('Memories')} className="block">
                 <StatCard
-  icon={<Clock />}
-  value={eventsCount}
-  label="Events"
-  iconColor="text-amber-500"
-  iconWrap="bg-amber-50"
-/>
+                  icon={<Clock />}
+                  value={eventsCount}
+                  label="Events"
+                  iconColor="text-amber-500"
+                  iconWrap="bg-amber-50"
+                />
               </Link>
 
               <Link to={createPageUrl('Goals')} className="block">
@@ -714,23 +811,23 @@ export default function Home() {
               </Link>
 
               <div
-  onClick={handleOpenCountdownGoal}
-  className="cursor-pointer rounded-[20px] bg-white px-2.5 py-3 text-center shadow-[0_10px_24px_rgba(15,23,42,0.05)]"
->
-  <div className="flex flex-col items-center">
-    <div className="mb-2.5 flex h-10 w-10 items-center justify-center rounded-full bg-amber-50">
-      <Clock className="h-4.5 w-4.5 text-amber-400" />
-    </div>
+                onClick={handleOpenCountdownGoal}
+                className="cursor-pointer rounded-[20px] bg-white px-2.5 py-3 text-center shadow-[0_10px_24px_rgba(15,23,42,0.05)]"
+              >
+                <div className="flex flex-col items-center">
+                  <div className="mb-2.5 flex h-10 w-10 items-center justify-center rounded-full bg-amber-50">
+                    <Clock className="h-4.5 w-4.5 text-amber-400" />
+                  </div>
 
-    <p className="text-[16px] font-bold leading-none text-slate-900">
-      {countdownText}
-    </p>
+                  <p className="text-[16px] font-bold leading-none text-slate-900">
+                    {countdownText}
+                  </p>
 
-    <p className="mt-2 text-[11px] font-medium text-slate-500 truncate">
-      {getGoalDisplayTitle(countdownGoal)}
-    </p>
-  </div>
-</div>
+                  <p className="mt-2 text-[11px] font-medium text-slate-500 truncate">
+                    {getGoalDisplayTitle(countdownGoal)}
+                  </p>
+                </div>
+              </div>
             </div>
 
             <AnimatePresence>
@@ -795,26 +892,12 @@ export default function Home() {
             )}
 
             <div className="space-y-3">
-              <Link to={createPageUrl('RelationshipInsights')} className="block">
-                <div className="flex items-center justify-between rounded-[26px] bg-gradient-to-r from-[#f2efff] to-[#eef1ff] px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-[58px] w-[58px] items-center justify-center rounded-[20px] bg-gradient-to-br from-[#8b5cf6] to-[#6366f1]">
-                      <CheckCircle className="h-7 w-7 text-white" strokeWidth={2.1} />
-                    </div>
-
-                    <div>
-                      <p className="text-[15px] font-semibold leading-none text-[#172033]">
-                        Relationship Insights
-                      </p>
-                      <p className="mt-3 text-[12px] font-medium leading-none text-[#64748b]">
-                        View your weekly health report
-                      </p>
-                    </div>
-                  </div>
-
-                  <ChevronRight className="h-6 w-6 text-[#94a3b8]" strokeWidth={2.2} />
-                </div>
-              </Link>
+              <InteractionGauge
+                chats={chatsCount}
+                goals={goalsData.count}
+                memories={memoriesCount}
+                dates={eventsCount}
+              />
 
               <Link to={createPageUrl('Memories')} className="block">
                 <div className="flex items-center justify-between rounded-[26px] bg-white px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
