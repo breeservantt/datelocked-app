@@ -1,4 +1,7 @@
 import React from "react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Video } from "lucide-react";
+import { generateId } from "@/lib/generateId";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -66,26 +69,19 @@ function getNextFiveHourRefreshMs() {
 }
 
 function MediaFrame({ children }) {
-  return (
-    <div className="relative w-full overflow-hidden bg-black">
-      <div className="w-full">{children}</div>
-      <div className="pointer-events-none absolute inset-0 border border-white/20" />
-    </div>
-  );
+  return <div className="relative block w-full overflow-hidden bg-black aspect-[4/5]">{children}</div>;
 }
 
 function VideoPreview({ src }) {
   return (
     <MediaFrame>
-      <div className="flex w-full items-center justify-center">
-        <video
-          src={src}
-          preload="metadata"
-          muted
-          playsInline
-          className="h-auto w-full object-contain"
-        />
-      </div>
+      <video
+        src={src}
+        preload="metadata"
+        muted
+        playsInline
+        className="absolute inset-0 h-full w-full object-cover"
+      />
 
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/45">
@@ -93,6 +89,33 @@ function VideoPreview({ src }) {
         </div>
       </div>
     </MediaFrame>
+  );
+}
+
+function Modal({ open, onClose, title, children }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-3">
+      <div className="w-full max-w-[390px] overflow-hidden rounded-[20px] border border-[#ece6ea] bg-[#f7f3f6] shadow-[0_12px_30px_rgba(15,23,42,0.14)]">
+        <div className="border-b border-slate-200 bg-[#f8f6f7] px-4 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-[10px] p-1.5 transition hover:bg-slate-100"
+            >
+              <X className="h-5 w-5 text-slate-600" />
+            </button>
+          </div>
+        </div>
+
+        <div className="max-h-[78vh] space-y-4 overflow-y-auto px-4 py-4">
+          {children}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -183,27 +206,40 @@ const wallApi = {
       return { success: true };
     },
 
-    async create(payload) {
+    async createMany(payload) {
       const items = loadStoredContent();
 
-      const newItem = {
-        id: crypto.randomUUID(),
+      const imageItems = (payload.photos || []).map((url) => ({
+        id: generateId(),
         owner_email: payload.owner_email,
-        content_url: payload.content_url,
-        content_type: payload.content_type,
+        content_url: url,
+        content_type: "IMAGE",
         visibility: "PUBLIC_WALL",
         moderation_status: "APPROVED",
         caption: payload.caption || "",
         location: payload.location || "",
         view_count: 0,
-      };
+      }));
 
-      const next = [newItem, ...items];
+      const videoItems = (payload.videos || []).map((url) => ({
+        id: generateId(),
+        owner_email: payload.owner_email,
+        content_url: url,
+        content_type: "VIDEO",
+        visibility: "PUBLIC_WALL",
+        moderation_status: "APPROVED",
+        caption: payload.caption || "",
+        location: payload.location || "",
+        view_count: 0,
+      }));
+
+      const createdItems = [...imageItems, ...videoItems];
+      const next = [...createdItems, ...items];
       saveStoredContent(next);
 
       return {
         success: true,
-        item: newItem,
+        items: createdItems,
       };
     },
   },
@@ -226,14 +262,16 @@ const wallApi = {
   },
 };
 
-function FloatingUploadButton({ onClick, disabled = false }) {
+function FloatingUploadButton({ disabled = false, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="group fixed bottom-28 right-6 z-40 disabled:opacity-60"
-      aria-label="Upload photo or video"
+      className={`group fixed bottom-28 right-6 z-40 ${
+        disabled ? "pointer-events-none opacity-60" : ""
+      }`}
+      aria-label="Open upload modal"
     >
       <div className="relative">
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-[0_10px_22px_rgba(244,63,94,0.25)] transition-all duration-200 group-hover:scale-[1.03] group-hover:from-rose-600 group-hover:to-pink-600">
@@ -294,7 +332,6 @@ function BottomNav() {
 
 export default function Dating() {
   const queryClient = useQueryClient();
-  const fileInputRef = React.useRef(null);
 
   const [user, setUser] = React.useState(null);
   const [isUploading, setIsUploading] = React.useState(false);
@@ -304,6 +341,14 @@ export default function Dating() {
   const [dailyAdvice, setDailyAdvice] = React.useState("");
   const [showAdvice, setShowAdvice] = React.useState(true);
   const [openMenuId, setOpenMenuId] = React.useState(null);
+  const [showAddModal, setShowAddModal] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [newPost, setNewPost] = React.useState({
+    caption: "",
+    location: "",
+    photos: [],
+    videos: [],
+  });
 
   const [myContentState, setMyContentState] = React.useState([]);
   const [publicContentState, setPublicContentState] = React.useState([]);
@@ -402,7 +447,7 @@ export default function Dating() {
         return [
           ...current,
           {
-            id: crypto.randomUUID(),
+            id: generateId(),
             content_id: contentId,
             user_email: user?.email,
             reaction_type: reactionType,
@@ -447,11 +492,7 @@ export default function Dating() {
     return error?.message || "Upload failed";
   };
 
-  const handleFloatingUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleImmediateUpload = async (event) => {
+  const handlePhotoUpload = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
 
@@ -462,22 +503,52 @@ export default function Dating() {
     }
 
     const sizeMB = file.size / (1024 * 1024);
-    const isVideo = file.type.startsWith("video/");
-    const isImage = file.type.startsWith("image/");
     const maxImageMB = 8;
-    const maxVideoMB = 30;
 
-    if (!isImage && !isVideo) {
-      toast.error("Only image or video files are allowed");
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only image files are allowed");
       return;
     }
 
-    if (isImage && sizeMB > maxImageMB) {
+    if (sizeMB > maxImageMB) {
       toast.error(`Image too large (${sizeMB.toFixed(1)}MB). Max ${maxImageMB}MB.`);
       return;
     }
 
-    if (isVideo && sizeMB > maxVideoMB) {
+    setIsUploading(true);
+
+    try {
+      const { file_url } = await wallApi.integrations.uploadFile(file);
+      setNewPost((prev) => ({
+        ...prev,
+        photos: [...prev.photos, file_url],
+      }));
+    } catch (error) {
+      toast.error(getUploadErrorMessage(error));
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleVideoUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+    if (!user?.email) {
+      toast.error("User not loaded yet");
+      return;
+    }
+
+    const sizeMB = file.size / (1024 * 1024);
+    const maxVideoMB = 30;
+
+    if (!file.type.startsWith("video/")) {
+      toast.error("Only video files are allowed");
+      return;
+    }
+
+    if (sizeMB > maxVideoMB) {
       toast.error(`Video too large (${sizeMB.toFixed(1)}MB). Max ${maxVideoMB}MB.`);
       return;
     }
@@ -486,37 +557,88 @@ export default function Dating() {
 
     try {
       const { file_url } = await wallApi.integrations.uploadFile(file);
-      const contentType = isVideo ? "VIDEO" : "IMAGE";
-
-      const result = await wallApi.content.create({
-        owner_email: user.email,
-        content_url: file_url,
-        content_type: contentType,
-        caption: "",
-        location: "",
-      });
-
-      if (!result?.success || !result?.item) {
-        toast.error("Upload failed");
-        return;
-      }
-
-      const newContent = result.item;
-      setPublicContentState((current) => [newContent, ...current]);
-
-      if (showMyContent) {
-        setMyContentState((current) => [newContent, ...current]);
-      }
-
-      toast.success(isVideo ? "Video uploaded successfully!" : "Photo uploaded successfully!");
-      queryClient.invalidateQueries({ queryKey: ["publicDateContent"] });
-      if (showMyContent) {
-        queryClient.invalidateQueries({ queryKey: ["myDateContent"] });
-      }
+      setNewPost((prev) => ({
+        ...prev,
+        videos: [...prev.videos, file_url],
+      }));
     } catch (error) {
       toast.error(getUploadErrorMessage(error));
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const removePhoto = (index) => {
+    setNewPost((prev) => ({
+      ...prev,
+      photos: prev.photos.filter((_, i) => i !== index),
+    }));
+  };
+
+  const removeVideo = (index) => {
+    setNewPost((prev) => ({
+      ...prev,
+      videos: prev.videos.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleSavePost = async () => {
+    if (!user?.email) {
+      toast.error("User not loaded yet");
+      return;
+    }
+
+    if (
+      !newPost.caption.trim() &&
+      newPost.photos.length === 0 &&
+      newPost.videos.length === 0
+    ) {
+      toast.error("Add media or a caption before saving");
+      return;
+    }
+
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+
+    try {
+      const result = await wallApi.content.createMany({
+        owner_email: user.email,
+        caption: newPost.caption.trim(),
+        location: newPost.location.trim(),
+        photos: newPost.photos,
+        videos: newPost.videos,
+      });
+
+      if (!result?.success || !Array.isArray(result.items)) {
+        toast.error("Upload failed");
+        return;
+      }
+
+      const createdItems = result.items;
+      setPublicContentState((current) => [...createdItems, ...current]);
+
+      if (showMyContent) {
+        setMyContentState((current) => [...createdItems, ...current]);
+      }
+
+      toast.success("Post uploaded successfully!");
+      queryClient.invalidateQueries({ queryKey: ["publicDateContent"] });
+      if (showMyContent) {
+        queryClient.invalidateQueries({ queryKey: ["myDateContent"] });
+      }
+
+      setShowAddModal(false);
+      setNewPost({
+        caption: "",
+        location: "",
+        photos: [],
+        videos: [],
+      });
+    } catch (error) {
+      toast.error(getUploadErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -527,47 +649,16 @@ export default function Dating() {
   return (
     <>
       <div className="min-h-screen bg-[#f3edf1] px-3 py-3 pb-[74px]">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*,video/*"
-          onChange={handleImmediateUpload}
-          className="hidden"
-        />
-
         <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-[28px] border border-[#e8e2e7] bg-[#f7f3f6] shadow-[0_12px_40px_rgba(15,23,42,0.10)]">
           <div className="bg-gradient-to-r from-[#5e9cff] via-[#2f6df0] to-[#6aa7ff] px-5 pb-8 pt-7">
             <div className="min-w-0">
-              <p className="text-[14px] text-white/80">Welcome to</p>
+              <p className="text-[14px] text-white/80"></p>
               <h1 className="truncate text-[22px] font-semibold text-white">Dating</h1>
-              <p className="mt-1 text-[12px] text-white/80">
-                Share your special moments safely
-              </p>
-            </div>
-
-            <div className="mt-4 rounded-[18px] bg-white/95 px-3 py-3 shadow-[0_8px_18px_rgba(15,23,42,0.10)] backdrop-blur-sm">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-rose-100">
-                    <Heart className="h-6 w-6 text-rose-500" />
-                  </div>
-
-                  <div>
-                    <p className="text-[15px] font-semibold text-slate-800">
-                      Dating Hub
-                    </p>
-                    <p className="text-sm text-slate-500">
-                      Explore connection and shared moments
-                    </p>
-                  </div>
-                </div>
-
-                <ChevronRight className="h-5 w-5 text-slate-400" />
-              </div>
+              <p className="mt-1 text-[12px] text-white/80"></p>
             </div>
           </div>
 
-          <div className="-mt-4 space-y-4 px-4 pt-4 pb-6">
+          <div className="-mt-7 space-y-4 px-4 pt-1 pb-6">
             <AnimatePresence>
               {showAdvice && dailyAdvice && (
                 <motion.div
@@ -606,94 +697,6 @@ export default function Dating() {
             </AnimatePresence>
 
             <div className="space-y-4">
-              <button
-                type="button"
-                onClick={() => setShowMyContent((v) => !v)}
-                className="flex w-full items-center justify-between rounded-[20px] bg-white px-4 py-4 text-left shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:bg-slate-50"
-              >
-                <span className="text-lg font-semibold text-slate-800">My Content</span>
-                <span className="text-xl text-slate-500">{showMyContent ? "▼" : "▶"}</span>
-              </button>
-
-              {showMyContent && (
-                <div>
-                  {myContentLoading ? (
-                    <div className="text-sm text-slate-500">Loading your content...</div>
-                  ) : myContentState.length === 0 ? (
-                    <Card className="rounded-[20px] border border-slate-100 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-                      <CardContent className="p-6 text-center text-slate-500">
-                        No content yet.
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-4">
-                      {myContentState.map((content) => (
-                        <Card
-                          key={content.id}
-                          className="overflow-hidden rounded-[20px] border border-slate-100 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
-                        >
-                          <CardContent className="p-0">
-                            <div className="relative">
-                              {content.content_type === "VIDEO" ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveVideo(content.content_url)}
-                                  className="block w-full"
-                                >
-                                  <VideoPreview src={content.content_url} />
-                                </button>
-                              ) : (
-                                <MediaFrame>
-                                  <img
-                                    src={content.content_url}
-                                    alt=""
-                                    loading="lazy"
-                                    className="h-auto w-full cursor-pointer object-contain"
-                                    onClick={() => setZoomedImage(content.content_url)}
-                                  />
-                                </MediaFrame>
-                              )}
-                            </div>
-
-                            <div className="space-y-3 p-4">
-                              <div className="flex items-center justify-between">
-                                <Badge
-                                  variant={
-                                    content.visibility === "PUBLIC_WALL"
-                                      ? "default"
-                                      : "secondary"
-                                  }
-                                >
-                                  {content.visibility === "PUBLIC_WALL" ? "Public" : "Private"}
-                                </Badge>
-
-                                <div className="flex items-center gap-1 text-xs text-slate-500">
-                                  <Eye className="h-3 w-3" />
-                                  {content.view_count || 0}
-                                </div>
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(content.id)}
-                                className="flex h-10 w-full items-center justify-center rounded-[12px] border border-red-200 bg-white text-red-600 transition hover:bg-red-50 hover:text-red-700"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-slate-800">Public Wall</h2>
-
               {publicLoading ? (
                 <div className="text-sm text-slate-500">Loading public content...</div>
               ) : publicContentState.length === 0 ? (
@@ -705,131 +708,129 @@ export default function Dating() {
               ) : (
                 <div className="grid grid-cols-1 gap-4">
                   {publicContentState.map((content) => (
-                    <Card
+                    <div
                       key={content.id}
-                      className="overflow-hidden rounded-[20px] border border-slate-100 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
+                      className="overflow-hidden rounded-[20px] bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
                     >
-                      <CardContent className="p-0">
-                        <div className="relative">
-                          {content.content_type === "VIDEO" ? (
-                            <button
-                              type="button"
-                              onClick={() => setActiveVideo(content.content_url)}
-                              className="block w-full"
-                            >
-                              <VideoPreview src={content.content_url} />
-                            </button>
-                          ) : (
-                            <MediaFrame>
+                      <div className="relative">
+                        {content.content_type === "VIDEO" ? (
+                          <button
+                            type="button"
+                            onClick={() => setActiveVideo(content.content_url)}
+                            className="block w-full"
+                          >
+                            <div className="relative block w-full overflow-hidden bg-black aspect-[4/5]">
+                              <video
+                                src={content.content_url}
+                                preload="metadata"
+                                muted
+                                playsInline
+                                className="absolute inset-0 h-full w-full object-cover"
+                              />
+
+                              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/45">
+                                  <Play className="h-6 w-6 text-white" />
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setZoomedImage(content.content_url)}
+                            className="block w-full"
+                          >
+                            <div className="relative block w-full overflow-hidden bg-black aspect-[4/5]">
                               <img
                                 src={content.content_url}
                                 alt=""
                                 loading="lazy"
-                                className="h-full w-full cursor-pointer object-cover"
-                                onClick={() => setZoomedImage(content.content_url)}
+                                className="absolute inset-0 h-full w-full object-cover"
                               />
-                            </MediaFrame>
-                          )}
+                            </div>
+                          </button>
+                        )}
 
-                          {content.owner_email !== user.email ? (
-                            <div
-                              className="absolute right-5 top-5 z-20"
-                              onClick={(e) => e.stopPropagation()}
+                        {content.owner_email !== user.email ? (
+                          <div
+                            className="absolute right-3 top-3 z-20"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOpenMenuId((prev) =>
+                                  prev === content.id ? null : content.id
+                                )
+                              }
+                              className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/92 shadow-sm backdrop-blur"
+                              aria-label="Open post options"
                             >
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setOpenMenuId((prev) =>
-                                    prev === content.id ? null : content.id
-                                  )
-                                }
-                                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/92 shadow-sm backdrop-blur"
-                                aria-label="Open post options"
-                              >
-                                <MoreHorizontal className="h-5 w-5 text-slate-700" />
-                              </button>
+                              <MoreHorizontal className="h-5 w-5 text-slate-700" />
+                            </button>
 
-                              {openMenuId === content.id && (
-                                <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-[12px] border border-slate-200 bg-white shadow-lg">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      handleQuickReport(content);
-                                      setOpenMenuId(null);
-                                    }}
-                                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50"
-                                  >
-                                    <Flag className="h-4 w-4 text-rose-500" />
-                                    Report Content
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div
-                              className="absolute right-5 top-5 z-20"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(content.id)}
-                                className="flex h-10 w-10 items-center justify-center rounded-full border border-red-200 bg-white/92 shadow-sm backdrop-blur"
-                                aria-label="Delete post"
-                              >
-                                <Trash2 className="h-5 w-5 text-red-600" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="space-y-3 p-4">
-                          {content.caption ? (
-                            <p className="text-sm text-slate-700">{content.caption}</p>
-                          ) : null}
-
-                          {content.location ? (
-                            <div className="flex items-center gap-1 text-xs text-slate-500">
-                              <MapPin className="h-3 w-3" />
-                              {content.location}
-                            </div>
-                          ) : null}
-
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-slate-700">
-                              {content.owner_email.split("@")[0]}
-                            </span>
-
-                            <Badge variant="outline" className="flex items-center gap-1">
-                              <Eye className="h-3 w-3" />
-                              {content.view_count || 0}
-                            </Badge>
+                            {openMenuId === content.id && (
+                              <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-[12px] border border-slate-200 bg-white shadow-lg">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleQuickReport(content);
+                                    setOpenMenuId(null);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                >
+                                  <Flag className="h-4 w-4 text-rose-500" />
+                                  Report Content
+                                </button>
+                              </div>
+                            )}
                           </div>
+                        ) : (
+                          <div
+                            className="absolute right-3 top-3 z-20"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(content.id)}
+                              className="flex h-10 w-10 items-center justify-center rounded-full border border-red-200 bg-white/92 shadow-sm backdrop-blur"
+                              aria-label="Delete post"
+                            >
+                              <Trash2 className="h-5 w-5 text-red-600" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
 
-                          {content.owner_email !== user.email ? (
-                            <div className="border-t border-slate-100 pt-2">
-                              <button
-                                type="button"
-                                onClick={() => handleReaction(content.id, "heart")}
-                                className={`flex items-center gap-1.5 rounded-full px-3 py-2 transition-all ${
-                                  hasUserHearted(content.id)
-                                    ? "bg-rose-100 text-rose-600"
-                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                }`}
-                              >
-                                <Heart
-                                  className={`h-4 w-4 ${
-                                    hasUserHearted(content.id) ? "fill-rose-600" : ""
-                                  }`}
-                                />
-                                <span className="text-sm font-medium">
-                                  {getHeartCount(content.id)}
-                                </span>
-                              </button>
-                            </div>
-                          ) : null}
+                      <div className="space-y-3 p-4">
+                        {content.caption ? (
+                          <p className="text-sm text-slate-700">{content.caption}</p>
+                        ) : null}
+
+                        {content.location ? (
+                          <div className="flex items-center gap-1 text-xs text-slate-500">
+                            <MapPin className="h-3 w-3" />
+                            {content.location}
+                          </div>
+                        ) : null}
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-slate-700">
+                            {content.owner_email.split("@")[0]}
+                          </span>
+
+                          <Badge variant="outline" className="flex items-center gap-1">
+                            <Eye className="h-3 w-3" />
+                            {content.view_count || 0}
+                          </Badge>
                         </div>
-                      </CardContent>
-                    </Card>
+
+                        {content.owner_email !== user.email ? (
+                          <div className="border-t border-slate-100 pt-2"></div>
+                        ) : null}
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -838,8 +839,8 @@ export default function Dating() {
         </div>
 
         <FloatingUploadButton
-          onClick={handleFloatingUploadClick}
-          disabled={isUploading}
+          onClick={() => setShowAddModal(true)}
+          disabled={isUploading || isSubmitting}
         />
 
         <AnimatePresence>
@@ -898,6 +899,152 @@ export default function Dating() {
           )}
         </AnimatePresence>
       </div>
+
+      <Modal
+        open={showAddModal}
+        onClose={() => {
+          if (isSubmitting) return;
+          setShowAddModal(false);
+          setNewPost({
+            caption: "",
+            location: "",
+            photos: [],
+            videos: [],
+          });
+        }}
+        title="Add a Post"
+      >
+        <Card className="rounded-[16px] border border-slate-100 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.06)]">
+          <CardContent className="p-4">
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Caption
+            </label>
+            <textarea
+              value={newPost.caption}
+              onChange={(e) =>
+                setNewPost((prev) => ({ ...prev, caption: e.target.value }))
+              }
+              placeholder="Write something romantic..."
+              className="mb-4 min-h-[96px] w-full rounded-[12px] border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#ef4f75]"
+            />
+
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Location
+            </label>
+            <div className="relative mb-4">
+              <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={newPost.location}
+                onChange={(e) =>
+                  setNewPost((prev) => ({ ...prev, location: e.target.value }))
+                }
+                placeholder="Where was this?"
+                className="h-11 w-full rounded-[12px] border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#ef4f75]"
+              />
+            </div>
+
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Photos
+            </label>
+            <div className="mb-4 space-y-3">
+              {newPost.photos.map((photo, index) => (
+                <div
+                  key={`${photo}-${index}`}
+                  className="relative overflow-hidden rounded-[12px] border border-slate-200 bg-black"
+                >
+                  <img
+                    src={photo}
+                    alt=""
+                    className="h-auto w-full object-contain"
+                    loading="lazy"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(index)}
+                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50"
+                  >
+                    <X className="h-4 w-4 text-white" />
+                  </button>
+                </div>
+              ))}
+
+              <label className="flex min-h-[110px] w-full cursor-pointer flex-col items-center justify-center rounded-[12px] border border-dashed border-slate-200 bg-white text-slate-500 hover:bg-slate-50">
+                <Camera className="h-6 w-6" />
+                <span className="mt-2 text-xs font-medium">Add Photo</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Videos
+            </label>
+            <div className="space-y-3">
+              {newPost.videos.map((video, index) => (
+                <div
+                  key={`${video}-${index}`}
+                  className="relative overflow-hidden rounded-[12px] bg-black"
+                >
+                  <div className="flex w-full items-center justify-center">
+                    <video
+                      src={video}
+                      controls
+                      preload="metadata"
+                      playsInline
+                      className="h-auto w-full object-contain"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeVideo(index)}
+                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50"
+                  >
+                    <X className="h-4 w-4 text-white" />
+                  </button>
+                </div>
+              ))}
+
+              <label className="flex min-h-[110px] w-full cursor-pointer flex-col items-center justify-center rounded-[12px] border border-dashed border-slate-200 bg-white text-slate-500 hover:bg-slate-50">
+                <Video className="h-6 w-6" />
+                <span className="mt-2 text-xs font-medium">Add Video</span>
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={handleVideoUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Button
+          type="button"
+          onClick={handleSavePost}
+          disabled={
+            isSubmitting ||
+            isUploading ||
+            (!newPost.caption.trim() &&
+              newPost.photos.length === 0 &&
+              newPost.videos.length === 0)
+          }
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-[#ef4f75] text-white hover:bg-[#e24469]"
+        >
+          {isSubmitting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <>
+              <Heart className="h-4 w-4" />
+              <span>Save Post</span>
+            </>
+          )}
+        </Button>
+      </Modal>
 
       <BottomNav />
     </>

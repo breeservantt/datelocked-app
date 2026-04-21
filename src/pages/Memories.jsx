@@ -1,4 +1,5 @@
 import React from "react";
+import { generateId } from "@/lib/generateId";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
@@ -384,7 +385,7 @@ export default function Memories() {
     mutationFn: async (payload) => {
       const allItems = loadStoredMemories();
       const newItem = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         owner_id: user.id,
         owner_email: user.email || "",
         created_at: new Date().toISOString(),
