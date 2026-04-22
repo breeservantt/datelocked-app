@@ -9,12 +9,12 @@ export default function PageShell({
   backgroundClassName = "bg-gradient-to-b from-rose-50 via-white to-pink-50",
 }) {
   return (
-    <div className={`min-h-screen w-full ${backgroundClassName} flex justify-center`}>
+    <div className={`h-screen w-full ${backgroundClassName} flex justify-center overflow-hidden`}>
       <div
-        className={`relative flex h-screen w-full max-w-[430px] flex-col overflow-hidden bg-transparent ${className}`}
+        className={`relative flex h-screen w-full max-w-[480px] flex-col overflow-hidden bg-transparent ${className}`}
       >
         <main
-          className={`flex-1 overflow-y-auto px-4 pt-4 ${
+          className={`flex-1 overflow-y-auto px-3 pt-3 ${
             showBottomNav || bottomNav ? "pb-24" : "pb-6"
           } ${contentClassName}`}
         >

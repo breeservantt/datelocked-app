@@ -4,8 +4,6 @@ import {
   ArrowLeft,
   Loader2,
   MessageCircle,
-  Users,
-  Plus,
   Send,
   Check,
   CheckCheck,
@@ -16,21 +14,12 @@ import {
   MapPin,
   Fingerprint,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { supabase } from "@/lib/supabase";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import GroupChatList from "@/components/chat/GroupChatList";
+import { createPageUrl } from "@/utils";
 import { parseSafeDate } from "@/components/utils/dateHelpers";
 
-const NOTIFY_AUDIO_SRC =
-  "data:audio/wav;base64,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";
-
-const createPageUrl = (pageName) => {
-  if (pageName === "Home") return "/";
-  return `/${pageName.toLowerCase()}`;
-};
+const LOCAL_PARTNER_CHAT_KEY = "datelocked_local_partner_chat_v3";
 
 const navItems = [
   { label: "Home", icon: HomeIcon, page: "Home" },
@@ -44,209 +33,11 @@ const navItems = [
 
 function AppShell({ children }) {
   return (
-    <div className="min-h-screen bg-[#f7f1f4] px-3 py-3 pb-24">
-      <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-[18px] border border-[#ece6ea] bg-[#f7f4f6] shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+    <div className="min-h-screen bg-[#f7f1f4] px-2 py-2 pb-24">
+      <div className="mx-auto w-full max-w-[550px] overflow-hidden rounded-[16px] border border-[#ece6ea] bg-[#f7f4f6] shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
         {children}
       </div>
     </div>
-  );
-}
-
-function AppHeader({ title, subtitle }) {
-  return (
-    <div className="border-b border-slate-200 bg-[#f8f6f7] px-5 py-5">
-      <div className="flex flex-col items-center justify-center text-center">
-        <h1 className="text-[1.9rem] font-semibold tracking-[-0.02em] text-slate-800">
-          {title}
-        </h1>
-        {subtitle ? (
-          <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function AppCard({ children, className = "" }) {
-  return (
-    <div
-      className={`overflow-hidden rounded-[14px] border border-slate-100 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.06)] ${className}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-function GradientInfoCard({ children, className = "" }) {
-  return (
-    <div
-      className={`rounded-[14px] border border-blue-100 bg-gradient-to-r from-[#eef6ff] via-[#f4f8ff] to-[#eaf3ff] shadow-[0_4px_12px_rgba(15,23,42,0.06)] ${className}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-function TabButton({ active, children, onClick, iconOnly = false }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "h-11 rounded-[12px] text-sm font-medium transition flex items-center justify-center",
-        iconOnly ? "w-11 shrink-0 px-0" : "flex-1 px-3",
-        active
-          ? "bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)]"
-          : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-      ].join(" ")}
-    >
-      {children}
-    </button>
-  );
-}
-
-function AvatarCircle({ src, fallback, className = "" }) {
-  if (!src && !fallback) return null;
-
-  if (src) {
-    return (
-      <img
-        src={src}
-        alt=""
-        className={`rounded-full object-cover ${className}`}
-      />
-    );
-  }
-
-  return (
-    <div
-      className={`flex items-center justify-center rounded-full bg-gradient-to-br from-[#eaf3ff] to-[#f3f8ff] text-[#77aef7] ${className}`}
-    >
-      {fallback}
-    </div>
-  );
-}
-
-function ChatTrayEmpty({ title, text }) {
-  return (
-    <AppCard className="px-6 py-10 text-center">
-      <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100">
-        <MessageCircle className="h-10 w-10 text-slate-300" />
-      </div>
-      <h3 className="text-[17px] font-semibold text-slate-800">{title}</h3>
-      <p className="mx-auto mt-3 max-w-[260px] text-[15px] leading-8 text-slate-500">
-        {text}
-      </p>
-    </AppCard>
-  );
-}
-
-function ChatInputTray({
-  fileInputRef,
-  isUploading,
-  isSending,
-  newMessage,
-  setNewMessage,
-  handleSend,
-  handleFileUpload,
-  inputRef,
-}) {
-  const [showEmoji, setShowEmoji] = React.useState(false);
-
-  const emojiList = [
-    "❤️","💕","💖","💘","💝","💞","💓","💗",
-    "😍","🥰","😘","😚","😻","💋","🌹","🌸",
-    "👩‍❤️‍👨","👨‍❤️‍👨","👩‍❤️‍👩","💑","👩‍❤️‍💋‍👨","👨‍❤️‍💋‍👨","👩‍❤️‍💋‍👩",
-    "🔥","✨","🥺","😊","😂","😁","😭","🙏",
-    "👍","👏","🙌","💪","👌","🤝","🎉","🎁"
-  ];
-
-  return (
-    <AppCard className="p-3">
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,video/*"
-        onChange={handleFileUpload}
-        className="hidden"
-      />
-
-      <div className="relative w-full">
-        {showEmoji && (
-          <div className="absolute bottom-[56px] left-0 right-0 z-20 rounded-[16px] border border-slate-200 bg-white p-2 shadow-[0_8px_20px_rgba(15,23,42,0.10)]">
-            <div className="mb-2 flex items-center justify-between px-1">
-              <span className="text-[12px] font-medium text-slate-500">Emoji</span>
-              <button
-                type="button"
-                onClick={() => setShowEmoji(false)}
-                className="text-[12px] text-slate-400"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="grid max-h-[220px] grid-cols-8 gap-2 overflow-y-auto">
-              {emojiList.map((emoji, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => {
-                    setNewMessage((prev) => prev + emoji);
-                    setShowEmoji(false);
-                    inputRef.current?.focus();
-                  }}
-                  className="flex h-8 w-8 items-center justify-center rounded-[8px] text-[18px] hover:bg-slate-100"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2 w-full">
-          <button
-            type="button"
-            onClick={() => setShowEmoji((prev) => !prev)}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-slate-200 bg-white text-[18px]"
-          >
-            😊
-          </button>
-
-          <input
-            ref={inputRef}
-            type="text"
-            placeholder="Type a message..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !isSending && !isUploading && newMessage.trim()) {
-                handleSend();
-              }
-            }}
-            className="flex-1 min-w-0 h-11 rounded-[12px] border border-slate-200 bg-white px-3 text-[14px] text-slate-700 outline-none placeholder:text-slate-400"
-          />
-
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-slate-200 bg-white text-slate-600 disabled:opacity-60"
-          >
-            <ImageIcon className="h-5 w-5" />
-          </button>
-
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={!newMessage.trim() || isSending || isUploading}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-gradient-to-r from-[#8ec5ff] to-[#d8b4fe] text-white disabled:opacity-50"
-          >
-            <Send className="h-5 w-5" />
-          </button>
-        </div>
-      </div>
-    </AppCard>
   );
 }
 
@@ -259,8 +50,7 @@ function BottomNav() {
         {navItems.map((item) => {
           const href = createPageUrl(item.page);
           const active =
-            location.pathname === href ||
-            (href === "/" && location.pathname === "/");
+            location.pathname === href || (href === "/" && location.pathname === "/");
           const Icon = item.icon;
 
           return (
@@ -279,9 +69,7 @@ function BottomNav() {
               />
               <span
                 className={`truncate text-[8px] leading-none tracking-[-0.01em] ${
-                  active
-                    ? "font-semibold text-[#ef4f75]"
-                    : "font-medium text-slate-400"
+                  active ? "font-semibold text-[#ef4f75]" : "font-medium text-slate-400"
                 }`}
               >
                 {item.label}
@@ -289,6 +77,234 @@ function BottomNav() {
             </Link>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function AvatarCircle({ src, fallback = "C", className = "" }) {
+  if (src) {
+    return <img src={src} alt="" className={`rounded-full object-cover ${className}`} />;
+  }
+
+  return (
+    <div
+      className={`flex items-center justify-center rounded-full bg-gradient-to-br from-[#dcecff] to-[#edf5ff] text-[13px] font-semibold text-[#77aef7] ${className}`}
+    >
+      {fallback}
+    </div>
+  );
+}
+
+function ChatHeader({ partner, onBack }) {
+  return (
+    <div className="absolute left-0 right-0 top-0 z-20 h-[64px] border-b border-white/35 bg-white/18 px-3 backdrop-blur-xl flex items-center">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/88 text-slate-700 shadow-[0_4px_12px_rgba(15,23,42,0.08)]"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#34d399] via-[#25d366] to-[#0ea85f] text-white shadow-[0_6px_14px_rgba(37,211,102,0.35)]">
+          <MessageCircle className="h-5 w-5" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-[16px] font-semibold text-white">Chat</h1>
+          <p className="truncate text-[12px] text-white/80">
+            {partner?.full_name || partner?.name || "Conversation"}
+          </p>
+        </div>
+
+        <AvatarCircle
+          src={partner?.profile_picture || partner?.avatar_url || partner?.photo_url || ""}
+          fallback={(partner?.full_name || partner?.name || "P").charAt(0).toUpperCase()}
+          className="h-11 w-11 shrink-0 border border-white/45"
+        />
+      </div>
+    </div>
+  );
+}
+
+function ChatBubble({ msg, isMe }) {
+  const createdDate = parseSafeDate(msg.created_date || msg.created_at);
+
+  return (
+    <div className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+      <div className={`flex max-w-[82%] flex-col ${isMe ? "items-end" : "items-start"}`}>
+        {!isMe && msg.sender_name ? (
+          <p className="mb-1 px-2 text-[11px] font-medium text-white/85">{msg.sender_name}</p>
+        ) : null}
+
+        <div
+          className={`rounded-[20px] border px-3 py-2.5 shadow-[0_8px_22px_rgba(15,23,42,0.08)] ${
+            isMe
+              ? "rounded-br-[7px] border-[#a7efbf] bg-[#d9fdd3] text-slate-800"
+              : "rounded-bl-[7px] border-[#f3dfe5] bg-[#fff8fa] text-slate-800"
+          }`}
+        >
+          {msg.content?.startsWith("📷 ") ? (
+            <img
+              src={msg.content.slice(3)}
+              alt="Shared"
+              className="max-w-full rounded-[14px] object-cover"
+              style={{ maxHeight: "320px" }}
+            />
+          ) : msg.content?.startsWith("🎥 ") ? (
+            <video
+              src={msg.content.slice(3)}
+              controls
+              className="max-w-full rounded-[14px]"
+              style={{ maxHeight: "320px" }}
+            />
+          ) : (
+            <p className="break-words text-[14px] leading-6">{msg.content}</p>
+          )}
+
+          <div
+            className={`mt-1.5 flex items-center gap-1 text-[10px] ${
+              isMe ? "justify-end text-slate-500" : "justify-end text-slate-400"
+            }`}
+          >
+            {createdDate ? <span>{format(createdDate, "h:mm a")}</span> : null}
+            {isMe ? (
+              msg.read ? (
+                <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
+              ) : (
+                <Check className="h-3.5 w-3.5" />
+              )
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="flex min-h-full flex-col items-center justify-center px-6 text-center">
+      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur">
+        <MessageCircle className="h-8 w-8 text-white/85" />
+      </div>
+      <h3 className="text-[18px] font-semibold text-white">No messages yet</h3>
+      <p className="mt-2 text-[13px] leading-6 text-white/80">
+        Start the conversation below.
+      </p>
+    </div>
+  );
+}
+
+function ChatComposer({
+  newMessage,
+  setNewMessage,
+  handleSend,
+  handleFileUpload,
+  fileInputRef,
+  inputRef,
+  isSending,
+  isUploading,
+}) {
+  const [showEmoji, setShowEmoji] = React.useState(false);
+
+  const emojiList = [
+    "❤️",
+    "💕",
+    "💖",
+    "💘",
+    "💝",
+    "💞",
+    "😍",
+    "🥰",
+    "😘",
+    "😊",
+    "😂",
+    "😭",
+    "🔥",
+    "✨",
+    "🙏",
+    "👍",
+  ];
+
+  return (
+    <div className="absolute bottom-0 left-0 right-0 z-20 px-3 pb-2 pt-2">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*"
+        onChange={handleFileUpload}
+        className="hidden"
+      />
+
+      {showEmoji ? (
+        <div className="mb-2 rounded-[22px] border border-white/30 bg-white/16 p-2 backdrop-blur-xl">
+          <div className="grid grid-cols-8 gap-2">
+            {emojiList.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => {
+                  setNewMessage((prev) => prev + emoji);
+                  inputRef.current?.focus();
+                }}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/18 text-[16px]"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="rounded-[28px] border border-white/35 bg-white/14 p-2 shadow-[0_14px_34px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowEmoji((prev) => !prev)}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/88 text-[18px] text-slate-700 shadow-[0_4px_12px_rgba(15,23,42,0.08)]"
+          >
+            😊
+          </button>
+
+          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-white/45 bg-white/85 px-3 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8)]">
+            <input
+              ref={inputRef}
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSend();
+              }}
+              placeholder="Type a message"
+              className="h-11 w-full bg-transparent text-[14px] text-slate-800 outline-none placeholder:text-slate-500"
+            />
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#16a34a]"
+            >
+              {isUploading ? (
+                <Loader2 className="h-4.5 w-4.5 animate-spin" />
+              ) : (
+                <ImageIcon className="h-5 w-5" />
+              )}
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={!newMessage.trim() || isSending || isUploading}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#075e54] text-white shadow-[0_8px_18px_rgba(7,94,84,0.34)] disabled:opacity-55"
+          >
+            {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -323,32 +339,74 @@ async function tryProfileTablesByEmail(email) {
   return null;
 }
 
+function loadLocalPartnerMessages() {
+  try {
+    const raw = localStorage.getItem(LOCAL_PARTNER_CHAT_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalPartnerMessages(messages) {
+  localStorage.setItem(LOCAL_PARTNER_CHAT_KEY, JSON.stringify(messages));
+}
+
+function createLocalMessage({ sender_email, content, read = false, sender_name = "You" }) {
+  return {
+    id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    sender_email,
+    sender_name,
+    content,
+    read,
+    created_date: new Date().toISOString(),
+  };
+}
+
 export default function Chat() {
   const [user, setUser] = React.useState(null);
   const [partner, setPartner] = React.useState(null);
-  const [partnerMessages, setPartnerMessages] = React.useState([]);
-  const [groupMessages, setGroupMessages] = React.useState([]);
-  const [myGroups, setMyGroups] = React.useState([]);
-  const [selectedGroup, setSelectedGroup] = React.useState(null);
-  const [activeTab, setActiveTab] = React.useState("partner");
+  const [messages, setMessages] = React.useState([]);
   const [newMessage, setNewMessage] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSending, setIsSending] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
 
   const messagesEndRef = React.useRef(null);
-  const inputRef = React.useRef(null);
   const fileInputRef = React.useRef(null);
-  const notifyAudioRef = React.useRef(null);
-  const lastPartnerNotifiedIdRef = React.useRef(null);
-  const lastGroupNotifiedIdRef = React.useRef(null);
+  const inputRef = React.useRef(null);
 
-  React.useEffect(() => {
-    notifyAudioRef.current = new Audio(NOTIFY_AUDIO_SRC);
+  const coupleIdRef = React.useRef(null);
+  const channelRef = React.useRef(null);
+
+  const scrollToBottom = React.useCallback(() => {
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    });
   }, []);
 
-  const playNotify = React.useCallback(() => {
-    notifyAudioRef.current?.play().catch(() => {});
+  const loadMessages = React.useCallback(async (coupleId, currentUser) => {
+    if (coupleId) {
+      const { data, error } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("couple_profile_id", coupleId)
+        .order("created_date", { ascending: true });
+
+      if (!error) {
+        setMessages(data || []);
+        return;
+      }
+    }
+
+    const local = loadLocalPartnerMessages();
+    setMessages(local);
+
+    if (!currentUser && local.length === 0) {
+      setMessages([]);
+    }
   }, []);
 
   const loadPage = React.useCallback(async () => {
@@ -360,16 +418,17 @@ export default function Chat() {
         error: authError,
       } = await supabase.auth.getUser();
 
-      if (authError) throw authError;
-      if (!authUser) {
+      if (authError || !authUser) {
         setUser(null);
+        setPartner(null);
+        setMessages([]);
         return;
       }
 
       let profile = await tryProfileTablesById(authUser.id);
 
       if (!profile) {
-        const payload = {
+        const fallbackProfile = {
           id: authUser.id,
           email: authUser.email,
           full_name:
@@ -379,9 +438,9 @@ export default function Chat() {
             "User",
         };
 
-        await supabase.from("profiles").upsert(payload, { onConflict: "id" });
-        await supabase.from("users").upsert(payload, { onConflict: "id" });
-        profile = payload;
+        await supabase.from("profiles").upsert(fallbackProfile, { onConflict: "id" });
+        await supabase.from("users").upsert(fallbackProfile, { onConflict: "id" });
+        profile = fallbackProfile;
       }
 
       const mergedUser = {
@@ -392,11 +451,26 @@ export default function Chat() {
 
       setUser(mergedUser);
 
-      if (mergedUser?.couple_profile_id && mergedUser?.email) {
+      let activeCoupleId =
+        mergedUser?.couple_profile_id || mergedUser?.user_metadata?.couple_profile_id || null;
+
+      if (!activeCoupleId) {
+        const { data: foundProfile } = await supabase
+          .from("profiles")
+          .select("couple_profile_id")
+          .eq("id", authUser.id)
+          .maybeSingle();
+
+        activeCoupleId = foundProfile?.couple_profile_id || null;
+      }
+
+      coupleIdRef.current = activeCoupleId || null;
+
+      if (activeCoupleId && mergedUser?.email) {
         const { data: coupleProfile } = await supabase
           .from("couple_profiles")
           .select("*")
-          .eq("id", mergedUser.couple_profile_id)
+          .eq("id", activeCoupleId)
           .maybeSingle();
 
         if (coupleProfile) {
@@ -406,163 +480,66 @@ export default function Chat() {
               : coupleProfile.partner1_email;
 
           const partnerProfile = await tryProfileTablesByEmail(partnerEmail);
-          setPartner(partnerProfile || null);
-
-          const { data: messages } = await supabase
-            .from("messages")
-            .select("*")
-            .eq("couple_profile_id", mergedUser.couple_profile_id)
-            .order("created_date", { ascending: true });
-
-          setPartnerMessages(messages || []);
+          setPartner(partnerProfile || { email: partnerEmail, full_name: "Partner" });
         } else {
           setPartner(null);
-          setPartnerMessages([]);
         }
       } else {
         setPartner(null);
-        setPartnerMessages([]);
       }
 
-      if (mergedUser?.email) {
-        const { data: memberships } = await supabase
-          .from("chat_group_members")
-          .select("*")
-          .eq("user_email", mergedUser.email)
-          .eq("status", "active");
-
-        const groupIds = (memberships || [])
-          .map((m) => m.chat_group_id)
-          .filter(Boolean);
-
-        if (groupIds.length) {
-          const { data: groups } = await supabase
-            .from("chat_groups")
-            .select("*")
-            .in("id", groupIds)
-            .order("created_date", { ascending: false });
-
-          const groupList = await Promise.all(
-            (groups || []).map(async (group) => {
-              const { count } = await supabase
-                .from("chat_group_members")
-                .select("id", { count: "exact", head: true })
-                .eq("chat_group_id", group.id)
-                .eq("status", "active");
-
-              return {
-                ...group,
-                memberCount: count || 0,
-              };
-            })
-          );
-
-          setMyGroups(groupList);
-        } else {
-          setMyGroups([]);
-        }
-      }
+      await loadMessages(activeCoupleId, mergedUser);
     } catch (error) {
-      console.error("Error loading chat page:", error);
+      console.error("Error loading chat:", error);
+      setUser(null);
+      setPartner(null);
+      setMessages([]);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [loadMessages]);
 
   React.useEffect(() => {
     loadPage();
   }, [loadPage]);
 
   React.useEffect(() => {
-    if (!selectedGroup?.id) {
-      setGroupMessages([]);
-      return;
+    if (!coupleIdRef.current) return;
+
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
     }
 
-    let mounted = true;
+    const channel = supabase
+      .channel(`messages-${coupleIdRef.current}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+          filter: `couple_profile_id=eq.${coupleIdRef.current}`,
+        },
+        async () => {
+          await loadMessages(coupleIdRef.current, user);
+        }
+      )
+      .subscribe();
 
-    const loadGroupMessages = async () => {
-      const { data } = await supabase
-        .from("group_messages")
-        .select("*")
-        .eq("chat_group_id", selectedGroup.id)
-        .order("created_date", { ascending: true });
-
-      if (mounted) setGroupMessages(data || []);
-    };
-
-    loadGroupMessages();
-    const interval = setInterval(loadGroupMessages, 5000);
+    channelRef.current = channel;
 
     return () => {
-      mounted = false;
-      clearInterval(interval);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
-  }, [selectedGroup?.id]);
+  }, [user, loadMessages]);
 
   React.useEffect(() => {
-    if (activeTab !== "partner" || !user?.couple_profile_id) return;
-
-    let mounted = true;
-
-    const loadPartnerMessages = async () => {
-      const { data } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("couple_profile_id", user.couple_profile_id)
-        .order("created_date", { ascending: true });
-
-      if (mounted) setPartnerMessages(data || []);
-    };
-
-    loadPartnerMessages();
-    const interval = setInterval(loadPartnerMessages, 5000);
-
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
-  }, [activeTab, user?.couple_profile_id]);
-
-  React.useEffect(() => {
-    if (!user?.email || !partnerMessages?.length) return;
-
-    const last = partnerMessages[partnerMessages.length - 1];
-    if (!last?.id) return;
-
-    const isIncoming = last.sender_email !== user.email;
-    const isNew = lastPartnerNotifiedIdRef.current !== last.id;
-
-    if (isIncoming && isNew) {
-      lastPartnerNotifiedIdRef.current = last.id;
-      playNotify();
-    } else if (isNew) {
-      lastPartnerNotifiedIdRef.current = last.id;
-    }
-  }, [partnerMessages, user?.email, playNotify]);
-
-  React.useEffect(() => {
-    if (!user?.email || !groupMessages?.length) return;
-
-    const last = groupMessages[groupMessages.length - 1];
-    if (!last?.id) return;
-
-    const isIncoming = last.sender_email !== user.email;
-    const isNew = lastGroupNotifiedIdRef.current !== last.id;
-
-    if (isIncoming && isNew) {
-      lastGroupNotifiedIdRef.current = last.id;
-      playNotify();
-    } else if (isNew) {
-      lastGroupNotifiedIdRef.current = last.id;
-    }
-  }, [groupMessages, user?.email, playNotify]);
-
-  React.useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [partnerMessages, groupMessages]);
-
-  const displayedMessages = selectedGroup ? groupMessages : partnerMessages;
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   const handleSend = async () => {
     if (!user) return;
@@ -573,42 +550,29 @@ export default function Chat() {
     setIsSending(true);
 
     try {
-      if (selectedGroup?.id) {
-        const { error } = await supabase.from("group_messages").insert({
-          chat_group_id: selectedGroup.id,
-          sender_email: user.email,
-          sender_name: user.full_name,
-          content,
-        });
-
-        if (error) throw error;
-
-        const { data } = await supabase
-          .from("group_messages")
-          .select("*")
-          .eq("chat_group_id", selectedGroup.id)
-          .order("created_date", { ascending: true });
-
-        setGroupMessages(data || []);
-      } else if (user?.couple_profile_id) {
+      if (coupleIdRef.current) {
         const { error } = await supabase.from("messages").insert({
-          couple_profile_id: user.couple_profile_id,
+          couple_profile_id: coupleIdRef.current,
           sender_email: user.email,
+          sender_name: user.full_name || user.name || "You",
           content,
           read: false,
         });
 
         if (error) throw error;
-
-        const { data } = await supabase
-          .from("messages")
-          .select("*")
-          .eq("couple_profile_id", user.couple_profile_id)
-          .order("created_date", { ascending: true });
-
-        setPartnerMessages(data || []);
+        await loadMessages(coupleIdRef.current, user);
       } else {
-        alert("No partner chat is linked yet. Use Groups to chat.");
+        const next = [
+          ...messages,
+          createLocalMessage({
+            sender_email: user.email,
+            sender_name: user.full_name || user.name || "You",
+            content,
+            read: true,
+          }),
+        ];
+        setMessages(next);
+        saveLocalPartnerMessages(next);
       }
 
       setNewMessage("");
@@ -630,63 +594,56 @@ export default function Chat() {
     const isVideo = file.type.startsWith("video/");
 
     if (!isImage && !isVideo) {
-      alert("Please select an image or video file");
+      alert("Please select an image or video file.");
       return;
     }
 
     setIsUploading(true);
 
     try {
-      const fileExt = file.name.split(".").pop();
-      const filePath = `${user.id}/${Date.now()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("chat-media")
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from("chat-media").getPublicUrl(filePath);
-      const publicUrl = data.publicUrl;
+      let content = "";
       const prefix = isImage ? "📷 " : "🎥 ";
-      const content = `${prefix}${publicUrl}`;
 
-      if (selectedGroup?.id) {
-        const { error } = await supabase.from("group_messages").insert({
-          chat_group_id: selectedGroup.id,
+      if (coupleIdRef.current) {
+        const fileExt = file.name.split(".").pop();
+        const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("chat-media")
+          .upload(filePath, file, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from("chat-media").getPublicUrl(filePath);
+        content = `${prefix}${data.publicUrl}`;
+
+        const { error: insertError } = await supabase.from("messages").insert({
+          couple_profile_id: coupleIdRef.current,
           sender_email: user.email,
-          sender_name: user.full_name,
-          content,
-        });
-
-        if (error) throw error;
-
-        const { data: fresh } = await supabase
-          .from("group_messages")
-          .select("*")
-          .eq("chat_group_id", selectedGroup.id)
-          .order("created_date", { ascending: true });
-
-        setGroupMessages(fresh || []);
-      } else if (user?.couple_profile_id) {
-        const { error } = await supabase.from("messages").insert({
-          couple_profile_id: user.couple_profile_id,
-          sender_email: user.email,
+          sender_name: user.full_name || user.name || "You",
           content,
           read: false,
         });
 
-        if (error) throw error;
+        if (insertError) throw insertError;
 
-        const { data: fresh } = await supabase
-          .from("messages")
-          .select("*")
-          .eq("couple_profile_id", user.couple_profile_id)
-          .order("created_date", { ascending: true });
-
-        setPartnerMessages(fresh || []);
+        await loadMessages(coupleIdRef.current, user);
       } else {
-        alert("No partner chat is linked yet. Use Groups to share media.");
+        const localUrl = URL.createObjectURL(file);
+        content = `${prefix}${localUrl}`;
+
+        const next = [
+          ...messages,
+          createLocalMessage({
+            sender_email: user.email,
+            sender_name: user.full_name || user.name || "You",
+            content,
+            read: true,
+          }),
+        ];
+
+        setMessages(next);
+        saveLocalPartnerMessages(next);
       }
     } catch (error) {
       console.error("Upload failed:", error);
@@ -700,8 +657,8 @@ export default function Chat() {
     return (
       <>
         <AppShell>
-          <div className="flex min-h-[520px] items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-[#8ec5ff]" />
+          <div className="flex min-h-[640px] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-[#25d366]" />
           </div>
         </AppShell>
         <BottomNav />
@@ -713,11 +670,14 @@ export default function Chat() {
     return (
       <>
         <AppShell>
-          <div className="px-4 py-4">
-            <ChatTrayEmpty
-              title="Couldn’t load chat"
-              text="Please sign in and try again."
-            />
+          <div className="flex min-h-[640px] items-center justify-center px-6 text-center">
+            <div>
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+                <MessageCircle className="h-8 w-8 text-slate-300" />
+              </div>
+              <h3 className="text-[18px] font-semibold text-slate-800">Couldn’t load chat</h3>
+              <p className="mt-2 text-[14px] text-slate-500">Please sign in and try again.</p>
+            </div>
           </div>
         </AppShell>
         <BottomNav />
@@ -728,311 +688,44 @@ export default function Chat() {
   return (
     <>
       <AppShell>
-        <AppHeader title="Chat" subtitle="Partner and group conversations" />
+        <div className="relative h-[calc(100dvh-88px)] overflow-hidden bg-gradient-to-b from-[#0ea85f] via-[#25d366] to-[#128c7e]">
+          <div className="absolute inset-0 opacity-[0.12]">
+            <div className="absolute -left-10 top-10 h-40 w-40 rounded-full bg-white blur-3xl" />
+            <div className="absolute right-0 top-28 h-48 w-48 rounded-full bg-[#dcfce7] blur-3xl" />
+            <div className="absolute bottom-16 left-8 h-44 w-44 rounded-full bg-[#bbf7d0] blur-3xl" />
+          </div>
 
-        <div className="space-y-4 px-4 py-4">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`${activeTab}-${selectedGroup?.id || "main"}`}
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -18 }}
-              className="space-y-4"
-            >
-              {!selectedGroup ? (
-                <div className="flex items-center gap-2">
-                  <TabButton
-                    active={activeTab === "partner"}
-                    onClick={() => setActiveTab("partner")}
-                  >
-                    Partner
-                  </TabButton>
+          <ChatHeader partner={partner} onBack={() => window.history.back()} />
 
-                  <TabButton
-                    active={activeTab === "groups"}
-                    onClick={() => setActiveTab("groups")}
-                  >
-                    Groups
-                  </TabButton>
-
-                  {activeTab === "groups" ? (
-                    <TabButton active={false} onClick={() => {}} iconOnly>
-                      <Plus className="h-5 w-5" />
-                    </TabButton>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {!selectedGroup && activeTab === "partner" ? (
+          <div className="absolute inset-0 overflow-y-auto px-3 pt-[72px] pb-[120px] scroll-smooth">
+            <div className="space-y-3">
+              {messages.length > 0 ? (
                 <>
-                  <GradientInfoCard className="p-5">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-gradient-to-br from-[#8ec5ff] to-[#a9bfff] text-white shadow-sm">
-                        <MessageCircle className="h-6 w-6" />
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <h2 className="text-lg font-semibold text-slate-800">
-                          Partner Chat
-                        </h2>
-                        <p className="mt-1 text-sm text-slate-500">
-                          Direct conversation with your partner.
-                        </p>
-                      </div>
-
-                      <AvatarCircle
-                        src={partner?.profile_photo}
-                        fallback={partner?.full_name?.[0] || null}
-                        className="h-12 w-12 border border-white shadow-sm"
-                      />
-                    </div>
-                  </GradientInfoCard>
-
-                  {user?.couple_profile_id && displayedMessages.length > 0 ? (
-                    <>
-                      <AppCard className="p-4">
-                        <div className="space-y-4">
-                          {displayedMessages.map((msg) => {
-                            const isMe = msg.sender_email === user.email;
-                            const createdDate = parseSafeDate(msg.created_date);
-
-                            return (
-                              <div
-                                key={msg.id}
-                                className={`flex ${isMe ? "justify-end" : "justify-start"}`}
-                              >
-                                <div className={`max-w-[78%] ${isMe ? "order-2" : "order-1"}`}>
-                                  <div
-                                    className={`rounded-[18px] px-4 py-3 ${
-                                      isMe
-                                        ? "bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black"
-                                        : "border border-slate-200 bg-white text-slate-800"
-                                    }`}
-                                  >
-                                    {msg.content?.startsWith("📷 ") ? (
-                                      <img
-                                        src={msg.content.substring(3)}
-                                        alt="Shared"
-                                        className="max-w-full rounded-[12px]"
-                                        style={{ maxHeight: "300px" }}
-                                      />
-                                    ) : msg.content?.startsWith("🎥 ") ? (
-                                      <video
-                                        src={msg.content.substring(3)}
-                                        controls
-                                        className="max-w-full rounded-[12px]"
-                                        style={{ maxHeight: "300px" }}
-                                      />
-                                    ) : (
-                                      <p className="text-sm leading-relaxed break-words">
-                                        {msg.content}
-                                      </p>
-                                    )}
-                                  </div>
-
-                                  <div
-                                    className={`mt-1 flex items-center gap-1 px-1 text-xs text-slate-400 ${
-                                      isMe ? "justify-end" : "justify-start"
-                                    }`}
-                                  >
-                                    {createdDate ? (
-                                      <span>{format(createdDate, "h:mm a")}</span>
-                                    ) : null}
-
-                                    {isMe ? (
-                                      msg.read ? (
-                                        <CheckCheck className="h-3 w-3 text-blue-500" />
-                                      ) : (
-                                        <Check className="h-3 w-3" />
-                                      )
-                                    ) : null}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                          <div ref={messagesEndRef} />
-                        </div>
-                      </AppCard>
-
-                      <ChatInputTray
-                        fileInputRef={fileInputRef}
-                        isUploading={isUploading}
-                        isSending={isSending}
-                        newMessage={newMessage}
-                        setNewMessage={setNewMessage}
-                        handleSend={handleSend}
-                        handleFileUpload={handleFileUpload}
-                        inputRef={inputRef}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <ChatTrayEmpty
-                        title={
-                          user?.couple_profile_id
-                            ? "No messages yet"
-                            : "Partner chat not linked"
-                        }
-                        text={
-                          user?.couple_profile_id
-                            ? "Start the conversation with your partner."
-                            : "This page is open to all users. You can still use group chat right now."
-                        }
-                      />
-
-                      <ChatInputTray
-                        fileInputRef={fileInputRef}
-                        isUploading={isUploading}
-                        isSending={isSending}
-                        newMessage={newMessage}
-                        setNewMessage={setNewMessage}
-                        handleSend={handleSend}
-                        handleFileUpload={handleFileUpload}
-                        inputRef={inputRef}
-                      />
-                    </>
-                  )}
-                </>
-              ) : null}
-
-              {!selectedGroup && activeTab === "groups" ? (
-                <>
-                  <GradientInfoCard className="p-5">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-sm">
-                        <Users className="h-6 w-6" />
-                      </div>
-
-                      <div className="flex-1">
-                        <h2 className="text-lg font-semibold text-slate-800">
-                          Your Groups
-                        </h2>
-                        <p className="mt-1 text-sm text-slate-500">
-                          All users can create and join group chats.
-                        </p>
-                      </div>
-                    </div>
-                  </GradientInfoCard>
-
-                  {myGroups.length > 0 ? (
-                    <AppCard className="p-3">
-                      <GroupChatList groups={myGroups} onSelectGroup={setSelectedGroup} />
-                    </AppCard>
-                  ) : (
-                    <ChatTrayEmpty
-                      title="No groups yet"
-                      text="Create your first group and start chatting."
+                  {messages.map((msg) => (
+                    <ChatBubble
+                      key={msg.id}
+                      msg={msg}
+                      isMe={msg.sender_email === user.email}
                     />
-                  )}
+                  ))}
+                  <div ref={messagesEndRef} />
                 </>
-              ) : null}
+              ) : (
+                <EmptyState />
+              )}
+            </div>
+          </div>
 
-              {selectedGroup ? (
-                <>
-                  <GradientInfoCard className="p-5">
-                    <div className="flex items-start gap-3">
-
-
-                      <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-sm">
-                        <Users className="h-6 w-6" />
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <h2 className="truncate text-lg font-semibold text-slate-800">
-                          {selectedGroup.name}
-                        </h2>
-                        <p className="mt-1 text-sm text-slate-500">
-                          {selectedGroup.memberCount || 0} members
-                        </p>
-                      </div>
-                    </div>
-                  </GradientInfoCard>
-
-                  {displayedMessages.length > 0 ? (
-                    <AppCard className="p-4">
-                      <div className="space-y-4">
-                        {displayedMessages.map((msg) => {
-                          const isMe = msg.sender_email === user.email;
-                          const createdDate = parseSafeDate(msg.created_date);
-
-                          return (
-                            <div
-                              key={msg.id}
-                              className={`flex ${isMe ? "justify-end" : "justify-start"}`}
-                            >
-                              <div className={`max-w-[78%] ${isMe ? "order-2" : "order-1"}`}>
-                                {!isMe ? (
-                                  <p className="mb-1 px-1 text-xs text-slate-500">
-                                    {msg.sender_name}
-                                  </p>
-                                ) : null}
-
-                                <div
-                                  className={`rounded-[18px] px-4 py-3 ${
-                                    isMe
-                                      ? "bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black"
-                                      : "border border-slate-200 bg-white text-slate-800"
-                                  }`}
-                                >
-                                  {msg.content?.startsWith("📷 ") ? (
-                                    <img
-                                      src={msg.content.substring(3)}
-                                      alt="Shared"
-                                      className="max-w-full rounded-[12px]"
-                                      style={{ maxHeight: "300px" }}
-                                    />
-                                  ) : msg.content?.startsWith("🎥 ") ? (
-                                    <video
-                                      src={msg.content.substring(3)}
-                                      controls
-                                      className="max-w-full rounded-[12px]"
-                                      style={{ maxHeight: "300px" }}
-                                    />
-                                  ) : (
-                                    <p className="text-sm leading-relaxed break-words">
-                                      {msg.content}
-                                    </p>
-                                  )}
-                                </div>
-
-                                <div
-                                  className={`mt-1 flex items-center gap-1 px-1 text-xs text-slate-400 ${
-                                    isMe ? "justify-end" : "justify-start"
-                                  }`}
-                                >
-                                  {createdDate ? (
-                                    <span>{format(createdDate, "h:mm a")}</span>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        <div ref={messagesEndRef} />
-                      </div>
-                    </AppCard>
-                  ) : (
-                    <ChatTrayEmpty
-                      title="No group messages yet"
-                      text="Start the conversation in this group."
-                    />
-                  )}
-
-                  <ChatInputTray
-                    fileInputRef={fileInputRef}
-                    isUploading={isUploading}
-                    isSending={isSending}
-                    newMessage={newMessage}
-                    setNewMessage={setNewMessage}
-                    handleSend={handleSend}
-                    handleFileUpload={handleFileUpload}
-                    inputRef={inputRef}
-                  />
-                </>
-              ) : null}
-            </motion.div>
-          </AnimatePresence>
+          <ChatComposer
+            newMessage={newMessage}
+            setNewMessage={setNewMessage}
+            handleSend={handleSend}
+            handleFileUpload={handleFileUpload}
+            fileInputRef={fileInputRef}
+            inputRef={inputRef}
+            isSending={isSending}
+            isUploading={isUploading}
+          />
         </div>
       </AppShell>
 

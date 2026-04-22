@@ -1316,41 +1316,6 @@ const loadUserProfile = async () => {
 
       <BottomNav />
 
-      <AlertDialog open={showDeactivateDialog} onOpenChange={setShowDeactivateDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={showTerminationDialog} onOpenChange={setShowTerminationDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={showUnlockDialog} onOpenChange={setShowUnlockDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }
