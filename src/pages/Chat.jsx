@@ -1,5 +1,4 @@
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
 import {
   ArrowLeft,
   Loader2,
@@ -8,75 +7,18 @@ import {
   Check,
   CheckCheck,
   Image as ImageIcon,
-  Home as HomeIcon,
-  Heart,
-  Target,
-  MapPin,
-  Fingerprint,
 } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/lib/supabase";
-import { createPageUrl } from "@/utils";
 import { parseSafeDate } from "@/components/utils/dateHelpers";
 
 const LOCAL_PARTNER_CHAT_KEY = "datelocked_local_partner_chat_v3";
 
-const navItems = [
-  { label: "Home", icon: HomeIcon, page: "Home" },
-  { label: "Dating", icon: Heart, page: "Dating" },
-  { label: "Memories", icon: ImageIcon, page: "Memories" },
-  { label: "Goals", icon: Target, page: "Goals" },
-  { label: "NightIn", icon: MapPin, page: "NightIn" },
-  { label: "Chat", icon: MessageCircle, page: "Chat" },
-  { label: "Verify", icon: Fingerprint, page: "VerifyStatus" },
-];
-
 function AppShell({ children }) {
   return (
-    <div className="min-h-screen bg-[#f7f1f4] px-2 py-2 pb-24">
-      <div className="mx-auto w-full max-w-[550px] overflow-hidden rounded-[16px] border border-[#ece6ea] bg-[#f7f4f6] shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+    <div className="min-h-screen bg-gradient-to-b from-[#0ea85f] via-[#25d366] to-[#128c7e] px-0 py-0 pb-0">
+      <div className="mx-auto w-full max-w-[550px] overflow-hidden">
         {children}
-      </div>
-    </div>
-  );
-}
-
-function BottomNav() {
-  const location = useLocation();
-
-  return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#ece6ea] bg-white/95 pb-[max(6px,env(safe-area-inset-bottom))] pt-1 shadow-[0_-6px_18px_rgba(15,23,42,0.05)] backdrop-blur">
-      <div className="mx-auto grid w-full max-w-[390px] grid-cols-7 gap-0.5 px-2">
-        {navItems.map((item) => {
-          const href = createPageUrl(item.page);
-          const active =
-            location.pathname === href || (href === "/" && location.pathname === "/");
-          const Icon = item.icon;
-
-          return (
-            <Link
-              key={item.label}
-              to={href}
-              className={`flex min-h-[50px] flex-col items-center justify-center rounded-[14px] px-1 py-1 transition ${
-                active ? "bg-[#fdecef]" : "bg-transparent"
-              }`}
-            >
-              <Icon
-                className={`mb-0.5 h-[18px] w-[18px] ${
-                  active ? "text-[#ef4f75]" : "text-slate-400"
-                }`}
-                strokeWidth={2}
-              />
-              <span
-                className={`truncate text-[8px] leading-none tracking-[-0.01em] ${
-                  active ? "font-semibold text-[#ef4f75]" : "font-medium text-slate-400"
-                }`}
-              >
-                {item.label}
-              </span>
-            </Link>
-          );
-        })}
       </div>
     </div>
   );
@@ -98,8 +40,8 @@ function AvatarCircle({ src, fallback = "C", className = "" }) {
 
 function ChatHeader({ partner, onBack }) {
   return (
-    <div className="absolute left-0 right-0 top-0 z-20 h-[64px] border-b border-white/35 bg-white/18 px-3 backdrop-blur-xl flex items-center">
-      <div className="flex items-center gap-3">
+    <div className="fixed top-0 left-1/2 z-50 flex h-[64px] w-full max-w-[550px] -translate-x-1/2 items-center border-b border-white/30 bg-white/18 px-3 backdrop-blur-xl shadow-[0_8px_24px_rgba(15,23,42,0.12)]">
+      <div className="flex w-full items-center gap-3">
         <button
           type="button"
           onClick={onBack}
@@ -108,79 +50,122 @@ function ChatHeader({ partner, onBack }) {
           <ArrowLeft className="h-5 w-5" />
         </button>
 
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#34d399] via-[#25d366] to-[#0ea85f] text-white shadow-[0_6px_14px_rgba(37,211,102,0.35)]">
-          <MessageCircle className="h-5 w-5" />
+        <div className="flex h-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#34d399] via-[#25d366] to-[#0ea85f] px-3 text-[13px] font-semibold text-white shadow-[0_6px_14px_rgba(37,211,102,0.35)]">
+          Love Bench
         </div>
 
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[16px] font-semibold text-white">Chat</h1>
-          <p className="truncate text-[12px] text-white/80">
-            {partner?.full_name || partner?.name || "Conversation"}
-          </p>
-        </div>
+        <div className="flex flex-1 flex-col items-center justify-center text-center">
+  <h1 className="text-[15px] font-semibold text-white leading-none">
+    Love Bench
+  </h1>
+  <p className="text-[11px] text-white/80 leading-none">
+    {partner?.full_name || partner?.name || "Conversation"}
+  </p>
+</div>
 
-        <AvatarCircle
-          src={partner?.profile_picture || partner?.avatar_url || partner?.photo_url || ""}
-          fallback={(partner?.full_name || partner?.name || "P").charAt(0).toUpperCase()}
-          className="h-11 w-11 shrink-0 border border-white/45"
-        />
       </div>
     </div>
   );
 }
 
-function ChatBubble({ msg, isMe }) {
+const ChatBubble = React.memo(function ChatBubble({ msg, isMe }) {
   const createdDate = parseSafeDate(msg.created_date || msg.created_at);
+  const isImage = msg.content?.startsWith("📷 ");
+  const isVideo = msg.content?.startsWith("🎥 ");
 
   return (
     <div className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-      <div className={`flex max-w-[82%] flex-col ${isMe ? "items-end" : "items-start"}`}>
+      <div className={`flex max-w-[72%] flex-col ${isMe ? "items-end" : "items-start"}`}>
         {!isMe && msg.sender_name ? (
           <p className="mb-1 px-2 text-[11px] font-medium text-white/85">{msg.sender_name}</p>
         ) : null}
 
         <div
-          className={`rounded-[20px] border px-3 py-2.5 shadow-[0_8px_22px_rgba(15,23,42,0.08)] ${
-            isMe
-              ? "rounded-br-[7px] border-[#a7efbf] bg-[#d9fdd3] text-slate-800"
-              : "rounded-bl-[7px] border-[#f3dfe5] bg-[#fff8fa] text-slate-800"
+          className={`border shadow-[0_8px_22px_rgba(15,23,42,0.08)] ${
+            isImage || isVideo
+              ? isMe
+                ? "overflow-hidden rounded-[20px] rounded-br-[7px] border-[#a7efbf] bg-[#d9fdd3]"
+                : "overflow-hidden rounded-[20px] rounded-bl-[7px] border-[#f3dfe5] bg-[#fff8fa]"
+              : isMe
+              ? "rounded-[20px] rounded-br-[7px] border-[#a7efbf] bg-[#d9fdd3] px-3 py-2.5 text-slate-800"
+              : "rounded-[20px] rounded-bl-[7px] border-[#f3dfe5] bg-[#fff8fa] px-3 py-2.5 text-slate-800"
           }`}
         >
-          {msg.content?.startsWith("📷 ") ? (
-            <img
-              src={msg.content.slice(3)}
-              alt="Shared"
-              className="max-w-full rounded-[14px] object-cover"
-              style={{ maxHeight: "320px" }}
-            />
-          ) : msg.content?.startsWith("🎥 ") ? (
-            <video
-              src={msg.content.slice(3)}
-              controls
-              className="max-w-full rounded-[14px]"
-              style={{ maxHeight: "320px" }}
-            />
+          {isImage ? (
+            <>
+              <img
+                src={msg.content.slice(3)}
+                alt="Shared"
+                className="block w-full object-cover"
+                style={{ maxHeight: "220px" }}
+                loading="lazy"
+              />
+              <div className="flex items-center justify-end gap-1 px-2.5 py-2 text-[10px] text-slate-500">
+                {createdDate ? <span>{format(createdDate, "h:mm a")}</span> : null}
+                {isMe ? (
+                  msg.read ? (
+                    <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5" />
+                  )
+                ) : null}
+              </div>
+            </>
+          ) : isVideo ? (
+            <>
+              <video
+                src={msg.content.slice(3)}
+                controls
+                preload="metadata"
+                playsInline
+                className="block w-full bg-black"
+                style={{ maxHeight: "220px" }}
+              />
+              <div className="flex items-center justify-end gap-1 px-2.5 py-2 text-[10px] text-slate-500">
+                {createdDate ? <span>{format(createdDate, "h:mm a")}</span> : null}
+                {isMe ? (
+                  msg.read ? (
+                    <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5" />
+                  )
+                ) : null}
+              </div>
+            </>
           ) : (
-            <p className="break-words text-[14px] leading-6">{msg.content}</p>
+            <>
+              <p className="break-words text-[14px] leading-6">{msg.content}</p>
+              <div
+                className={`mt-1.5 flex items-center gap-1 text-[10px] ${
+                  isMe ? "justify-end text-slate-500" : "justify-end text-slate-400"
+                }`}
+              >
+                {createdDate ? <span>{format(createdDate, "h:mm a")}</span> : null}
+                {isMe ? (
+                  msg.read ? (
+                    <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5" />
+                  )
+                ) : null}
+              </div>
+            </>
           )}
-
-          <div
-            className={`mt-1.5 flex items-center gap-1 text-[10px] ${
-              isMe ? "justify-end text-slate-500" : "justify-end text-slate-400"
-            }`}
-          >
-            {createdDate ? <span>{format(createdDate, "h:mm a")}</span> : null}
-            {isMe ? (
-              msg.read ? (
-                <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
-              ) : (
-                <Check className="h-3.5 w-3.5" />
-              )
-            ) : null}
-          </div>
         </div>
       </div>
     </div>
+  );
+}, areBubblePropsEqual);
+
+function areBubblePropsEqual(prev, next) {
+  return (
+    prev.isMe === next.isMe &&
+    prev.msg?.id === next.msg?.id &&
+    prev.msg?.content === next.msg?.content &&
+    prev.msg?.read === next.msg?.read &&
+    prev.msg?.created_date === next.msg?.created_date &&
+    prev.msg?.created_at === next.msg?.created_at &&
+    prev.msg?.sender_name === next.msg?.sender_name
   );
 }
 
@@ -230,7 +215,7 @@ function ChatComposer({
   ];
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-20 px-3 pb-2 pt-2">
+    <div className="fixed bottom-[8px] left-0 right-0 z-50 w-full px-2">
       <input
         ref={fileInputRef}
         type="file"
@@ -248,7 +233,7 @@ function ChatComposer({
                 type="button"
                 onClick={() => {
                   setNewMessage((prev) => prev + emoji);
-                  inputRef.current?.focus();
+                  setShowEmoji(false);
                 }}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-white/18 text-[16px]"
               >
@@ -259,17 +244,17 @@ function ChatComposer({
         </div>
       ) : null}
 
-      <div className="rounded-[28px] border border-white/35 bg-white/14 p-2 shadow-[0_14px_34px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-        <div className="flex items-center gap-2">
+      <div className="rounded-[22px] border border-white/40 bg-white p-1 shadow-[0_6px_14px_rgba(0,0,0,0.15)]">
+        <div className="flex w-full items-center justify-between">
           <button
             type="button"
             onClick={() => setShowEmoji((prev) => !prev)}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/88 text-[18px] text-slate-700 shadow-[0_4px_12px_rgba(15,23,42,0.08)]"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[16px] text-slate-700"
           >
             😊
           </button>
 
-          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-white/45 bg-white/85 px-3 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8)]">
+          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-slate-200 bg-white px-3">
             <input
               ref={inputRef}
               type="text"
@@ -279,7 +264,11 @@ function ChatComposer({
                 if (e.key === "Enter") handleSend();
               }}
               placeholder="Type a message"
-              className="h-11 w-full bg-transparent text-[14px] text-slate-800 outline-none placeholder:text-slate-500"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              className="h-9 w-full bg-transparent text-[14px] text-slate-800 outline-none placeholder:text-slate-500"
             />
 
             <button
@@ -300,9 +289,13 @@ function ChatComposer({
             type="button"
             onClick={handleSend}
             disabled={!newMessage.trim() || isSending || isUploading}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#075e54] text-white shadow-[0_8px_18px_rgba(7,94,84,0.34)] disabled:opacity-55"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#075e54] text-white disabled:opacity-55"
           >
-            {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+            {isSending ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Send className="h-5 w-5" />
+            )}
           </button>
         </div>
       </div>
@@ -365,6 +358,27 @@ function createLocalMessage({ sender_email, content, read = false, sender_name =
   };
 }
 
+function areMessagesEqual(a, b) {
+  if (a === b) return true;
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+
+  for (let i = 0; i < a.length; i += 1) {
+    if (
+      a[i]?.id !== b[i]?.id ||
+      a[i]?.content !== b[i]?.content ||
+      a[i]?.read !== b[i]?.read ||
+      a[i]?.created_date !== b[i]?.created_date ||
+      a[i]?.created_at !== b[i]?.created_at ||
+      a[i]?.sender_name !== b[i]?.sender_name
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export default function Chat() {
   const [user, setUser] = React.useState(null);
   const [partner, setPartner] = React.useState(null);
@@ -380,34 +394,42 @@ export default function Chat() {
 
   const coupleIdRef = React.useRef(null);
   const channelRef = React.useRef(null);
+  const prevMessageCountRef = React.useRef(0);
 
-  const scrollToBottom = React.useCallback(() => {
+  const scrollToBottom = React.useCallback((behavior = "smooth") => {
     requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      messagesEndRef.current?.scrollIntoView({ behavior });
     });
   }, []);
 
-  const loadMessages = React.useCallback(async (coupleId, currentUser) => {
-    if (coupleId) {
-      const { data, error } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("couple_profile_id", coupleId)
-        .order("created_date", { ascending: true });
-
-      if (!error) {
-        setMessages(data || []);
-        return;
-      }
-    }
-
-    const local = loadLocalPartnerMessages();
-    setMessages(local);
-
-    if (!currentUser && local.length === 0) {
-      setMessages([]);
-    }
+  const setMessagesIfChanged = React.useCallback((next) => {
+    setMessages((prev) => (areMessagesEqual(prev, next) ? prev : next));
   }, []);
+
+  const loadMessages = React.useCallback(
+    async (coupleId, currentUser) => {
+      if (coupleId) {
+        const { data, error } = await supabase
+          .from("messages")
+          .select("*")
+          .eq("couple_profile_id", coupleId)
+          .order("created_date", { ascending: true });
+
+        if (!error) {
+          setMessagesIfChanged(data || []);
+          return;
+        }
+      }
+
+      const local = loadLocalPartnerMessages();
+      setMessagesIfChanged(local);
+
+      if (!currentUser && local.length === 0) {
+        setMessagesIfChanged([]);
+      }
+    },
+    [setMessagesIfChanged]
+  );
 
   const loadPage = React.useCallback(async () => {
     setIsLoading(true);
@@ -504,42 +526,70 @@ export default function Chat() {
   }, [loadPage]);
 
   React.useEffect(() => {
-    if (!coupleIdRef.current) return;
+  if (isLoading) return;
 
+  const coupleId = coupleIdRef.current;
+  if (!coupleId) return;
+
+  if (channelRef.current) {
+    supabase.removeChannel(channelRef.current);
+    channelRef.current = null;
+  }
+
+  const channel = supabase
+    .channel(`messages-${coupleId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "messages",
+        filter: `couple_profile_id=eq.${coupleId}`,
+      },
+      (payload) => {
+        const eventType = payload.eventType;
+        const row = payload.new || payload.old;
+        if (!row?.id) return;
+
+        setMessages((prev) => {
+          let next = prev;
+
+          if (eventType === "INSERT") {
+            if (prev.some((item) => item.id === row.id)) return prev;
+            next = [...prev, row].sort((a, b) =>
+              String(a.created_date || a.created_at).localeCompare(
+                String(b.created_date || b.created_at)
+              )
+            );
+          } else if (eventType === "UPDATE") {
+            next = prev.map((item) => (item.id === row.id ? { ...item, ...row } : item));
+          } else if (eventType === "DELETE") {
+            next = prev.filter((item) => item.id !== row.id);
+          }
+
+          return areMessagesEqual(prev, next) ? prev : next;
+        });
+      }
+    )
+    .subscribe();
+
+  channelRef.current = channel;
+
+  return () => {
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
+  };
+}, [isLoading, user?.id]);
 
-    const channel = supabase
-      .channel(`messages-${coupleIdRef.current}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "messages",
-          filter: `couple_profile_id=eq.${coupleIdRef.current}`,
-        },
-        async () => {
-          await loadMessages(coupleIdRef.current, user);
-        }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
-  }, [user, loadMessages]);
-
+  
   React.useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
+    if (messages.length > prevMessageCountRef.current) {
+      scrollToBottom(messages.length === 1 ? "auto" : "smooth");
+    }
+    prevMessageCountRef.current = messages.length;
+  }, [messages.length, scrollToBottom]);
 
   const handleSend = async () => {
     if (!user) return;
@@ -560,7 +610,6 @@ export default function Chat() {
         });
 
         if (error) throw error;
-        await loadMessages(coupleIdRef.current, user);
       } else {
         const next = [
           ...messages,
@@ -571,12 +620,11 @@ export default function Chat() {
             read: true,
           }),
         ];
-        setMessages(next);
+        setMessagesIfChanged(next);
         saveLocalPartnerMessages(next);
       }
 
       setNewMessage("");
-      inputRef.current?.focus();
     } catch (error) {
       console.error("Send failed:", error);
       alert("Failed to send message.");
@@ -626,24 +674,40 @@ export default function Chat() {
         });
 
         if (insertError) throw insertError;
-
-        await loadMessages(coupleIdRef.current, user);
       } else {
-        const localUrl = URL.createObjectURL(file);
-        content = `${prefix}${localUrl}`;
 
-        const next = [
-          ...messages,
-          createLocalMessage({
-            sender_email: user.email,
-            sender_name: user.full_name || user.name || "You",
-            content,
-            read: true,
-          }),
-        ];
+  await new Promise((resolve, reject) => {
+  const reader = new FileReader();
 
-        setMessages(next);
-        saveLocalPartnerMessages(next);
+  reader.onload = () => {
+    try {
+      const base64 = reader.result;
+
+      const content = `${prefix}${base64}`;
+
+      const next = [
+        ...messages,
+        createLocalMessage({
+          sender_email: user.email,
+          sender_name: user.full_name || user.name || "You",
+          content,
+          read: true,
+        }),
+      ];
+
+      setMessagesIfChanged(next);
+      saveLocalPartnerMessages(next);
+
+      resolve();
+    } catch (err) {
+      reject(err);
+    }
+  };
+
+  reader.onerror = reject;
+
+  reader.readAsDataURL(file);
+});
       }
     } catch (error) {
       console.error("Upload failed:", error);
@@ -655,49 +719,43 @@ export default function Chat() {
 
   if (isLoading) {
     return (
-      <>
-        <AppShell>
-          <div className="flex min-h-[640px] items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-[#25d366]" />
-          </div>
-        </AppShell>
-        <BottomNav />
-      </>
+      <AppShell>
+        <div className="flex min-h-[640px] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#25d366]" />
+        </div>
+      </AppShell>
     );
   }
 
   if (!user) {
     return (
-      <>
-        <AppShell>
-          <div className="flex min-h-[640px] items-center justify-center px-6 text-center">
-            <div>
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-                <MessageCircle className="h-8 w-8 text-slate-300" />
-              </div>
-              <h3 className="text-[18px] font-semibold text-slate-800">Couldn’t load chat</h3>
-              <p className="mt-2 text-[14px] text-slate-500">Please sign in and try again.</p>
+      <AppShell>
+        <div className="flex min-h-[640px] items-center justify-center px-6 text-center">
+          <div>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+              <MessageCircle className="h-8 w-8 text-slate-300" />
             </div>
+            <h3 className="text-[18px] font-semibold text-slate-800">Couldn’t load chat</h3>
+            <p className="mt-2 text-[14px] text-slate-500">Please sign in and try again.</p>
           </div>
-        </AppShell>
-        <BottomNav />
-      </>
+        </div>
+      </AppShell>
     );
   }
 
   return (
     <>
+      <ChatHeader partner={partner} onBack={() => window.history.back()} />
+
       <AppShell>
-        <div className="relative h-[calc(100dvh-88px)] overflow-hidden bg-gradient-to-b from-[#0ea85f] via-[#25d366] to-[#128c7e]">
+        <div className="relative z-0 h-[100dvh] overflow-hidden bg-gradient-to-b from-[#0ea85f] via-[#25d366] to-[#128c7e]">
           <div className="absolute inset-0 opacity-[0.12]">
             <div className="absolute -left-10 top-10 h-40 w-40 rounded-full bg-white blur-3xl" />
             <div className="absolute right-0 top-28 h-48 w-48 rounded-full bg-[#dcfce7] blur-3xl" />
             <div className="absolute bottom-16 left-8 h-44 w-44 rounded-full bg-[#bbf7d0] blur-3xl" />
           </div>
 
-          <ChatHeader partner={partner} onBack={() => window.history.back()} />
-
-          <div className="absolute inset-0 overflow-y-auto px-3 pt-[72px] pb-[120px] scroll-smooth">
+          <div className="absolute inset-0 z-0 overflow-y-auto px-3 pt-[64px] pb-[88px] scroll-smooth">
             <div className="space-y-3">
               {messages.length > 0 ? (
                 <>
@@ -715,21 +773,19 @@ export default function Chat() {
               )}
             </div>
           </div>
-
-          <ChatComposer
-            newMessage={newMessage}
-            setNewMessage={setNewMessage}
-            handleSend={handleSend}
-            handleFileUpload={handleFileUpload}
-            fileInputRef={fileInputRef}
-            inputRef={inputRef}
-            isSending={isSending}
-            isUploading={isUploading}
-          />
         </div>
       </AppShell>
 
-      <BottomNav />
+      <ChatComposer
+        newMessage={newMessage}
+        setNewMessage={setNewMessage}
+        handleSend={handleSend}
+        handleFileUpload={handleFileUpload}
+        fileInputRef={fileInputRef}
+        inputRef={inputRef}
+        isSending={isSending}
+        isUploading={isUploading}
+      />
     </>
   );
 }

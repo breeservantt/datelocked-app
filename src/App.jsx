@@ -41,11 +41,12 @@ function AppRoutes() {
   const location = useLocation();
 
   const noLayoutRoutes = [
-    "/login",
-    "/goals",
-    "/memories",
-    "/verifystatus",
-  ];
+  "/login",
+  "/chat",
+  "/goals",
+  "/memories",
+  "/verifystatus",
+];
 
   const shouldUseLayout = !noLayoutRoutes.includes(location.pathname);
 
