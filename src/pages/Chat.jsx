@@ -50,19 +50,20 @@ function ChatHeader({ partner, onBack }) {
           <ArrowLeft className="h-5 w-5" />
         </button>
 
-        <div className="flex h-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#34d399] via-[#25d366] to-[#0ea85f] px-3 text-[13px] font-semibold text-white shadow-[0_6px_14px_rgba(37,211,102,0.35)]">
-          Love Bench
+        <div className="flex flex-1 flex-col items-center justify-center text-center">
+          <h1 className="text-[15px] font-semibold leading-none text-white">
+            Love Bench
+          </h1>
+          <p className="text-[11px] leading-none text-white/80">
+            {partner?.full_name || partner?.name || "Conversation"}
+          </p>
         </div>
 
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
-  <h1 className="text-[15px] font-semibold text-white leading-none">
-    Love Bench
-  </h1>
-  <p className="text-[11px] text-white/80 leading-none">
-    {partner?.full_name || partner?.name || "Conversation"}
-  </p>
-</div>
-
+        <AvatarCircle
+          src={partner?.profile_picture || partner?.avatar_url || partner?.photo_url || ""}
+          fallback={(partner?.full_name || partner?.name || "P").charAt(0).toUpperCase()}
+          className="h-11 w-11 shrink-0 border border-white/45"
+        />
       </div>
     </div>
   );
@@ -75,7 +76,7 @@ const ChatBubble = React.memo(function ChatBubble({ msg, isMe }) {
 
   return (
     <div className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-      <div className={`flex max-w-[72%] flex-col ${isMe ? "items-end" : "items-start"}`}>
+      <div className={`flex w-full flex-col ${isMe ? "items-end" : "items-start"}`}>
         {!isMe && msg.sender_name ? (
           <p className="mb-1 px-2 text-[11px] font-medium text-white/85">{msg.sender_name}</p>
         ) : null}
@@ -92,14 +93,13 @@ const ChatBubble = React.memo(function ChatBubble({ msg, isMe }) {
           }`}
         >
           {isImage ? (
-            <>
-              <img
-                src={msg.content.slice(3)}
-                alt="Shared"
-                className="block w-full object-cover"
-                style={{ maxHeight: "220px" }}
-                loading="lazy"
-              />
+  <>
+    <img
+      src={msg.content.slice(3)}
+      alt="Shared"
+      className="block w-full rounded-[18px] object-cover"
+      style={{ maxHeight: "60vh" }}
+    />
               <div className="flex items-center justify-end gap-1 px-2.5 py-2 text-[10px] text-slate-500">
                 {createdDate ? <span>{format(createdDate, "h:mm a")}</span> : null}
                 {isMe ? (
@@ -231,9 +231,13 @@ function ChatComposer({
               <button
                 key={emoji}
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onTouchStart={(e) => e.preventDefault()}
                 onClick={() => {
                   setNewMessage((prev) => prev + emoji);
-                  setShowEmoji(false);
+                  requestAnimationFrame(() => {
+                    inputRef.current?.focus();
+                  });
                 }}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-white/18 text-[16px]"
               >
@@ -245,9 +249,11 @@ function ChatComposer({
       ) : null}
 
       <div className="rounded-[22px] border border-white/40 bg-white p-1 shadow-[0_6px_14px_rgba(0,0,0,0.15)]">
-        <div className="flex w-full items-center justify-between">
+        <div className="flex w-full items-center justify-between gap-2">
           <button
             type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onTouchStart={(e) => e.preventDefault()}
             onClick={() => setShowEmoji((prev) => !prev)}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[16px] text-slate-700"
           >
@@ -287,6 +293,8 @@ function ChatComposer({
 
           <button
             type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onTouchStart={(e) => e.preventDefault()}
             onClick={handleSend}
             disabled={!newMessage.trim() || isSending || isUploading}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#075e54] text-white disabled:opacity-55"
@@ -391,16 +399,11 @@ export default function Chat() {
   const messagesEndRef = React.useRef(null);
   const fileInputRef = React.useRef(null);
   const inputRef = React.useRef(null);
+  const messageListRef = React.useRef(null);
 
   const coupleIdRef = React.useRef(null);
   const channelRef = React.useRef(null);
   const prevMessageCountRef = React.useRef(0);
-
-  const scrollToBottom = React.useCallback((behavior = "smooth") => {
-    requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior });
-    });
-  }, []);
 
   const setMessagesIfChanged = React.useCallback((next) => {
     setMessages((prev) => (areMessagesEqual(prev, next) ? prev : next));
@@ -526,70 +529,89 @@ export default function Chat() {
   }, [loadPage]);
 
   React.useEffect(() => {
-  if (isLoading) return;
+    if (isLoading) return;
 
-  const coupleId = coupleIdRef.current;
-  if (!coupleId) return;
+    const coupleId = coupleIdRef.current;
+    if (!coupleId) return;
 
-  if (channelRef.current) {
-    supabase.removeChannel(channelRef.current);
-    channelRef.current = null;
-  }
-
-  const channel = supabase
-    .channel(`messages-${coupleId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "messages",
-        filter: `couple_profile_id=eq.${coupleId}`,
-      },
-      (payload) => {
-        const eventType = payload.eventType;
-        const row = payload.new || payload.old;
-        if (!row?.id) return;
-
-        setMessages((prev) => {
-          let next = prev;
-
-          if (eventType === "INSERT") {
-            if (prev.some((item) => item.id === row.id)) return prev;
-            next = [...prev, row].sort((a, b) =>
-              String(a.created_date || a.created_at).localeCompare(
-                String(b.created_date || b.created_at)
-              )
-            );
-          } else if (eventType === "UPDATE") {
-            next = prev.map((item) => (item.id === row.id ? { ...item, ...row } : item));
-          } else if (eventType === "DELETE") {
-            next = prev.filter((item) => item.id !== row.id);
-          }
-
-          return areMessagesEqual(prev, next) ? prev : next;
-        });
-      }
-    )
-    .subscribe();
-
-  channelRef.current = channel;
-
-  return () => {
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
-  };
-}, [isLoading, user?.id]);
 
-  
+    const channel = supabase
+      .channel(`messages-${coupleId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+          filter: `couple_profile_id=eq.${coupleId}`,
+        },
+        (payload) => {
+          const eventType = payload.eventType;
+          const row = payload.new || payload.old;
+          if (!row?.id) return;
+
+          setMessages((prev) => {
+            let next = prev;
+
+            if (eventType === "INSERT") {
+              if (prev.some((item) => item.id === row.id)) return prev;
+              next = [...prev, row].sort((a, b) =>
+                String(a.created_date || a.created_at).localeCompare(
+                  String(b.created_date || b.created_at)
+                )
+              );
+            } else if (eventType === "UPDATE") {
+              next = prev.map((item) => (item.id === row.id ? { ...item, ...row } : item));
+            } else if (eventType === "DELETE") {
+              next = prev.filter((item) => item.id !== row.id);
+            }
+
+            return areMessagesEqual(prev, next) ? prev : next;
+          });
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [isLoading, user?.id]);
+
   React.useEffect(() => {
-    if (messages.length > prevMessageCountRef.current) {
-      scrollToBottom(messages.length === 1 ? "auto" : "smooth");
+    const container = messageListRef.current;
+    if (!container) return;
+
+    if (messages.length === 0) {
+      prevMessageCountRef.current = 0;
+      return;
     }
+
+    const isInitialOpen = prevMessageCountRef.current === 0;
+    const hasNewMessage = messages.length > prevMessageCountRef.current;
+
+    if (isInitialOpen) {
+      setTimeout(() => {
+        container.scrollTop = container.scrollHeight;
+        prevMessageCountRef.current = messages.length;
+      }, 0);
+      return;
+    }
+
+    if (hasNewMessage) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+
     prevMessageCountRef.current = messages.length;
-  }, [messages.length, scrollToBottom]);
+  }, [messages.length]);
 
   const handleSend = async () => {
     if (!user) return;
@@ -634,56 +656,51 @@ export default function Chat() {
   };
 
   const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !user) return;
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file || !user) return;
 
-    const isImage = file.type.startsWith("image/");
-    const isVideo = file.type.startsWith("video/");
+  const isImage = file.type.startsWith("image/");
+  const isVideo = file.type.startsWith("video/");
 
-    if (!isImage && !isVideo) {
-      alert("Please select an image or video file.");
-      return;
-    }
+  if (!isImage && !isVideo) {
+    alert("Please select an image or video file.");
+    return;
+  }
 
-    setIsUploading(true);
+  setIsUploading(true);
 
-    try {
-      let content = "";
-      const prefix = isImage ? "📷 " : "🎥 ";
+  try {
+    let content = "";
+    const prefix = isImage ? "📷 " : "🎥 ";
 
-      if (coupleIdRef.current) {
-        const fileExt = file.name.split(".").pop();
-        const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+    if (coupleIdRef.current) {
+      const fileExt = file.name.split(".").pop();
+      const filePath = `${user.id}/${Date.now()}.${fileExt}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from("chat-media")
-          .upload(filePath, file, { upsert: true });
+      const { error: uploadError } = await supabase.storage
+        .from("chat-media")
+        .upload(filePath, file, { upsert: true });
 
-        if (uploadError) throw uploadError;
+      if (uploadError) throw uploadError;
 
-        const { data } = supabase.storage.from("chat-media").getPublicUrl(filePath);
-        content = `${prefix}${data.publicUrl}`;
+      const { data } = supabase.storage.from("chat-media").getPublicUrl(filePath);
+      content = `${prefix}${data.publicUrl}`;
 
-        const { error: insertError } = await supabase.from("messages").insert({
-          couple_profile_id: coupleIdRef.current,
-          sender_email: user.email,
-          sender_name: user.full_name || user.name || "You",
-          content,
-          read: false,
-        });
+      const { error: insertError } = await supabase.from("messages").insert({
+        couple_profile_id: coupleIdRef.current,
+        sender_email: user.email,
+        sender_name: user.full_name || user.name || "You",
+        content,
+        read: false,
+      });
 
-        if (insertError) throw insertError;
-      } else {
+      if (insertError) throw insertError;
 
-  await new Promise((resolve, reject) => {
-  const reader = new FileReader();
-
-  reader.onload = () => {
-    try {
-      const base64 = reader.result;
-
-      const content = `${prefix}${base64}`;
+      await loadMessages(coupleIdRef.current, user);
+    } else {
+      const localUrl = URL.createObjectURL(file);
+      content = `${prefix}${localUrl}`;
 
       const next = [
         ...messages,
@@ -695,27 +712,16 @@ export default function Chat() {
         }),
       ];
 
-      setMessagesIfChanged(next);
+      setMessages(next);
       saveLocalPartnerMessages(next);
-
-      resolve();
-    } catch (err) {
-      reject(err);
     }
-  };
-
-  reader.onerror = reject;
-
-  reader.readAsDataURL(file);
-});
-      }
-    } catch (error) {
-      console.error("Upload failed:", error);
-      alert("Failed to upload file.");
-    } finally {
-      setIsUploading(false);
-    }
-  };
+  } catch (error) {
+    console.error("Upload failed:", error);
+    alert("Failed to upload file.");
+  } finally {
+    setIsUploading(false);
+  }
+};
 
   if (isLoading) {
     return (
@@ -755,7 +761,10 @@ export default function Chat() {
             <div className="absolute bottom-16 left-8 h-44 w-44 rounded-full bg-[#bbf7d0] blur-3xl" />
           </div>
 
-          <div className="absolute inset-0 z-0 overflow-y-auto px-3 pt-[64px] pb-[88px] scroll-smooth">
+          <div
+            ref={messageListRef}
+            className="absolute inset-0 z-0 overflow-y-auto px-3 pt-[64px] pb-[88px]"
+          >
             <div className="space-y-3">
               {messages.length > 0 ? (
                 <>
