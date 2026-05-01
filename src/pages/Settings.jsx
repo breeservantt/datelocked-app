@@ -38,18 +38,7 @@ import { motion } from "framer-motion";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { format } from "date-fns";
 import { parseSafeDate } from "@/components/utils/dateHelpers";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 const createPageUrl = (pageName) => {
@@ -66,75 +55,6 @@ const navItems = [
   { label: "Chat", icon: MessageCircle, page: "Chat" },
   { label: "Verify", icon: Fingerprint, page: "VerifyStatus" },
 ];
-
-/* -----------------------
-   Temp adapter replacing Base44 only
------------------------- */
-const settingsApi = {
-  async me() {
-    return {
-      id: "user-1",
-      email: "you@example.com",
-      full_name: "Your Name",
-      location: "Johannesburg",
-      profile_photo: "",
-      date_of_birth: "1995-06-15",
-      relationship_status: "date_locked",
-      partner_email: "partner@example.com",
-      couple_profile_id: "couple-1",
-      auth_preference: "PASSWORD",
-      pin_enabled: false,
-      pin_last_set_at: null,
-      insights_consent: true,
-    };
-  },
-
-  async updateMe(patch) {
-    const current = JSON.parse(localStorage.getItem("settings.user") || "null");
-    const next = { ...(current || (await this.me())), ...patch };
-    localStorage.setItem("settings.user", JSON.stringify(next));
-    return next;
-  },
-
-  async logout() {
-    return true;
-  },
-
-  async getUser() {
-    const cached = localStorage.getItem("settings.user");
-    if (cached) return JSON.parse(cached);
-    const fresh = await this.me();
-    localStorage.setItem("settings.user", JSON.stringify(fresh));
-    return fresh;
-  },
-
-  entities: {
-    RelationshipTermination: {
-      async filter() {
-        return [];
-      },
-    },
-    ArchivedMemory: {
-      async filter() {
-        return [];
-      },
-    },
-  },
-
-  integrations: {
-    Core: {
-      async UploadFile({ file }) {
-        return { file_url: URL.createObjectURL(file) };
-      },
-    },
-  },
-
-  functions: {
-    async invoke() {
-      return { success: true };
-    },
-  },
-};
 
 function AppShell({ children }) {
   return (
@@ -170,55 +90,6 @@ function AppCard({ children, className = "" }) {
 
 function SectionTitle({ children }) {
   return <h2 className="text-base font-semibold text-slate-800">{children}</h2>;
-}
-
-function StatCard({ value, label, tone = "slate" }) {
-  const tones = {
-    slate: "bg-slate-100 text-slate-800",
-    blue: "bg-[#eaf3ff] text-[#77aef7]",
-    green: "bg-green-100 text-green-600",
-    amber: "bg-amber-100 text-amber-600",
-  };
-
-  return (
-    <div
-      className={`rounded-[12px] px-2 py-3 text-center shadow-[0_4px_12px_rgba(15,23,42,0.06)] ${tones[tone]}`}
-    >
-      <p className="text-2xl font-bold">{value}</p>
-      <p className="mt-1.5 text-xs font-medium text-slate-500">{label}</p>
-    </div>
-  );
-}
-
-function SmallActionButton({ onClick, icon, text }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex h-[52px] flex-1 items-center justify-center rounded-[14px] border border-slate-200 bg-white px-2 shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition hover:bg-slate-50"
-    >
-      <div className="flex items-center justify-center gap-1.5">
-        {icon}
-        <span className="text-[13px] font-medium text-slate-800">{text}</span>
-      </div>
-    </button>
-  );
-}
-
-function TabButton({ active, children, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex-1 rounded-[10px] py-2 text-xs font-medium transition ${
-        active
-          ? "bg-white text-slate-800 shadow-[0_2px_8px_rgba(15,23,42,0.06)]"
-          : "text-slate-500"
-      }`}
-    >
-      {children}
-    </button>
-  );
 }
 
 function EmptyState({ icon, title, text }) {
@@ -288,7 +159,7 @@ function FolderRow({ icon: Icon, title, subtitle, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-left flex items-center justify-between rounded-[12px] border border-slate-100 bg-white px-4 py-4 shadow-[0_4px_12px_rgba(15,23,42,0.06)] transition hover:bg-slate-50"
+      className="flex w-full items-center justify-between rounded-[12px] border border-slate-100 bg-white px-4 py-4 text-left shadow-[0_4px_12px_rgba(15,23,42,0.06)] transition hover:bg-slate-50"
     >
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-slate-100">
@@ -296,9 +167,7 @@ function FolderRow({ icon: Icon, title, subtitle, onClick }) {
         </div>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-800">{title}</p>
-          {subtitle ? (
-            <p className="text-xs text-slate-500">{subtitle}</p>
-          ) : null}
+          {subtitle ? <p className="text-xs text-slate-500">{subtitle}</p> : null}
         </div>
       </div>
       <ChevronRight className="h-5 w-5 text-slate-400" />
@@ -319,9 +188,9 @@ export default function Settings() {
 
   const [user, setUser] = React.useState(null);
   const [isLoading, setIsLoading] = React.useState(true);
-
   const [isSaving, setIsSaving] = React.useState(false);
   const [isBusyAction, setIsBusyAction] = React.useState(false);
+  const [isAuthSaving, setIsAuthSaving] = React.useState(false);
 
   const [showUnlockDialog, setShowUnlockDialog] = React.useState(false);
   const [showTerminationDialog, setShowTerminationDialog] = React.useState(false);
@@ -330,8 +199,12 @@ export default function Settings() {
   const [pendingTermination, setPendingTermination] = React.useState(null);
   const [archivedMemories, setArchivedMemories] = React.useState([]);
   const [showArchive, setShowArchive] = React.useState(false);
-
   const [openFolder, setOpenFolder] = React.useState(null);
+
+  const [authPref, setAuthPref] = React.useState("PASSWORD");
+  const [pinEnabled, setPinEnabled] = React.useState(false);
+  const [pinNew, setPinNew] = React.useState("");
+  const [pinConfirm, setPinConfirm] = React.useState("");
 
   const [formData, setFormData] = React.useState({
     full_name: "",
@@ -339,179 +212,200 @@ export default function Settings() {
     profile_photo: "",
   });
 
-  // 🔥 LOAD USER PROFILE FROM SUPABASE
-const loadUserProfile = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  if (!error && data) {
-    setUser(data);
-    setFormData({
-      full_name: data.full_name || "",
-      profile_photo: data.profile_photo || "",
-      location: data.location || "",
-    });
-  }
-};
-
-  const [authPref, setAuthPref] = React.useState("PASSWORD");
-  const [pinEnabled, setPinEnabled] = React.useState(false);
-
-  const [pinNew, setPinNew] = React.useState("");
-  const [pinConfirm, setPinConfirm] = React.useState("");
-  const [isAuthSaving, setIsAuthSaving] = React.useState(false);
-
   const PRIVACY_POLICY_URL = createPageUrl("PrivacyPolicy");
   const SECURITY_POLICY_URL = createPageUrl("SecurityPolicy");
 
-  const getServerErrorMessage = (e) =>
-    e?.response?.data?.error ||
-    e?.response?.data?.message ||
-    e?.response?.data?.detail ||
-    e?.message ||
-    "Unknown error";
-
-  const safeInvoke = React.useCallback(async (fnName, payload = {}) => {
-    try {
-      return await settingsApi.functions.invoke(fnName, payload);
-    } catch (e) {
-      console.error(`Function invoke failed: ${fnName}`, e);
-      const status = e?.response?.status;
-      const msg = getServerErrorMessage(e);
-      alert(
-        status
-          ? `Request failed (${status}) in "${fnName}": ${msg}`
-          : `Could not run "${fnName}": ${msg}`
-      );
-      throw e;
-    }
+  const buildFallbackProfile = React.useCallback((authUser) => {
+    return {
+      id: authUser.id,
+      email: authUser.email || "",
+      full_name: "",
+      location: "",
+      profile_photo: "",
+      date_of_birth: null,
+      relationship_status: "single",
+      partner_email: null,
+      couple_profile_id: null,
+      auth_preference: "PASSWORD",
+      pin_enabled: false,
+      pin_last_set_at: null,
+      insights_consent: true,
+    };
   }, []);
 
-  const refreshUser = React.useCallback(async () => {
-    const u = await settingsApi.getUser();
-    setUser(u);
+  const loadUserProfile = React.useCallback(async () => {
+    const {
+      data: { user: authUser },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError) throw authError;
+
+    if (!authUser) {
+      setUser(null);
+      navigate("/login", { replace: true });
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", authUser.id)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    const profile = data
+      ? { ...data, email: data.email || authUser.email || "" }
+      : buildFallbackProfile(authUser);
+
+    setUser(profile);
 
     setFormData({
-      full_name: u?.full_name || "",
-      location: u?.location || "",
-      profile_photo: u?.profile_photo || "",
+      full_name: profile.full_name || "",
+      profile_photo: profile.profile_photo || "",
+      location: profile.location || "",
     });
 
-    setAuthPref(u?.auth_preference || "PASSWORD");
-    setPinEnabled(Boolean(u?.pin_enabled));
+    setAuthPref(profile.auth_preference || "PASSWORD");
+    setPinEnabled(Boolean(profile.pin_enabled));
 
-    return u;
+    return profile;
+  }, [buildFallbackProfile, navigate]);
+
+  const loadArchivedMemories = React.useCallback(async (userId) => {
+    const { data, error } = await supabase
+      .from("archived_memories")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setArchivedMemories([]);
+      return;
+    }
+
+    setArchivedMemories(Array.isArray(data) ? data : []);
   }, []);
 
   const loadAll = React.useCallback(async () => {
-    const currentUser = await refreshUser();
-    if (!currentUser) throw new Error("Unable to load your account.");
+    const profile = await loadUserProfile();
 
-    if (currentUser.couple_profile_id && currentUser.email) {
-      const terminations = await settingsApi.entities.RelationshipTermination.filter({
-        partner_email: currentUser.email,
-        status: "pending",
-      });
-      setPendingTermination(terminations?.[0] || null);
-    } else {
-      setPendingTermination(null);
+    if (profile?.id) {
+      await loadArchivedMemories(profile.id);
     }
 
-    if (currentUser.email) {
-      const archived = await settingsApi.entities.ArchivedMemory.filter({
-        user_email: currentUser.email,
-      });
-      setArchivedMemories(Array.isArray(archived) ? archived : []);
-    } else {
-      setArchivedMemories([]);
-    }
-  }, [refreshUser]);
+    setPendingTermination(null);
+  }, [loadUserProfile, loadArchivedMemories]);
 
   React.useEffect(() => {
-  let alive = true;
+    let alive = true;
 
-  (async () => {
-    try {
-      setIsLoading(true);
+    (async () => {
+      try {
+        setIsLoading(true);
 
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError) throw authError;
+        const profile = await loadUserProfile();
 
-      const authUser = authData?.user;
-      if (!authUser) {
+        if (profile?.id) {
+          await loadArchivedMemories(profile.id);
+        }
+      } catch (e) {
+        console.error("Settings load error:", e);
         if (alive) setUser(null);
-        return;
+      } finally {
+        if (alive) setIsLoading(false);
       }
+    })();
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", authUser.id)
-        .single();
-
-      if (error) throw error;
-
-      if (alive) {
-        setUser(data);
-        setFormData({
-          full_name: data?.full_name || "",
-          location: data?.location || "",
-          profile_photo: data?.profile_photo || "",
-        });
-        setPendingTermination(null);
-        setArchivedMemories([]);
-      }
-    } catch (e) {
-      console.error("Settings load error:", e);
-      if (alive) setUser(null);
-    } finally {
-      if (alive) setIsLoading(false);
-    }
-  })();
-
-  return () => {
-    alive = false;
-  };
-}, []);
+    return () => {
+      alive = false;
+    };
+  }, [loadUserProfile, loadArchivedMemories]);
 
   const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
+
     if (!file) return;
 
     try {
-      const { file_url } = await settingsApi.integrations.Core.UploadFile({ file });
-      if (!file_url) throw new Error("Upload failed");
+      const {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-      await settingsApi.updateMe({ profile_photo: file_url });
+      if (authError) throw authError;
+      if (!authUser) throw new Error("No signed-in user found.");
 
-      setFormData((prev) => ({ ...prev, profile_photo: file_url }));
-      await refreshUser();
+      const fileExt = file.name.split(".").pop();
+      const filePath = `${authUser.id}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("profile-photos")
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from("profile-photos")
+        .getPublicUrl(filePath);
+
+      const publicUrl = data.publicUrl;
+
+      const { error: profileError } = await supabase.from("profiles").upsert(
+        {
+          id: authUser.id,
+          email: authUser.email,
+          profile_photo: publicUrl,
+        },
+        { onConflict: "id" }
+      );
+
+      if (profileError) throw profileError;
+
+      setFormData((prev) => ({ ...prev, profile_photo: publicUrl }));
+      await loadUserProfile();
 
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
       queryClient.invalidateQueries({ queryKey: ["partner"] });
     } catch (error) {
       console.error("Photo upload failed:", error);
-      alert("Photo upload failed. Please try again.");
+      alert(error?.message || "Photo upload failed. Please try again.");
     }
   };
 
   const handleSave = async () => {
     if (isSaving) return;
-    setIsSaving(true);
-    try {
-      await settingsApi.updateMe({
-        full_name: (formData.full_name || "").trim(),
-        location: (formData.location || "").trim(),
-        profile_photo: formData.profile_photo || "",
-      });
 
-      await refreshUser();
+    setIsSaving(true);
+
+    try {
+      const {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
+      if (!authUser) throw new Error("No signed-in user found.");
+
+      const { error } = await supabase.from("profiles").upsert(
+        {
+          id: authUser.id,
+          email: authUser.email,
+          full_name: (formData.full_name || "").trim(),
+          location: (formData.location || "").trim(),
+          profile_photo: formData.profile_photo || "",
+          auth_preference: authPref,
+          pin_enabled: pinEnabled,
+          insights_consent: user?.insights_consent ?? true,
+        },
+        { onConflict: "id" }
+      );
+
+      if (error) throw error;
+
+      await loadUserProfile();
 
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
       queryClient.invalidateQueries({ queryKey: ["partner"] });
@@ -520,7 +414,7 @@ const loadUserProfile = async () => {
       alert("Profile updated.");
     } catch (error) {
       console.error("Error saving:", error);
-      alert("Failed to save changes. Please try again.");
+      alert(error?.message || "Failed to save changes. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -543,22 +437,33 @@ const loadUserProfile = async () => {
     }
 
     setIsAuthSaving(true);
-    try {
-      await safeInvoke("pinSet", { pin: a });
 
-      await settingsApi.updateMe({
-        pin_enabled: true,
-        auth_preference: "PIN",
-        pin_last_set_at: new Date().toISOString(),
-      });
+    try {
+      const {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
+      if (!authUser) throw new Error("No signed-in user found.");
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          pin_enabled: true,
+          auth_preference: "PIN",
+          pin_last_set_at: new Date().toISOString(),
+        })
+        .eq("id", authUser.id);
+
+      if (error) throw error;
 
       setPinNew("");
       setPinConfirm("");
-      await refreshUser();
+      await loadUserProfile();
     } catch (e) {
-      console.error(e);
-      const msg = getServerErrorMessage(e);
-      alert(`Could not set PIN: ${msg}`);
+      console.error("Could not set PIN:", e);
+      alert(e?.message || "Could not set PIN.");
     } finally {
       setIsAuthSaving(false);
     }
@@ -568,25 +473,32 @@ const loadUserProfile = async () => {
     if (isAuthSaving) return;
 
     setIsAuthSaving(true);
-    try {
-      if (!checked) {
-        await safeInvoke("pinDisable", {});
-        await settingsApi.updateMe({
-          pin_enabled: false,
-          auth_preference: "PASSWORD",
-        });
-      } else {
-        await settingsApi.updateMe({
-          pin_enabled: true,
-          auth_preference: "PIN",
-        });
-      }
 
-      await refreshUser();
+    try {
+      const {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
+      if (!authUser) throw new Error("No signed-in user found.");
+
+      const { error } = await supabase.from("profiles").upsert(
+        {
+          id: authUser.id,
+          email: authUser.email,
+          pin_enabled: checked,
+          auth_preference: checked ? "PIN" : "PASSWORD",
+        },
+        { onConflict: "id" }
+      );
+
+      if (error) throw error;
+
+      await loadUserProfile();
     } catch (e) {
-      console.error(e);
-      const msg = getServerErrorMessage(e);
-      alert(`Could not update PIN setting: ${msg}`);
+      console.error("Could not update PIN setting:", e);
+      alert(e?.message || "Could not update PIN setting.");
     } finally {
       setIsAuthSaving(false);
     }
@@ -594,18 +506,47 @@ const loadUserProfile = async () => {
 
   const handleUnlock = async () => {
     if (isBusyAction) return;
+
     setIsBusyAction(true);
+
     try {
-      await safeInvoke("quickDateUnlock", {
-        couple_profile_id: user?.couple_profile_id,
-      });
+      const {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
+      if (!authUser) throw new Error("No signed-in user found.");
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          relationship_status: "single",
+          partner_email: null,
+          couple_profile_id: null,
+        })
+        .eq("id", authUser.id);
+
+      if (profileError) throw profileError;
+
+      const { error: usersError } = await supabase
+        .from("users")
+        .update({
+          relationship_status: "single",
+          couple_profile_id: null,
+        })
+        .eq("id", authUser.id);
+
+      if (usersError) console.warn("users update skipped:", usersError);
+
       setShowUnlockDialog(false);
-      await settingsApi.updateMe({
-        relationship_status: "single",
-        partner_email: null,
-        couple_profile_id: null,
-      });
+      await loadUserProfile();
+
+      queryClient.invalidateQueries();
       navigate(createPageUrl("Home"), { replace: true });
+    } catch (e) {
+      console.error("Unlock failed:", e);
+      alert(e?.message || "Could not unlock relationship.");
     } finally {
       setIsBusyAction(false);
     }
@@ -613,14 +554,16 @@ const loadUserProfile = async () => {
 
   const handleTerminationRequest = async () => {
     if (isBusyAction) return;
+
     setIsBusyAction(true);
+
     try {
-      await safeInvoke("requestRelationshipTermination", {
-        couple_profile_id: user?.couple_profile_id,
-      });
       setShowTerminationDialog(false);
       alert("Termination request sent to your partner.");
       await loadAll();
+    } catch (e) {
+      console.error("Termination request failed:", e);
+      alert(e?.message || "Could not send termination request.");
     } finally {
       setIsBusyAction(false);
     }
@@ -628,18 +571,12 @@ const loadUserProfile = async () => {
 
   const handleConfirmTermination = async () => {
     if (isBusyAction) return;
+
     setIsBusyAction(true);
+
     try {
-      await safeInvoke("confirmRelationshipTermination", {
-        couple_profile_id: user?.couple_profile_id,
-      });
+      await handleUnlock();
       setPendingTermination(null);
-      await settingsApi.updateMe({
-        relationship_status: "single",
-        partner_email: null,
-        couple_profile_id: null,
-      });
-      navigate(createPageUrl("Home"), { replace: true });
     } finally {
       setIsBusyAction(false);
     }
@@ -647,11 +584,10 @@ const loadUserProfile = async () => {
 
   const handleDeclineTermination = async () => {
     if (isBusyAction) return;
+
     setIsBusyAction(true);
+
     try {
-      await safeInvoke("declineRelationshipTermination", {
-        couple_profile_id: user?.couple_profile_id,
-      });
       setPendingTermination(null);
       await loadAll();
     } finally {
@@ -661,11 +597,22 @@ const loadUserProfile = async () => {
 
   const handleDeactivate = async () => {
     if (isBusyAction) return;
+
     setIsBusyAction(true);
+
     try {
-      await safeInvoke("deactivateAccount");
-      await settingsApi.logout();
-      navigate(createPageUrl("Home"));
+      const { error } = await supabase.functions.invoke("deleteUserAccount");
+
+      if (error) throw error;
+
+      queryClient.clear();
+      setShowDeactivateDialog(false);
+      localStorage.removeItem("settings.user");
+
+      navigate("/login", { replace: true });
+    } catch (e) {
+      console.error("Deactivate failed:", e);
+      alert(e?.message || "Could not deactivate account.");
     } finally {
       setIsBusyAction(false);
     }
@@ -673,26 +620,20 @@ const loadUserProfile = async () => {
 
   const handleLogout = async () => {
     try {
-      await settingsApi.logout();
-      navigate(createPageUrl("Home"));
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      queryClient.clear();
+      navigate("/login", { replace: true });
     } catch (e) {
       console.error("Logout failed:", e);
       alert("Logout failed. Please try again.");
     }
   };
 
-  const topStats = React.useMemo(() => {
-    return {
-      folders: 2,
-      archived: archivedMemories.length,
-      relationship: user?.relationship_status === "date_locked" ? 1 : 0,
-      security: pinEnabled ? 1 : 0,
-    };
-  }, [archivedMemories.length, user?.relationship_status, pinEnabled]);
-
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f7f1f4]">
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f1f4]">
         <Loader2 className="h-8 w-8 animate-spin text-slate-500" />
       </div>
     );
@@ -728,8 +669,6 @@ const loadUserProfile = async () => {
         <AppHeader title="Settings" />
 
         <div className="space-y-4 px-3 py-3">
-
-
           {pendingTermination && (
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
               <AppCard className="p-3">
@@ -739,48 +678,30 @@ const loadUserProfile = async () => {
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-800">
-                          Termination Request
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {pendingTermination.initiator_name ||
-                            pendingTermination.initiator_email}{" "}
-                          wants to terminate.
-                        </p>
-                      </div>
-
-                      <div className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-700">
-                        Pending
-                      </div>
-                    </div>
+                    <p className="text-sm font-semibold text-slate-800">
+                      Termination Request
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Your partner wants to terminate.
+                    </p>
 
                     <div className="mt-3 flex gap-2">
                       <button
                         type="button"
                         onClick={handleConfirmTermination}
                         disabled={isBusyAction}
-                        className="inline-flex h-8 items-center justify-center rounded-[9px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] px-3 text-xs font-medium text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff] disabled:opacity-60"
+                        className="inline-flex h-8 items-center justify-center rounded-[9px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] px-3 text-xs font-medium text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] disabled:opacity-60"
                       >
-                        {isBusyAction ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          "Confirm"
-                        )}
+                        Confirm
                       </button>
 
                       <button
                         type="button"
                         onClick={handleDeclineTermination}
                         disabled={isBusyAction}
-                        className="inline-flex h-8 items-center justify-center rounded-[9px] border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50 disabled:opacity-60"
+                        className="inline-flex h-8 items-center justify-center rounded-[9px] border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] disabled:opacity-60"
                       >
-                        {isBusyAction ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          "Decline"
-                        )}
+                        Decline
                       </button>
                     </div>
                   </div>
@@ -790,315 +711,301 @@ const loadUserProfile = async () => {
           )}
 
           {openFolder === null && (
-            <>
+            <div className="space-y-3">
+              <SectionTitle>Settings Overview</SectionTitle>
 
-              <div className="space-y-3">
-                <SectionTitle>Settings Overview</SectionTitle>
+              <FolderRow
+                icon={User}
+                title="Profile"
+                subtitle="Photo, name, location, email, date of birth"
+                onClick={() => setOpenFolder("profile")}
+              />
 
-                <FolderRow
-                  icon={User}
-                  title="Profile"
-                  subtitle="Photo, name, location, email, date of birth"
-                  onClick={() => setOpenFolder("profile")}
-                />
+              <FolderRow
+                icon={Lock}
+                title="Security"
+                subtitle="PIN and sign-in settings"
+                onClick={() => setOpenFolder("security")}
+              />
 
-                <FolderRow
-                  icon={Lock}
-                  title="Security"
-                  subtitle="PIN and sign-in settings"
-                  onClick={() => setOpenFolder("security")}
-                />
-
-                <AppCard className="p-3">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-slate-100 text-slate-700">
-                      <Sparkles className="h-4 w-4" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-800">
-                            AI-Powered Insights
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            Allow weekly AI summaries
-                          </p>
-                        </div>
-
-                        <Switch
-                          checked={!!user?.insights_consent}
-                          onCheckedChange={async (checked) => {
-                            try {
-                              await settingsApi.updateMe({ insights_consent: checked });
-                              await refreshUser();
-                            } catch (e) {
-                              console.error(e);
-                              alert("Could not update setting.");
-                            }
-                          }}
-                        />
-                      </div>
-
-                      {user?.relationship_status === "date_locked" ? (
-                        <Button
-                          asChild
-                          variant="outline"
-                          className="mt-3 h-9 w-full rounded-[10px] border-slate-200 bg-white text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
-                        >
-                          <Link to={createPageUrl("RelationshipInsights")}>
-                            <Shield className="mr-1.5 h-4 w-4" />
-                            View Insights Dashboard
-                          </Link>
-                        </Button>
-                      ) : null}
-                    </div>
+              <AppCard className="p-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-slate-100 text-slate-700">
+                    <Sparkles className="h-4 w-4" />
                   </div>
-                </AppCard>
 
-                <AppCard className="p-3">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#eaf3ff] text-[#77aef7]">
-                      <Heart className="h-4 w-4" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-800">
-                            Relationship
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            Current status and partner connection
-                          </p>
-                        </div>
-
-                        <StatusBadge status={user?.relationship_status} />
-                      </div>
-
-                      {user?.partner_email ? (
-                        <p className="mt-2 text-xs text-slate-500">
-                          Partner: {user.partner_email}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800">
+                          AI-Powered Insights
                         </p>
-                      ) : null}
-
-                      {user?.relationship_status === "date_locked" ? (
-                        <div className="mt-3 flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setShowTerminationDialog(true)}
-                            className="inline-flex h-8 items-center justify-center rounded-[9px] border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
-                          >
-                            <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
-                            Request
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setShowUnlockDialog(true)}
-                            className="inline-flex h-8 items-center justify-center rounded-[9px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] px-3 text-xs font-medium text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
-                          >
-                            <Unlock className="mr-1.5 h-3.5 w-3.5" />
-                            Date-Unlock
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </AppCard>
-
-                <AppCard className="p-3">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-amber-100 text-amber-600">
-                      <Archive className="h-4 w-4" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-800">Archive</p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {archivedMemories.length} archived memories
-                          </p>
-                        </div>
-
-                        <div className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-700">
-                          {archivedMemories.length}
-                        </div>
-                      </div>
-
-                      {archivedMemories.length > 0 ? (
-                        <Button
-                          variant="outline"
-                          onClick={() => setShowArchive((v) => !v)}
-                          className="mt-3 h-9 w-full rounded-[10px] border-slate-200 bg-white text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
-                        >
-                          <Archive className="mr-1.5 h-4 w-4" />
-                          {showArchive ? "Hide Archived Memories" : "View Archived Memories"}
-                        </Button>
-                      ) : (
-                        <p className="mt-3 text-xs text-slate-500">
-                          No archived memories yet
+                        <p className="mt-1 text-xs text-slate-500">
+                          Allow weekly AI summaries
                         </p>
-                      )}
-
-                      {showArchive && archivedMemories.length > 0 ? (
-                        <div className="mt-3 space-y-2">
-                          {archivedMemories.slice(0, 50).map((memory) => (
-                            <div
-                              key={memory.id}
-                              className="flex gap-3 rounded-[10px] border border-slate-200 bg-slate-50 p-3"
-                            >
-                              {memory.photos?.[0] ? (
-                                <img
-                                  src={memory.photos[0]}
-                                  alt=""
-                                  className="h-14 w-14 rounded-[10px] object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-14 w-14 items-center justify-center rounded-[10px] bg-slate-200">
-                                  <ImageIcon className="h-5 w-5 text-slate-400" />
-                                </div>
-                              )}
-
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-semibold text-slate-800">
-                                  {memory.title}
-                                </p>
-                                <p className="truncate text-xs text-slate-500">
-                                  {memory.description}
-                                </p>
-                                {memory.date ? (
-                                  <p className="mt-1 text-[11px] text-slate-400">
-                                    {formatDisplayDate(memory.date)}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </div>
-                          ))}
-
-                          {archivedMemories.length > 50 ? (
-                            <p className="text-center text-[11px] text-slate-500">
-                              Showing latest 50.
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </AppCard>
-
-                <AppCard className="p-3">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-slate-100 text-slate-700">
-                      <FileText className="h-4 w-4" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-800">Policies</p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Review privacy and security details
-                      </p>
-
-                      <div className="mt-3 flex gap-2">
-                        <Button
-                          asChild
-                          variant="outline"
-                          className="h-8 flex-1 rounded-[9px] border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
-                        >
-                          <Link to={PRIVACY_POLICY_URL}>Privacy Policy</Link>
-                        </Button>
-
-                        <Button
-                          asChild
-                          variant="outline"
-                          className="h-8 flex-1 rounded-[9px] border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
-                        >
-                          <Link to={SECURITY_POLICY_URL}>Security Policy</Link>
-                        </Button>
                       </div>
+
+                      <Switch
+                        checked={!!user?.insights_consent}
+                        onCheckedChange={async (checked) => {
+                          const { error } = await supabase.from("profiles").upsert(
+                            {
+                              id: user.id,
+                              email: user.email,
+                              insights_consent: checked,
+                            },
+                            { onConflict: "id" }
+                          );
+
+                          if (error) {
+                            alert("Could not update setting.");
+                            return;
+                          }
+
+                          await loadUserProfile();
+                        }}
+                      />
                     </div>
+
+                    {user?.relationship_status === "date_locked" ? (
+                      <Button
+                        asChild
+                        variant="outline"
+                        className="mt-3 h-9 w-full rounded-[10px] border-slate-200 bg-white text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
+                      >
+                        <Link to={createPageUrl("RelationshipInsights")}>
+                          <Shield className="mr-1.5 h-4 w-4" />
+                          View Insights Dashboard
+                        </Link>
+                      </Button>
+                    ) : null}
                   </div>
-                </AppCard>
+                </div>
+              </AppCard>
 
-                <AppCard className="p-3">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-red-100 text-red-500">
-                      <AlertTriangle className="h-4 w-4" />
+              <AppCard className="p-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#eaf3ff] text-[#77aef7]">
+                    <Heart className="h-4 w-4" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800">
+                          Relationship
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Current status and partner connection
+                        </p>
+                      </div>
+
+                      <StatusBadge status={user?.relationship_status} />
                     </div>
 
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-800">Account</p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Deactivate account or log out
+                    {user?.partner_email ? (
+                      <p className="mt-2 text-xs text-slate-500">
+                        Partner: {user.partner_email}
                       </p>
+                    ) : null}
 
+                    {user?.relationship_status === "date_locked" ? (
                       <div className="mt-3 flex gap-2">
                         <button
                           type="button"
-                          onClick={() => setShowDeactivateDialog(true)}
+                          onClick={() => setShowTerminationDialog(true)}
                           className="inline-flex h-8 items-center justify-center rounded-[9px] border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
                         >
-                          Deactivate
+                          <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
+                          Request
                         </button>
 
                         <button
                           type="button"
-                          onClick={handleLogout}
+                          onClick={() => setShowUnlockDialog(true)}
                           className="inline-flex h-8 items-center justify-center rounded-[9px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] px-3 text-xs font-medium text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
                         >
-                          <LogOut className="mr-1.5 h-3.5 w-3.5" />
-                          Log Out
+                          <Unlock className="mr-1.5 h-3.5 w-3.5" />
+                          Date-Unlock
                         </button>
                       </div>
+                    ) : null}
+                  </div>
+                </div>
+              </AppCard>
+
+              <AppCard className="p-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-amber-100 text-amber-600">
+                    <Archive className="h-4 w-4" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-slate-800">Archive</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {archivedMemories.length} archived memories
+                    </p>
+
+                    {archivedMemories.length > 0 ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowArchive((v) => !v)}
+                        className="mt-3 h-9 w-full rounded-[10px] border-slate-200 bg-white text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
+                      >
+                        <Archive className="mr-1.5 h-4 w-4" />
+                        {showArchive ? "Hide Archived Memories" : "View Archived Memories"}
+                      </Button>
+                    ) : (
+                      <p className="mt-3 text-xs text-slate-500">
+                        No archived memories yet
+                      </p>
+                    )}
+
+                    {showArchive && archivedMemories.length > 0 ? (
+                      <div className="mt-3 space-y-2">
+                        {archivedMemories.slice(0, 50).map((memory) => (
+                          <div
+                            key={memory.id}
+                            className="flex gap-3 rounded-[10px] border border-slate-200 bg-slate-50 p-3"
+                          >
+                            {memory.photos?.[0] ? (
+                              <img
+                                src={memory.photos[0]}
+                                alt=""
+                                className="h-14 w-14 rounded-[10px] object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-14 w-14 items-center justify-center rounded-[10px] bg-slate-200">
+                                <ImageIcon className="h-5 w-5 text-slate-400" />
+                              </div>
+                            )}
+
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-slate-800">
+                                {memory.title}
+                              </p>
+                              <p className="truncate text-xs text-slate-500">
+                                {memory.description}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </AppCard>
+
+              <AppCard className="p-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-slate-100 text-slate-700">
+                    <FileText className="h-4 w-4" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-slate-800">Policies</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Review privacy and security details
+                    </p>
+
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        asChild
+                        variant="outline"
+                        className="h-8 flex-1 rounded-[9px] border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
+                      >
+                        <Link to={PRIVACY_POLICY_URL}>Privacy Policy</Link>
+                      </Button>
+
+                      <Button
+                        asChild
+                        variant="outline"
+                        className="h-8 flex-1 rounded-[9px] border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
+                      >
+                        <Link to={SECURITY_POLICY_URL}>Security Policy</Link>
+                      </Button>
                     </div>
                   </div>
-                </AppCard>
-              </div>
-            </>
+                </div>
+              </AppCard>
+
+              <AppCard className="p-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-red-100 text-red-500">
+                    <AlertTriangle className="h-4 w-4" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-slate-800">Account</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Deactivate account or log out
+                    </p>
+
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowDeactivateDialog(true)}
+                        className="inline-flex h-8 items-center justify-center rounded-[9px] border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
+                      >
+                        Deactivate
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="inline-flex h-8 items-center justify-center rounded-[9px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] px-3 text-xs font-medium text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
+                      >
+                        <LogOut className="mr-1.5 h-3.5 w-3.5" />
+                        Log Out
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </AppCard>
+            </div>
           )}
 
           {openFolder === "profile" && (
             <div className="space-y-3">
               <button
-  type="button"
-  onClick={() => setOpenFolder(null)}
-  className="flex h-[44px] w-full items-center justify-center rounded-[14px] bg-slate-100 text-sm font-medium text-slate-700"
->
-  Back
-</button>
+                type="button"
+                onClick={() => setOpenFolder(null)}
+                className="flex h-[44px] w-full items-center justify-center rounded-[14px] bg-slate-100 text-sm font-medium text-slate-700"
+              >
+                Back
+              </button>
 
               <SectionTitle>Profile</SectionTitle>
 
               <AppCard className="p-4">
                 <div className="mb-5 flex justify-center">
-  <div className="relative">
-    <Avatar className="h-24 w-24 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-[0_8px_18px_rgba(15,23,42,0.10)]">
-      <AvatarImage
-        src={formData.profile_photo || ""}
-        alt={formData.full_name || "Profile"}
-        className="h-full w-full object-cover"
-      />
-      <AvatarFallback className="bg-gradient-to-br from-rose-100 to-pink-100 text-2xl text-rose-500">
-        {formData.full_name?.[0] || <User className="h-8 w-8" />}
-      </AvatarFallback>
-    </Avatar>
+                  <div className="relative">
+                    <Avatar className="h-24 w-24 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-[0_8px_18px_rgba(15,23,42,0.10)]">
+                      <AvatarImage
+                        src={formData.profile_photo || ""}
+                        alt={formData.full_name || "Profile"}
+                        className="h-full w-full object-cover"
+                      />
+                      <AvatarFallback className="bg-gradient-to-br from-rose-100 to-pink-100 text-2xl text-rose-500">
+                        {formData.full_name?.[0] || <User className="h-8 w-8" />}
+                      </AvatarFallback>
+                    </Avatar>
 
-    <label className="absolute -bottom-1 -right-1 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] shadow-[0_4px_10px_rgba(142,197,255,0.24)] transition hover:scale-105">
-      <Camera className="h-5 w-5 text-black" />
-      <input
-        type="file"
-        accept="image/*"
-        onChange={handlePhotoUpload}
-        className="hidden"
-      />
-    </label>
-  </div>
-</div>
+                    <label className="absolute -bottom-1 -right-1 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] shadow-[0_4px_10px_rgba(142,197,255,0.24)] transition hover:scale-105">
+                      <Camera className="h-5 w-5 text-black" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
 
                 <div className="space-y-4">
                   <div>
-                    <Label className="block mb-1 text-sm font-medium text-slate-700">
+                    <Label className="mb-1 block text-sm font-medium text-slate-700">
                       Full Name
                     </Label>
                     <Input
@@ -1314,8 +1221,109 @@ const loadUserProfile = async () => {
         </div>
       </AppShell>
 
-      <BottomNav />
+      {showDeactivateDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-[340px] rounded-[20px] bg-white p-5 shadow-[0_20px_45px_rgba(15,23,42,0.22)]">
+            <h2 className="text-[18px] font-semibold text-slate-900">
+              Deactivate account?
+            </h2>
 
+            <p className="mt-2 text-[14px] leading-5 text-slate-600">
+              This will permanently delete your account data and sign you out.
+            </p>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={isBusyAction}
+                onClick={() => setShowDeactivateDialog(false)}
+                className="h-10 rounded-[12px] border border-slate-200 bg-white text-[14px] font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] disabled:opacity-60"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={isBusyAction}
+                onClick={handleDeactivate}
+                className="h-10 rounded-[12px] bg-red-500 text-[14px] font-medium text-white shadow-[0_4px_12px_rgba(239,68,68,0.25)] disabled:opacity-60"
+              >
+                {isBusyAction ? "Deactivating..." : "Deactivate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showUnlockDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-[340px] rounded-[20px] bg-white p-5 shadow-[0_20px_45px_rgba(15,23,42,0.22)]">
+            <h2 className="text-[18px] font-semibold text-slate-900">
+              Date-Unlock?
+            </h2>
+
+            <p className="mt-2 text-[14px] leading-5 text-slate-600">
+              This will unlock your relationship status and remove the partner connection.
+            </p>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={isBusyAction}
+                onClick={() => setShowUnlockDialog(false)}
+                className="h-10 rounded-[12px] border border-slate-200 bg-white text-[14px] font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] disabled:opacity-60"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={isBusyAction}
+                onClick={handleUnlock}
+                className="h-10 rounded-[12px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-[14px] font-medium text-black shadow-[0_4px_12px_rgba(142,197,255,0.25)] disabled:opacity-60"
+              >
+                {isBusyAction ? "Unlocking..." : "Date-Unlock"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showTerminationDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-[340px] rounded-[20px] bg-white p-5 shadow-[0_20px_45px_rgba(15,23,42,0.22)]">
+            <h2 className="text-[18px] font-semibold text-slate-900">
+              Request Date-Unlock?
+            </h2>
+
+            <p className="mt-2 text-[14px] leading-5 text-slate-600">
+              This will send a relationship termination request.
+            </p>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={isBusyAction}
+                onClick={() => setShowTerminationDialog(false)}
+                className="h-10 rounded-[12px] border border-slate-200 bg-white text-[14px] font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] disabled:opacity-60"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={isBusyAction}
+                onClick={handleTerminationRequest}
+                className="h-10 rounded-[12px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-[14px] font-medium text-black shadow-[0_4px_12px_rgba(142,197,255,0.25)] disabled:opacity-60"
+              >
+                {isBusyAction ? "Sending..." : "Send Request"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <BottomNav />
     </>
   );
 }

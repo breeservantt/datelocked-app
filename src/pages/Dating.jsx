@@ -1,4 +1,5 @@
 import React from "react";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Loader2, Video } from "lucide-react";
 import { generateId } from "@/lib/generateId";
@@ -22,15 +23,14 @@ import {
   Target,
   MessageCircle,
   Fingerprint,
-  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
-const PUBLIC_MAX_H = "max-h-[1200px]";
-const MY_MAX_H = "max-h-[750px]";
+const STORAGE_BUCKET = "profile-photos";
+const STORAGE_KEY = "dating_wall_content";
 
 const navItems = [
   { label: "Home", icon: HomeIcon, page: "Home" },
@@ -54,72 +54,6 @@ const ROMANTIC_MESSAGES = [
   "Love becomes powerful when both people feel seen, heard, and valued.",
   "A thriving relationship is often the result of two people choosing softness over ego.",
 ];
-
-function getFiveHourMessage() {
-  const now = new Date();
-  const bucket = Math.floor(now.getTime() / (5 * 60 * 60 * 1000));
-  return ROMANTIC_MESSAGES[bucket % ROMANTIC_MESSAGES.length];
-}
-
-function getNextFiveHourRefreshMs() {
-  const now = Date.now();
-  const windowMs = 5 * 60 * 60 * 1000;
-  const nextBoundary = Math.ceil(now / windowMs) * windowMs;
-  return Math.max(nextBoundary - now, 1000);
-}
-
-function MediaFrame({ children }) {
-  return <div className="relative block w-full overflow-hidden bg-black aspect-[4/5]">{children}</div>;
-}
-
-function VideoPreview({ src }) {
-  return (
-    <MediaFrame>
-      <video
-        src={src}
-        preload="metadata"
-        muted
-        playsInline
-        className="absolute inset-0 h-full w-full object-cover"
-      />
-
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/45">
-          <Play className="h-6 w-6 text-white" />
-        </div>
-      </div>
-    </MediaFrame>
-  );
-}
-
-function Modal({ open, onClose, title, children }) {
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-3">
-      <div className="w-full max-w-[390px] overflow-hidden rounded-[20px] border border-[#ece6ea] bg-[#f7f3f6] shadow-[0_12px_30px_rgba(15,23,42,0.14)]">
-        <div className="border-b border-slate-200 bg-[#f8f6f7] px-4 py-4">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-[10px] p-1.5 transition hover:bg-slate-100"
-            >
-              <X className="h-5 w-5 text-slate-600" />
-            </button>
-          </div>
-        </div>
-
-        <div className="max-h-[78vh] space-y-4 overflow-y-auto px-4 py-4">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const STORAGE_KEY = "dating_wall_content";
 
 const DEFAULT_CONTENT = [
   {
@@ -148,6 +82,19 @@ const DEFAULT_CONTENT = [
   },
 ];
 
+function getFiveHourMessage() {
+  const now = new Date();
+  const bucket = Math.floor(now.getTime() / (5 * 60 * 60 * 1000));
+  return ROMANTIC_MESSAGES[bucket % ROMANTIC_MESSAGES.length];
+}
+
+function getNextFiveHourRefreshMs() {
+  const now = Date.now();
+  const windowMs = 5 * 60 * 60 * 1000;
+  const nextBoundary = Math.ceil(now / windowMs) * windowMs;
+  return Math.max(nextBoundary - now, 1000);
+}
+
 function loadStoredContent() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -166,25 +113,62 @@ function saveStoredContent(items) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 }
 
+async function getCurrentDatingUser() {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) throw error;
+  if (!user) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  return {
+    id: user.id,
+    email: user.email,
+    full_name:
+      profile?.full_name ||
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      user.email?.split("@")[0] ||
+      "User",
+    ...(profile || {}),
+  };
+}
+
+async function uploadDatingFile(file, folder = "dating/photos") {
+  if (!file) throw new Error("No file selected");
+
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const filePath = `${folder}/${fileName}`;
+
+  const { data, error } = await supabase.storage
+    .from(STORAGE_BUCKET)
+    .upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+  if (error) throw error;
+
+  const { data: publicUrlData } = supabase.storage
+    .from(STORAGE_BUCKET)
+    .getPublicUrl(data.path);
+
+  if (!publicUrlData?.publicUrl) {
+    throw new Error("Upload succeeded but no public URL was returned");
+  }
+
+  return publicUrlData.publicUrl;
+}
+
 const wallApi = {
-  auth: {
-    async me() {
-      return {
-        id: "user-1",
-        email: "you@example.com",
-        full_name: "Your Name",
-      };
-    },
-  },
-
-  integrations: {
-    async uploadFile(file) {
-      return {
-        file_url: URL.createObjectURL(file),
-      };
-    },
-  },
-
   content: {
     async listMine(email) {
       const items = loadStoredContent();
@@ -262,6 +246,55 @@ const wallApi = {
   },
 };
 
+function MediaFrame({ children }) {
+  return <div className="relative block w-full overflow-hidden bg-black">{children}</div>;
+}
+
+function VideoPreview({ src }) {
+  return (
+    <MediaFrame>
+      <video
+        src={src}
+        preload="metadata"
+        muted
+        playsInline
+        className="block w-full h-auto max-h-[78vh] object-contain bg-black"
+      />
+
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/45">
+          <Play className="h-6 w-6 text-white" />
+        </div>
+      </div>
+    </MediaFrame>
+  );
+}
+
+function Modal({ open, onClose, title, children }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-3">
+      <div className="w-full max-w-[390px] overflow-hidden rounded-[20px] border border-[#ece6ea] bg-[#f7f3f6] shadow-[0_12px_30px_rgba(15,23,42,0.14)]">
+        <div className="border-b border-slate-200 bg-[#f8f6f7] px-4 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-[10px] p-1.5 transition hover:bg-slate-100"
+            >
+              <X className="h-5 w-5 text-slate-600" />
+            </button>
+          </div>
+        </div>
+
+        <div className="max-h-[78vh] space-y-4 overflow-y-auto px-4 py-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 function FloatingUploadButton({ disabled = false, onClick }) {
   return (
     <button
@@ -294,9 +327,7 @@ function BottomNav() {
       <div className="mx-auto grid w-full max-w-[390px] grid-cols-7 gap-0.5 px-2">
         {navItems.map((item) => {
           const href = createPageUrl(item.page);
-          const active =
-            location.pathname === href ||
-            (href === "/" && location.pathname === "/");
+          const active = location.pathname === href || (href === "/" && location.pathname === "/");
           const Icon = item.icon;
 
           return (
@@ -315,9 +346,7 @@ function BottomNav() {
               />
               <span
                 className={`truncate text-[8px] leading-none tracking-[-0.01em] ${
-                  active
-                    ? "font-semibold text-[#ef4f75]"
-                    : "font-medium text-slate-400"
+                  active ? "font-semibold text-[#ef4f75]" : "font-medium text-slate-400"
                 }`}
               >
                 {item.label}
@@ -355,10 +384,21 @@ export default function Dating() {
   const [allReactionsState, setAllReactionsState] = React.useState([]);
 
   React.useEffect(() => {
+    let mounted = true;
+
     (async () => {
-      const currentUser = await wallApi.auth.me();
-      setUser(currentUser);
+      try {
+        const currentUser = await getCurrentDatingUser();
+        if (mounted) setUser(currentUser);
+      } catch (error) {
+        console.error("Failed to load user:", error);
+        if (mounted) setUser(null);
+      }
     })();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   React.useEffect(() => {
@@ -383,7 +423,7 @@ export default function Dating() {
     return () => document.removeEventListener("click", onDocClick);
   }, []);
 
-  const { data: myContent = [], isLoading: myContentLoading } = useQuery({
+  const { data: myContent = [] } = useQuery({
     queryKey: ["myDateContent", user?.email],
     queryFn: () => wallApi.content.listMine(user.email),
     enabled: !!user?.email && showMyContent,
@@ -414,19 +454,6 @@ export default function Dating() {
   React.useEffect(() => {
     setAllReactionsState(allReactions);
   }, [allReactions]);
-
-  const getHeartCount = (contentId) =>
-    allReactionsState.filter(
-      (r) => r.content_id === contentId && r.reaction_type === "heart"
-    ).length;
-
-  const hasUserHearted = (contentId) =>
-    allReactionsState.some(
-      (r) =>
-        r.content_id === contentId &&
-        r.user_email === user?.email &&
-        r.reaction_type === "heart"
-    );
 
   const handleReaction = async (contentId, reactionType) => {
     try {
@@ -488,10 +515,6 @@ export default function Dating() {
     }
   };
 
-  const getUploadErrorMessage = (error) => {
-    return error?.message || "Upload failed";
-  };
-
   const handlePhotoUpload = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -518,13 +541,14 @@ export default function Dating() {
     setIsUploading(true);
 
     try {
-      const { file_url } = await wallApi.integrations.uploadFile(file);
+      const url = await uploadDatingFile(file, "dating/photos");
       setNewPost((prev) => ({
         ...prev,
-        photos: [...prev.photos, file_url],
+        photos: [...prev.photos, url],
       }));
     } catch (error) {
-      toast.error(getUploadErrorMessage(error));
+      console.error("Photo upload failed:", error);
+      toast.error(error?.message || "Upload failed");
     } finally {
       setIsUploading(false);
     }
@@ -556,13 +580,14 @@ export default function Dating() {
     setIsUploading(true);
 
     try {
-      const { file_url } = await wallApi.integrations.uploadFile(file);
+      const url = await uploadDatingFile(file, "dating/videos");
       setNewPost((prev) => ({
         ...prev,
-        videos: [...prev.videos, file_url],
+        videos: [...prev.videos, url],
       }));
     } catch (error) {
-      toast.error(getUploadErrorMessage(error));
+      console.error("Video upload failed:", error);
+      toast.error(error?.message || "Upload failed");
     } finally {
       setIsUploading(false);
     }
@@ -636,19 +661,19 @@ export default function Dating() {
         videos: [],
       });
     } catch (error) {
-      toast.error(getUploadErrorMessage(error));
+      toast.error(error?.message || "Upload failed");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (!user) {
+  if (user === null) {
     return <div className="p-4">Loading...</div>;
   }
 
   return (
     <>
-      <div className="min-h-screen bg-[#f3edf1] px-3 py-3 pb-[74px]">
+      <div className="min-h-screen w-screen bg-[#f3edf1] px-0 py-0 pb-[74px] overflow-x-hidden">
         <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-[28px] border border-[#e8e2e7] bg-[#f7f3f6] shadow-[0_12px_40px_rgba(15,23,42,0.10)]">
           <div className="bg-gradient-to-r from-[#5e9cff] via-[#2f6df0] to-[#6aa7ff] px-5 pb-8 pt-7">
             <div className="min-w-0">
@@ -719,13 +744,13 @@ export default function Dating() {
                             onClick={() => setActiveVideo(content.content_url)}
                             className="block w-full"
                           >
-                            <div className="relative block w-full overflow-hidden bg-black aspect-[4/5]">
+                            <div className="relative block w-full overflow-hidden bg-black">
                               <video
                                 src={content.content_url}
                                 preload="metadata"
                                 muted
                                 playsInline
-                                className="absolute inset-0 h-full w-full object-cover"
+                                className="block w-full h-auto max-h-[78vh] object-contain bg-black"
                               />
 
                               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -741,13 +766,13 @@ export default function Dating() {
                             onClick={() => setZoomedImage(content.content_url)}
                             className="block w-full"
                           >
-                            <div className="relative block w-full overflow-hidden bg-black aspect-[4/5]">
+                            <div className="relative block w-full overflow-hidden bg-black">
                               <img
-                                src={content.content_url}
-                                alt=""
-                                loading="lazy"
-                                className="absolute inset-0 h-full w-full object-cover"
-                              />
+  src={content.content_url}
+  alt=""
+  loading="lazy"
+  className="block w-full h-auto object-cover bg-black"
+/>
                             </div>
                           </button>
                         )}
@@ -797,7 +822,7 @@ export default function Dating() {
                               className="flex h-10 w-10 items-center justify-center rounded-full border border-red-200 bg-white/92 shadow-sm backdrop-blur"
                               aria-label="Delete post"
                             >
-                              <Trash2 className="h-5 w-5 text-red-600" />
+                              <MoreHorizontal className="h-5 w-5 text-slate-700" />
                             </button>
                           </div>
                         )}
@@ -992,12 +1017,12 @@ export default function Dating() {
                 >
                   <div className="flex w-full items-center justify-center">
                     <video
-                      src={video}
-                      controls
-                      preload="metadata"
-                      playsInline
-                      className="h-auto w-full object-contain"
-                    />
+  src={video}
+  controls
+  preload="metadata"
+  playsInline
+  className="h-auto w-full object-contain"
+ />
                   </div>
                   <button
                     type="button"

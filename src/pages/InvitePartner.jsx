@@ -4,32 +4,44 @@ import { supabase } from '@/lib/supabase';
 import { createPageUrl } from '@/utils';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Heart, ArrowLeft, Loader2, Smartphone, ShieldCheck, KeyRound } from 'lucide-react';
+import { Heart, ArrowLeft, Loader2, Mail, ShieldCheck, KeyRound } from 'lucide-react';
 
 export default function InvitePartner() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const mode = searchParams.get('mode') === 'accept' ? 'accept' : 'invite';
+  const rawMode = searchParams.get('mode');
+  const mode =
+    rawMode === 'email-accept' || rawMode === 'accept'
+      ? 'email-accept'
+      : 'email-invite';
 
-  const [phone, setPhone] = React.useState('');
+  const [email, setEmail] = React.useState('');
   const [otpCode, setOtpCode] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [message, setMessage] = React.useState('');
   const [errorMessage, setErrorMessage] = React.useState('');
 
-  const formatPhone = (value) => value.replace(/[^\d+]/g, '').trim();
+  const formatEmail = (value) => value.trim().toLowerCase();
   const formatOtp = (value) => value.replace(/[^\d]/g, '').slice(0, 6);
+
+  const isValidEmail = (value) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
   const handleSendOtp = async (e) => {
     e.preventDefault();
     setMessage('');
     setErrorMessage('');
 
-    const cleanPhone = formatPhone(phone);
+    const cleanEmail = formatEmail(email);
 
-    if (!cleanPhone) {
-      setErrorMessage('Please enter a phone number.');
+    if (!cleanEmail) {
+      setErrorMessage('Please enter your partner’s email address.');
+      return;
+    }
+
+    if (!isValidEmail(cleanEmail)) {
+      setErrorMessage('Please enter a valid email address.');
       return;
     }
 
@@ -44,20 +56,20 @@ export default function InvitePartner() {
       if (userError) throw userError;
       if (!user) throw new Error('You need to be signed in first.');
 
-      const { error } = await supabase.functions.invoke('sendPartnerOtp', {
+      const { error } = await supabase.functions.invoke('sendPartnerEmailOtp', {
         body: {
-          phone: cleanPhone,
+          email: cleanEmail,
           sender_user_id: user.id,
         },
       });
 
       if (error) throw error;
 
-      setMessage('OTP invitation sent successfully via WhatsApp.');
-      setPhone('');
+      setMessage('OTP invitation sent successfully by email.');
+      setEmail('');
     } catch (error) {
-      console.error('Failed to send partner OTP:', error);
-      setErrorMessage(error?.message || 'Failed to send OTP. Please try again.');
+      console.error('Failed to send partner email OTP:', error);
+      setErrorMessage(error?.message || 'Failed to send email OTP. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -71,7 +83,7 @@ export default function InvitePartner() {
     const cleanOtp = formatOtp(otpCode);
 
     if (cleanOtp.length < 4) {
-      setErrorMessage('Please enter the OTP sent via WhatsApp.');
+      setErrorMessage('Please enter the OTP sent by email.');
       return;
     }
 
@@ -86,7 +98,7 @@ export default function InvitePartner() {
       if (userError) throw userError;
       if (!user) throw new Error('You need to be signed in first.');
 
-      const { error } = await supabase.functions.invoke('acceptPartnerOtp', {
+      const { error } = await supabase.functions.invoke('acceptPartnerEmailOtp', {
         body: {
           otp_code: cleanOtp,
           receiver_user_id: user.id,
@@ -102,14 +114,14 @@ export default function InvitePartner() {
         navigate(createPageUrl('Home'));
       }, 1200);
     } catch (error) {
-      console.error('Failed to accept OTP:', error);
-      setErrorMessage(error?.message || 'Failed to verify code. Please try again.');
+      console.error('Failed to accept email OTP:', error);
+      setErrorMessage(error?.message || 'Failed to verify email code. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const isInviteMode = mode === 'invite';
+  const isInviteMode = mode === 'email-invite';
 
   return (
     <div className="min-h-screen bg-[#f3edf1] px-3 py-3 pb-[96px]">
@@ -126,10 +138,10 @@ export default function InvitePartner() {
 
             <div className="text-center">
               <p className="text-[13px] text-white/80">
-                {isInviteMode ? 'Relationship Invite' : 'Accept Invitation'}
+                {isInviteMode ? 'Email Relationship Invite' : 'Accept Email Invitation'}
               </p>
               <h1 className="text-[20px] font-semibold text-white">
-                {isInviteMode ? 'Invite Partner' : 'Accept-Date'}
+                {isInviteMode ? 'Invite Partner' : 'Enter Email OTP'}
               </h1>
             </div>
 
@@ -152,12 +164,12 @@ export default function InvitePartner() {
 
               <div>
                 <p className="text-[16px] font-semibold text-slate-800">
-                  {isInviteMode ? 'Secure OTP Invitation' : 'Enter OTP Code'}
+                  {isInviteMode ? 'Secure Email OTP Invitation' : 'Enter Email OTP Code'}
                 </p>
                 <p className="text-[13px] text-slate-500">
                   {isInviteMode
-                    ? 'Send a verification code to your partner’s WhatsApp number.'
-                    : 'Enter the OTP your partner sent to you via WhatsApp.'}
+                    ? 'Send a verification code to your partner’s email address.'
+                    : 'Enter the OTP your partner sent to your email.'}
                 </p>
               </div>
             </div>
@@ -170,16 +182,16 @@ export default function InvitePartner() {
               <form onSubmit={handleSendOtp} className="space-y-4">
                 <div>
                   <label className="mb-2 block text-[13px] font-medium text-slate-700">
-                    Partner WhatsApp Number
+                    Partner Email Address
                   </label>
 
                   <div className="relative">
-                    <Smartphone className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                     <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+27712345678"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="partner@email.com"
                       className="h-[52px] w-full rounded-[18px] border border-slate-200 bg-white pl-12 pr-4 text-[15px] text-slate-800 outline-none transition focus:border-rose-400"
                     />
                   </div>
@@ -189,7 +201,7 @@ export default function InvitePartner() {
                   <div className="flex items-start gap-3">
                     <ShieldCheck className="mt-0.5 h-5 w-5 text-blue-500" />
                     <p className="text-[13px] leading-5 text-slate-600">
-                      The OTP will be sent to your partner’s WhatsApp. They must use it to confirm
+                      The OTP will be sent to your partner’s email. They must use it to confirm
                       the relationship invitation.
                     </p>
                   </div>
@@ -218,15 +230,17 @@ export default function InvitePartner() {
                     ) : (
                       <Heart className="h-3.5 w-3.5 shrink-0" />
                     )}
-                    <span className="leading-none">Invite</span>
+                    <span className="leading-none">Email Invite</span>
                   </Button>
 
                   <Button
                     type="button"
-                    onClick={() => navigate(`${createPageUrl('InvitePartner')}?mode=accept`)}
+                    onClick={() =>
+                      navigate(`${createPageUrl('InvitePartner')}?mode=email-accept`)
+                    }
                     className="flex h-[42px] w-full items-center justify-center rounded-[14px] bg-rose-500 px-3 text-[13px] font-medium text-white shadow-[0_6px_14px_rgba(15,23,42,0.08)] hover:bg-rose-600"
                   >
-                    <span className="leading-none">Accept-Date</span>
+                    <span className="leading-none">Enter Email OTP</span>
                   </Button>
                 </div>
               </form>
@@ -234,7 +248,7 @@ export default function InvitePartner() {
               <form onSubmit={handleAcceptDate} className="space-y-4">
                 <div>
                   <label className="mb-2 block text-[13px] font-medium text-slate-700">
-                    WhatsApp OTP Code
+                    Email OTP Code
                   </label>
 
                   <div className="relative">
@@ -254,7 +268,7 @@ export default function InvitePartner() {
                   <div className="flex items-start gap-3">
                     <ShieldCheck className="mt-0.5 h-5 w-5 text-blue-500" />
                     <p className="text-[13px] leading-5 text-slate-600">
-                      Paste the OTP sent to you on WhatsApp to confirm the relationship and become
+                      Paste the OTP sent to your email to confirm the relationship and become
                       Date-Locked.
                     </p>
                   </div>
@@ -275,11 +289,13 @@ export default function InvitePartner() {
                 <div className="grid grid-cols-2 gap-3">
                   <Button
                     type="button"
-                    onClick={() => navigate(`${createPageUrl('InvitePartner')}?mode=invite`)}
+                    onClick={() =>
+                      navigate(`${createPageUrl('InvitePartner')}?mode=email-invite`)
+                    }
                     className="flex h-[42px] w-full items-center justify-center gap-2 rounded-[14px] bg-white px-3 text-[13px] font-medium text-rose-500 shadow-[0_6px_14px_rgba(15,23,42,0.08)] hover:bg-white"
                   >
                     <Heart className="h-3.5 w-3.5 shrink-0" />
-                    <span className="leading-none">Invite</span>
+                    <span className="leading-none">Email Invite</span>
                   </Button>
 
                   <Button

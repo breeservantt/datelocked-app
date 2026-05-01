@@ -29,6 +29,29 @@ const navItems = [
   { label: "Verify", icon: Fingerprint, page: "VerifyStatus" },
 ];
 
+async function getCurrentProfileUser() {
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError) throw authError;
+  if (!authUser) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", authUser.id)
+    .maybeSingle();
+
+  return {
+    id: authUser.id,
+    email: authUser.email,
+    ...(profile || {}),
+    couple_profile_id: profile?.couple_profile_id || null,
+  };
+}
+
 function AppShell({ children }) {
   return (
     <div className="min-h-screen bg-[#f7f1f4] px-2 py-2 pb-24">
@@ -280,7 +303,6 @@ export default function Goals() {
 
   const [showGoalModal, setShowGoalModal] = React.useState(false);
   const [showEventModal, setShowEventModal] = React.useState(false);
-  const [showPerfectSpotModal, setShowPerfectSpotModal] = React.useState(false);
 
   const [goalTitle, setGoalTitle] = React.useState("");
   const [goalDescription, setGoalDescription] = React.useState("");
@@ -290,50 +312,77 @@ export default function Goals() {
   const [eventLocation, setEventLocation] = React.useState("");
 
   React.useEffect(() => {
-    const loadGoals = async () => {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+  let channel;
 
-      if (userError || !user) {
-        console.error("LOAD AUTH ERROR:", userError);
-        return;
-      }
+  const mapGoals = (data = []) =>
+    data.map((item) => ({
+      ...item,
+      targetDate: item.target_date ?? item.targetDate ?? "",
+      invitationStatus: item.invitation_status ?? item.invitationStatus ?? "",
+    }));
 
-      const coupleId = user?.user_metadata?.couple_profile_id || null;
+  const loadGoals = async () => {
+    const currentUser = await getCurrentProfileUser();
+    if (!currentUser) return;
 
-      let query = supabase
-        .from("couple_goals")
-        .select("*")
-        .order("created_at", { ascending: false });
+    const coupleId = currentUser.couple_profile_id;
 
-      if (coupleId) {
-        query = query.eq("couple_profile_id", coupleId);
-      } else {
-        query = query.eq("owner_id", user.id);
-      }
+    let query = supabase
+      .from("couple_goals")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-      const { data, error } = await query;
+    if (coupleId) {
+      query = query.eq("couple_profile_id", coupleId);
+    } else {
+      query = query.eq("owner_id", currentUser.id);
+    }
 
-      if (error) {
-        console.error("LOAD ERROR:", error);
-        return;
-      }
+    const { data, error } = await query;
 
-      if (data) {
-        const mapped = data.map((item) => ({
-          ...item,
-          targetDate: item.target_date ?? item.targetDate ?? "",
-          invitationStatus: item.invitation_status ?? item.invitationStatus ?? "",
-        }));
+    if (error) {
+      console.error("LOAD ERROR:", error);
+      return;
+    }
 
-        setItems(mapped);
-      }
-    };
+    setItems(mapGoals(data || []));
 
-    loadGoals();
-  }, []);
+    if (coupleId) {
+      channel = supabase
+  .channel(`goals-realtime-${coupleId}`)
+  .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "couple_goals",
+            filter: `couple_profile_id=eq.${coupleId}`,
+          },
+          async () => {
+            const { data: freshData, error: freshError } = await supabase
+              .from("couple_goals")
+              .select("*")
+              .eq("couple_profile_id", coupleId)
+              .order("created_at", { ascending: false });
+
+            if (freshError) {
+              console.error("REALTIME GOALS REFRESH ERROR:", freshError);
+              return;
+            }
+
+            setItems(mapGoals(freshData || []));
+          }
+        )
+        .subscribe();
+    }
+  };
+
+  loadGoals();
+
+  return () => {
+    if (channel) supabase.removeChannel(channel);
+  };
+}, []);
 
   const filteredItems = React.useMemo(() => {
     if (statusFilter === "all") return items;
@@ -379,44 +428,36 @@ export default function Goals() {
   }, [items]);
 
   const handleAddGoal = async () => {
-    if (!goalTitle.trim()) {
-      alert("Enter a goal title first.");
+  if (!goalTitle.trim()) {
+    alert("Enter a goal title first.");
+    return;
+  }
+
+  try {
+    const currentUser = await getCurrentProfileUser();
+
+    if (!currentUser?.id) {
+      alert("User profile not loaded.");
       return;
     }
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      console.error("AUTH ERROR:", userError);
-      alert("Could not get logged in user.");
-      return;
-    }
-
-    const coupleId = user?.user_metadata?.couple_profile_id || null;
-    console.log("USER:", user);
-    console.log("COUPLE ID:", coupleId);
+    const coupleId = currentUser.couple_profile_id || null;
 
     const newGoal = {
-      id: crypto.randomUUID(),
-      owner_id: user.id,
-      couple_profile_id: coupleId,
-      title: goalTitle.trim(),
-      description: goalDescription.trim(),
-      target_date: goalDate || null,
-      status: "planned",
-      type: "goal",
-    };
+  owner_id: currentUser.id,
+  couple_profile_id: coupleId,
+  title: goalTitle.trim(),
+  description: goalDescription.trim(),
+  target_date: goalDate || null,
+  status: "planned",
+  type: "goal",
+};
 
     const { data, error } = await supabase
       .from("couple_goals")
       .insert(newGoal)
       .select()
       .single();
-
-    console.log("ADD GOAL RESULT:", { data, error });
 
     if (error) {
       console.error("ADD GOAL ERROR:", error);
@@ -437,30 +478,45 @@ export default function Goals() {
     setGoalDescription("");
     setGoalDate("");
     setShowGoalModal(false);
-  };
+  } catch (error) {
+    console.error("ADD GOAL FAILED:", error);
+    alert(error?.message || "Failed to save goal.");
+  }
+};
 
   const handleCreateInvitation = async () => {
-    if (!eventTitle.trim()) return;
+  if (!eventTitle.trim()) {
+    alert("Enter event title first.");
+    return;
+  }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  try {
+    const currentUser = await getCurrentProfileUser();
 
-    const coupleId = user?.user_metadata?.couple_profile_id;
-    if (!coupleId) return;
+    if (!currentUser?.id) {
+      alert("User profile not loaded.");
+      return;
+    }
+
+    const coupleId = currentUser.couple_profile_id;
+
+    if (!coupleId) {
+      alert("You must be Date-Locked before creating shared event invites.");
+      return;
+    }
 
     const newEvent = {
-      id: crypto.randomUUID(),
-      couple_profile_id: coupleId,
-      title: eventTitle.trim(),
-      description: eventLocation.trim()
-        ? `Location: ${eventLocation.trim()}`
-        : "Waiting for partner response",
-      status: "pending",
-      invitation_status: "pending",
-      type: "event",
-      invitedPartner: true,
-    };
+  // REMOVE id completely
+  owner_id: currentUser.id,
+  couple_profile_id: coupleId,
+  title: eventTitle.trim(),
+  description: eventLocation.trim()
+    ? `Location: ${eventLocation.trim()}`
+    : "Waiting for partner response",
+  status: "pending",
+  invitation_status: "pending",
+  type: "event",
+};
 
     const { data, error } = await supabase
       .from("couple_goals")
@@ -470,6 +526,7 @@ export default function Goals() {
 
     if (error) {
       console.error("CREATE EVENT ERROR:", error);
+      alert(error.message || "Failed to create invitation.");
       return;
     }
 
@@ -485,18 +542,11 @@ export default function Goals() {
     setEventTitle("");
     setEventLocation("");
     setShowEventModal(false);
-  };
-
-  const handlePerfectSpot = () => {
-    setShowPerfectSpotModal(true);
-  };
-
-  const handlePerfectSpotType = async (type) => {
-    setShowPerfectSpotModal(false);
-
-    // type = "mall" | "restaurant" | "plaza"
-    console.log("Perfect Spot type selected:", type);
-  };
+  } catch (error) {
+    console.error("CREATE EVENT FAILED:", error);
+    alert(error?.message || "Failed to create invitation.");
+  }
+};
 
   const acceptInvitation = async (id) => {
     const { data, error } = await supabase
@@ -561,56 +611,55 @@ export default function Goals() {
   };
 
   return (
-    <>
-      <AppShell>
-        <AppHeader title="Our Goals" />
+  <>
+    <AppShell>
+      <AppHeader title="Our Goals" />
 
-        <div className="space-y-4 px-3 py-3">
-          <div className="grid grid-cols-3 gap-2">
-            <SmallActionButton
-              onClick={() => setShowGoalModal(true)}
-              icon={<Target className="h-4 w-4 text-slate-700" />}
-              text="Add a Goal"
-            />
+      <div className="space-y-4 px-3 py-3">
 
-            <SmallActionButton
-              onClick={handlePerfectSpot}
-              icon={<MapPin className="h-4 w-4 text-slate-700" />}
-              text="Perfect Spot"
-            />
+        {/* ACTION BUTTONS (2 only, no middle button) */}
+        <div className="grid grid-cols-2 gap-2">
+          <SmallActionButton
+            onClick={() => setShowGoalModal(true)}
+            icon={<Target className="h-4 w-4 text-slate-700" />}
+            text="Add a Goal"
+          />
 
-            <SmallActionButton
-              onClick={() => setShowEventModal(true)}
-              icon={<Send className="h-4 w-4 text-slate-700" />}
-              text="Events"
-            />
+          <SmallActionButton
+            onClick={() => setShowEventModal(true)}
+            icon={<Send className="h-4 w-4 text-slate-700" />}
+            text="Events"
+          />
+        </div>
+
+        {/* STATS */}
+        <div className="grid grid-cols-4 gap-2">
+          <StatCard value={stats.planned} label="Planned" tone="slate" />
+          <StatCard value={stats.pending} label="Pending" tone="amber" />
+          <StatCard value={stats.inProgress} label="Active" tone="blue" />
+          <StatCard value={stats.completed} label="Done" tone="green" />
+        </div>
+
+        {/* FILTER TABS */}
+        <AppCard className="bg-slate-100 p-1">
+          <div className="flex gap-1">
+            {[
+              { key: "all", label: "All" },
+              { key: "planned", label: "Planned" },
+              { key: "in_progress", label: "Active" },
+              { key: "completed", label: "Done" },
+            ].map((tab) => (
+              <TabButton
+                key={tab.key}
+                active={statusFilter === tab.key}
+                onClick={() => setStatusFilter(tab.key)}
+              >
+                {tab.label}
+              </TabButton>
+            ))}
           </div>
+        </AppCard>
 
-          <div className="grid grid-cols-4 gap-2">
-            <StatCard value={stats.planned} label="Planned" tone="slate" />
-            <StatCard value={stats.pending} label="Pending" tone="amber" />
-            <StatCard value={stats.inProgress} label="Active" tone="blue" />
-            <StatCard value={stats.completed} label="Done" tone="green" />
-          </div>
-
-          <AppCard className="bg-slate-100 p-1">
-            <div className="flex gap-1">
-              {[
-                { key: "all", label: "All" },
-                { key: "planned", label: "Planned" },
-                { key: "in_progress", label: "Active" },
-                { key: "completed", label: "Done" },
-              ].map((tab) => (
-                <TabButton
-                  key={tab.key}
-                  active={statusFilter === tab.key}
-                  onClick={() => setStatusFilter(tab.key)}
-                >
-                  {tab.label}
-                </TabButton>
-              ))}
-            </div>
-          </AppCard>
 
           <div className="space-y-3">
             <SectionTitle>
@@ -750,45 +799,6 @@ export default function Goals() {
         </Button>
       </Modal>
 
-      <Modal
-        open={showPerfectSpotModal}
-        onClose={() => setShowPerfectSpotModal(false)}
-        title="Perfect Spot"
-      >
-        <div className="grid grid-cols-3 gap-2">
-          <Button
-            type="button"
-            onClick={() => handlePerfectSpotType("mall")}
-            className="inline-flex h-10 items-center justify-center rounded-[10px] border border-slate-200 bg-white text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
-          >
-            Mall
-          </Button>
-
-          <Button
-            type="button"
-            onClick={() => handlePerfectSpotType("restaurant")}
-            className="inline-flex h-10 items-center justify-center rounded-[10px] border border-slate-200 bg-white text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
-          >
-            Restaurant
-          </Button>
-
-          <Button
-            type="button"
-            onClick={() => handlePerfectSpotType("plaza")}
-            className="inline-flex h-10 items-center justify-center rounded-[10px] border border-slate-200 bg-white text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
-          >
-            Plaza
-          </Button>
-        </div>
-
-        <Button
-          type="button"
-          onClick={() => setShowPerfectSpotModal(false)}
-          className="inline-flex h-10 w-full items-center justify-center rounded-[10px] bg-slate-100 text-slate-700 shadow-none hover:bg-slate-200"
-        >
-          Close
-        </Button>
-      </Modal>
 
       <Modal
         open={showEventModal}

@@ -79,7 +79,7 @@ function getDisplayStatus(relationshipStatus) {
 
 function StatusPill({ relationshipStatus }) {
   const isLocked = relationshipStatus === 'date_locked';
-  const text = getDisplayStatus(relationshipStatus);
+  const text = getDisplayStatus(relationshipStatus);  
 
   return (
     <div
@@ -347,32 +347,56 @@ export default function Home() {
   }, []);
 
   const {
-    data: user,
-    isLoading,
-    isError,
-    refetch: refetchUser,
-  } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: async () => {
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser();
+  data: user,
+  isLoading,
+  isError,
+  refetch: refetchUser,
+} = useQuery({
+  queryKey: ['currentUser'],
+  queryFn: async () => {
+    const {
+      data: { user: authUser },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-      if (authError) throw authError;
-      if (!authUser) return null;
+    if (authError) {
+      console.error('HOME AUTH ERROR:', authError);
+      throw authError;
+    }
 
-      const profile = await tryProfileTablesById(authUser.id);
+    if (!authUser) {
+      return null;
+    }
 
-      return {
-        ...authUser,
-        ...(profile || {}),
+    let profile = await tryProfileTablesById(authUser.id);
+
+    if (!profile) {
+      const fallbackProfile = {
+        id: authUser.id,
         email: authUser.email,
+        full_name:
+          authUser.user_metadata?.full_name ||
+          authUser.user_metadata?.name ||
+          authUser.email?.split('@')[0] ||
+          'User',
+        relationship_status: 'single',
       };
-    },
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
-  });
+
+      await supabase.from('profiles').upsert(fallbackProfile, { onConflict: 'id' });
+      await supabase.from('users').upsert(fallbackProfile, { onConflict: 'id' });
+
+      profile = fallbackProfile;
+    }
+
+    return {
+      ...authUser,
+      ...profile,
+      email: authUser.email,
+    };
+  },
+  staleTime: 5 * 60 * 1000,
+  retry: 1,
+});
 
   React.useEffect(() => {
     if (location.pathname.includes('Home')) {
@@ -460,101 +484,96 @@ export default function Home() {
   });
 
   const { data: eventsCount = 0 } = useQuery({
-    queryKey: ['homeEventsCount', coupleId, user?.id],
+  queryKey: ['homeEventsCount', coupleId, user?.id],
+  enabled: !!user?.id,
+  retry: 1,
+  staleTime: 60 * 1000,
+  queryFn: async () => {
+    let query = supabase
+      .from('couple_goals')
+      .select('*');
+
+    if (coupleId) {
+      query = query.eq('couple_profile_id', coupleId);
+    } else {
+      query = query.eq('owner_id', user.id);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    const events = (data || []).filter((item) => item?.type === 'event');
+
+    return events.length;
+  },
+});
+
+ const { data: goalsData = { count: 0, eventsCount: 0, countdownGoal: null } } =
+  useQuery({
+    queryKey: ["homeGoalsData", coupleId, user?.id],
     enabled: !!user?.id,
     retry: 1,
     staleTime: 60 * 1000,
     queryFn: async () => {
       let query = supabase
-        .from('couple_goals')
-        .select('*');
+        .from("couple_goals")
+        .select("*");
 
       if (coupleId) {
-        query = query.eq('couple_profile_id', coupleId);
+        query = query.eq("couple_profile_id", coupleId);
       } else {
-        query = query.eq('owner_id', user.id);
+        query = query.eq("owner_id", user.id);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      const events = (data || []).filter(
-        (goal) =>
-          goal?.is_event === true &&
-          goal?.invitation_status === 'pending'
-      );
+      const goalItems = (data || []).filter((g) => g.type === "goal");
+      const eventItems = (data || []).filter((g) => g.type === "event");
 
-      return events.length;
-    },
-  });
-
-  const { data: goalsData = { count: 0, countdownGoal: null } } = useQuery({
-    queryKey: ['homeGoalsData', coupleId, user?.id],
-    enabled: !!user?.id,
-    retry: 1,
-    staleTime: 30 * 1000,
-    refetchInterval: 30 * 1000,
-    queryFn: async () => {
-      let query = supabase.from('couple_goals').select('*');
-
-      if (coupleId) {
-        query = query.eq('couple_profile_id', coupleId);
-      } else {
-        query = query.eq('owner_id', user.id);
-      }
-
-      const { data: goals, error } = await query;
-
-      if (error) throw error;
-
-      const list = Array.isArray(goals) ? goals : [];
-      const now = Date.now();
-
-      const datedGoals = list
-        .map((goal) => {
-          const parsedDate = extractGoalDate(goal);
-          if (!parsedDate) return null;
-
-          return {
-            ...goal,
-            _dateMs: parsedDate.getTime(),
-          };
-        })
-        .filter(Boolean);
-
-      const upcoming = [...datedGoals]
-        .filter((goal) => goal._dateMs >= now)
-        .sort((a, b) => a._dateMs - b._dateMs);
-
-      const latestDated = [...datedGoals].sort((a, b) => b._dateMs - a._dateMs);
+      const countdownGoal =
+  goalItems
+    .filter((g) => g.target_date)
+    .map((g) => ({
+      ...g,
+      _dateMs: new Date(g.target_date).getTime(),
+    }))
+    .filter((g) => !Number.isNaN(g._dateMs))
+    .sort((a, b) => a._dateMs - b._dateMs)[0] || null;
 
       return {
-        count: list.length,
-        countdownGoal: upcoming[0] || latestDated[0] || null,
+        count: goalItems.length,
+        eventsCount: eventItems.length,
+        countdownGoal,
       };
     },
   });
 
-  const { data: memoriesCount = 0 } = useQuery({
-    queryKey: ['homeMemoriesCount', coupleId, user?.id],
-    enabled: !!user?.id,
-    retry: 1,
-    staleTime: 60 * 1000,
-    queryFn: async () => {
-      let query = supabase.from('memories').select('*', { count: 'exact', head: false });
+const { data: memoriesCount = 0 } = useQuery({
+  queryKey: ["homeMemoriesCount", coupleId, user?.id],
+  enabled: !!user?.id,
+  retry: 1,
+  staleTime: 60 * 1000,
+  queryFn: async () => {
+    let query = supabase
+      .from("memories")
+      .select("*", { count: "exact", head: false });
 
-      if (coupleId) {
-        query = query.eq('couple_profile_id', coupleId);
-      } else {
-        query = query.eq('created_by', user.id);
-      }
+    if (coupleId) {
+      query = query.eq("couple_profile_id", coupleId);
+    } else {
+      query = query.eq("created_by", user.id);
+    }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return Array.isArray(data) ? data.length : 0;
-    },
-  });
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    return Array.isArray(data) ? data.length : 0;
+  },
+});
 
   const { data: chatsCount = 0 } = useQuery({
     queryKey: ['homeChatsCount', coupleId],
@@ -654,7 +673,7 @@ export default function Home() {
     );
   }
 
-  if (isError || !user) {
+  if (isError) {
     return (
       <>
         <div className="min-h-screen bg-[#f7f1f4] px-3 py-3 pb-24 flex items-center justify-center">
@@ -708,7 +727,7 @@ export default function Home() {
               <img
                 src={user.profile_photo}
                 alt="Profile"
-                className="max-h-full max-w-full rounded-[18px] object-contain"
+                className="h-full w-full object-cover rounded-[18px]"
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
@@ -805,7 +824,7 @@ export default function Home() {
 
           <div className="-mt-10 px-4 pt-5 pb-6">
             <div className="mb-5 grid grid-cols-3 gap-2.5">
-              <Link to={createPageUrl('Memories')} className="block">
+              <Link to={createPageUrl('Goals')} className="block">
                 <StatCard
                   icon={<Clock />}
                   value={eventsCount}
@@ -879,19 +898,19 @@ export default function Home() {
   <div className="mb-4 flex gap-3">
     <Button
       type="button"
-      onClick={() => navigate(`${createPageUrl('InvitePartner')}?mode=invite`)}
+      onClick={() => navigate(`${createPageUrl('InvitePartner')}?mode=email-invite`)}
       className="flex h-[42px] w-full items-center justify-center gap-2 rounded-[14px] bg-white px-3 text-[13px] font-medium text-rose-500 shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
     >
       <Heart className="h-3.5 w-3.5 shrink-0" />
-      <span className="leading-none">Invite</span>
+      <span className="leading-none">Email Invite</span>
     </Button>
 
     <Button
       type="button"
-      onClick={() => navigate(`${createPageUrl('InvitePartner')}?mode=accept`)}
+      onClick={() => navigate(`${createPageUrl('InvitePartner')}?mode=email-accept`)}
       className="flex h-[42px] w-full items-center justify-center rounded-[14px] bg-rose-500 px-3 text-[13px] font-medium text-white shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
     >
-      <span className="leading-none">Accept-Date</span>
+      <span className="leading-none">Enter Email OTP</span>
     </Button>
   </div>
 )}
