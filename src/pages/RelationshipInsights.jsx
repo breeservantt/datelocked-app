@@ -177,12 +177,14 @@ export default function RelationshipInsights() {
       console.error('Memories load failed:', e);
     }
 
-    const chatsCount = messages.length;
-    const goalsCount = goals.length;
-    const goalsCompleted = goals.filter((g) => g?.status === 'completed').length;
-    const memoriesCount = memories.length;
-    const eventsCount = goals.filter((g) => g?.is_event === true).length;
-    const placesAdded = goals.filter((g) => g?.event_location || g?.location).length;
+    const goalItems = goals.filter((g) => g?.type === 'goal');
+const eventItems = goals.filter((g) => g?.type === 'event');
+
+const chatsCount = messages.length;
+const goalsCount = goalItems.length;
+const goalsCompleted = goalItems.filter((g) => g?.status === 'completed').length;
+const memoriesCount = memories.length;
+const eventsCount = eventItems.length;
 
     const { total, level } = calculateInteractionScore({
       chats: chatsCount,
@@ -219,7 +221,6 @@ export default function RelationshipInsights() {
       memories_count: memoriesCount,
       goals_completed: goalsCompleted,
       goals_count: goalsCount,
-      places_added: placesAdded,
       chats_count: chatsCount,
       dates_count: eventsCount,
       interaction_level: level,
@@ -485,13 +486,7 @@ export default function RelationshipInsights() {
                     <div className="text-lg font-bold text-slate-800">{latestInsight.memories_count}</div>
                   </div>
 
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <MapPin className="w-5 h-5 text-amber-500" />
-                      <p className="text-sm font-medium text-slate-800">Places Added</p>
-                    </div>
-                    <div className="text-lg font-bold text-slate-800">{latestInsight.places_added}</div>
-                  </div>
+      
                 </div>
               </Card>
             </motion.div>

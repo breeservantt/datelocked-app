@@ -658,7 +658,7 @@ const { data: memoriesCount = 0 } = useQuery({
 
       await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       await queryClient.invalidateQueries({ queryKey: ['coupleProfile'] });
-      navigate(createPageUrl('Home'), { replace: true });
+      navigate("/home", { replace: true });
     } catch (e) {
       console.error('Error accepting invitation:', e);
       alert(e?.message || 'Failed to accept invitation. Please try again.');

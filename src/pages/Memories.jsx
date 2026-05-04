@@ -65,6 +65,7 @@ function loadStoredMemories() {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (!raw) return [];
+
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -317,6 +318,31 @@ function MemoryTile({ memory, onClick }) {
   );
 }
 
+async function getCurrentProfileUser() {
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError) throw authError;
+  if (!authUser) return null;
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", authUser.id)
+    .maybeSingle();
+
+  if (profileError) throw profileError;
+
+  return {
+    id: authUser.id,
+    email: authUser.email,
+    ...(profile || {}),
+    couple_profile_id: profile?.couple_profile_id || null,
+  };
+}
+
 export default function Memories() {
   const queryClient = useQueryClient();
 
@@ -364,80 +390,119 @@ export default function Memories() {
   const canEdit = !!user?.id;
 
   const {
-    data: memories = [],
-    isLoading: memoriesLoading,
-    isError: memoriesError,
-    refetch: refetchMemories,
-  } = useQuery({
-    queryKey: ["memories-testing", user?.id],
-    enabled: !!user?.id,
-    staleTime: 0,
-    retry: 1,
-    queryFn: async () => {
-      const allItems = loadStoredMemories();
-      const items = allItems.filter((item) => item.owner_id === user.id);
-      items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-      return items;
-    },
-  });
+  data: memories = [],
+  isLoading: memoriesLoading,
+  isError: memoriesError,
+  refetch: refetchMemories,
+} = useQuery({
+  queryKey: ["memories", user?.couple_profile_id || user?.id],
+  enabled: !!user?.id,
+  staleTime: 0,
+  retry: 1,
+  queryFn: async () => {
+    let query = supabase
+      .from("memories")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (user?.couple_profile_id) {
+      query = query.eq("couple_profile_id", user.couple_profile_id);
+    } else {
+      query = query.eq("created_by", user.id);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    return Array.isArray(data) ? data : [];
+  },
+});
 
   const createMemoryMutation = useMutation({
-    mutationFn: async (payload) => {
-      const allItems = loadStoredMemories();
-      const newItem = {
-        id: generateId(),
-        owner_id: user.id,
-        owner_email: user.email || "",
-        created_at: new Date().toISOString(),
-        ...payload,
-      };
-      const next = [newItem, ...allItems];
-      saveStoredMemories(next);
-      return newItem;
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["memories-testing", user?.id] });
-      setShowAddModal(false);
-      setNewMemory(emptyMemory);
-      setLocationSuggestions([]);
+  mutationFn: async (payload) => {
+    const currentUser = await getCurrentProfileUser();
 
-      const duration = 1200;
-      const end = Date.now() + duration;
-      const frame = () => {
-        confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 } });
-        confetti({
-          particleCount: 3,
-          angle: 120,
-          spread: 55,
-          origin: { x: 1 },
-        });
-        if (Date.now() < end) requestAnimationFrame(frame);
-      };
-      frame();
-    },
-    onError: (e) => {
-      console.error("Error creating memory:", e);
-      alert(e?.message || "Failed to save memory. Please try again.");
-    },
-    onSettled: () => setIsSubmitting(false),
-  });
+    if (!currentUser?.id) {
+      throw new Error("Please log in first.");
+    }
+
+    const newItem = {
+      owner_id: currentUser.id,
+      created_by: currentUser.id,
+      owner_email: currentUser.email || "",
+      couple_profile_id: currentUser.couple_profile_id || null,
+      created_at: new Date().toISOString(),
+      title: payload.title || "",
+      description: payload.description || "",
+      date: payload.date || null,
+      location: payload.location || "",
+      category: payload.category || "other",
+      photos: payload.photos || [],
+      videos: payload.videos || [],
+    };
+
+    const { data, error } = await supabase
+      .from("memories")
+      .insert(newItem)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return data;
+  },
+
+  onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: ["memories"] });
+
+    setShowAddModal(false);
+    setNewMemory(emptyMemory);
+    setLocationSuggestions([]);
+
+    const duration = 1200;
+    const end = Date.now() + duration;
+
+    const frame = () => {
+      confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 } });
+      confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 } });
+
+      if (Date.now() < end) requestAnimationFrame(frame);
+    };
+
+    frame();
+  },
+
+  onError: (e) => {
+    console.error("Error creating memory:", e);
+    alert(e?.message || "Failed to save memory. Please try again.");
+  },
+
+  onSettled: () => setIsSubmitting(false),
+});
 
   const deleteMemoryMutation = useMutation({
-    mutationFn: async (memoryId) => {
-      const allItems = loadStoredMemories();
-      const next = allItems.filter((item) => item.id !== memoryId);
-      saveStoredMemories(next);
-      return memoryId;
-    },
-    onSuccess: async () => {
-      setSelectedMemory(null);
-      await queryClient.invalidateQueries({ queryKey: ["memories-testing", user?.id] });
-    },
-    onError: (e) => {
-      console.error("Error deleting memory:", e);
-      alert(e?.message || "Failed to delete memory. Please try again.");
-    },
-  });
+  mutationFn: async (memoryId) => {
+    const { error } = await supabase
+      .from("memories")
+      .delete()
+      .eq("id", memoryId);
+
+    if (error) throw error;
+
+    return memoryId;
+  },
+
+  onSuccess: async () => {
+    setSelectedMemory(null);
+    await queryClient.invalidateQueries({ queryKey: ["memories"] });
+  },
+
+  onError: (e) => {
+    console.error("Error deleting memory:", e);
+    alert(e?.message || "Failed to delete memory. Please try again.");
+  },
+});
 
   const handleDeleteMemory = (memoryId) => {
     if (!memoryId) return;

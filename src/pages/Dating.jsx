@@ -433,7 +433,8 @@ export default function Dating() {
     queryKey: ["publicDateContent"],
     queryFn: () => wallApi.content.listPublic(),
     enabled: !!user?.email,
-    refetchInterval: isUploading ? false : 15000,
+    refetchInterval: false,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: allReactions = [] } = useQuery({
@@ -747,7 +748,7 @@ export default function Dating() {
                             <div className="relative block w-full overflow-hidden bg-black">
                               <video
                                 src={content.content_url}
-                                preload="metadata"
+                                preload="none"
                                 muted
                                 playsInline
                                 className="block w-full h-auto max-h-[78vh] object-contain bg-black"

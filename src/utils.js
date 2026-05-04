@@ -1,6 +1,6 @@
 export function createPageUrl(pageName) {
   const routes = {
-    Home: "/",
+    Home: "/home",
     Login: "/login",
     Chat: "/chat",
     Consent: "/consent",

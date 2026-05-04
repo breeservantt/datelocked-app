@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 const createPageUrl = (pageName) => {
-  if (pageName === "Home") return "/";
+  if (pageName === "Home") return "/home";
   return `/${pageName.toLowerCase()}`;
 };
 

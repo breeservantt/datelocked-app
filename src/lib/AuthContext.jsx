@@ -12,9 +12,11 @@ export function AuthProvider({ children }) {
 
     supabase.auth.getUser().then(({ data, error }) => {
       if (!mounted) return;
+
       if (error) {
         console.error("getUser error:", error);
       }
+
       setUser(data?.user ?? null);
       setIsLoadingAuth(false);
     });
@@ -37,6 +39,7 @@ export function AuthProvider({ children }) {
       email,
       password,
     });
+
     if (error) throw error;
     return data;
   };
@@ -46,6 +49,7 @@ export function AuthProvider({ children }) {
       email,
       password,
     });
+
     if (error) throw error;
     return data;
   };
@@ -53,7 +57,11 @@ export function AuthProvider({ children }) {
   const loginWithGoogle = async () => {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/signup`,
+      },
     });
+
     if (error) throw error;
     return data;
   };
@@ -80,8 +88,10 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
+
   if (!ctx) {
     throw new Error("useAuth must be used inside AuthProvider");
   }
+
   return ctx;
 }

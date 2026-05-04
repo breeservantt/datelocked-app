@@ -23,7 +23,7 @@ const Login = lazy(() => import("./pages/Login"));
 
 function PageLoader() {
   return (
-    <div className="min-h-[50vh] flex items-center justify-center">
+    <div className="flex min-h-[50vh] items-center justify-center">
       <div className="text-sm text-slate-500">Loading...</div>
     </div>
   );
@@ -31,7 +31,7 @@ function PageLoader() {
 
 function NotFound() {
   return (
-    <div className="min-h-[50vh] flex items-center justify-center">
+    <div className="flex min-h-[50vh] items-center justify-center">
       <div className="text-sm text-slate-500">Page not found</div>
     </div>
   );
@@ -41,20 +41,21 @@ function AppRoutes() {
   const location = useLocation();
 
   const noLayoutRoutes = [
-  "/login",
-  "/chat",
-  "/goals",
-  "/memories",
-  "/verifystatus",
-];
+    "/login",
+    "/chat",
+    "/goals",
+    "/memories",
+    "/verifystatus",
+  ];
 
   const shouldUseLayout = !noLayoutRoutes.includes(location.pathname);
 
   const routes = (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/home" element={<Home />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/consent" element={<Consent />} />
         <Route path="/dating" element={<Dating />} />
