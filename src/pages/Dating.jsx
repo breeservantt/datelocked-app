@@ -171,77 +171,126 @@ async function uploadDatingFile(file, folder = "dating/photos") {
 const wallApi = {
   content: {
     async listMine(email) {
-      const items = loadStoredContent();
-      return items.filter((x) => x.owner_email === email);
+      const { data, error } = await supabase
+        .from("dating_wall_content")
+        .select("*")
+        .eq("owner_email", email)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
     },
 
     async listPublic() {
-      return loadStoredContent();
+      const { data, error } = await supabase
+        .from("dating_wall_content")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
     },
 
     async remove(contentId) {
-      const items = loadStoredContent();
-      const next = items.filter((x) => x.id !== contentId);
-      saveStoredContent(next);
+      const { error } = await supabase
+        .from("dating_wall_content")
+        .delete()
+        .eq("id", contentId);
+
+      if (error) throw error;
       return true;
     },
 
-    async report() {
-      return { success: true };
+    async report({ contentId, reason }) {
+      const { data: user } = await supabase.auth.getUser();
+
+      const { error } = await supabase
+        .from("dating_wall_reports")
+        .insert({
+          content_id: contentId,
+          reporter_id: user.user.id,
+          reporter_email: user.user.email,
+          reason,
+        });
+
+      if (error) throw error;
+      return true;
     },
 
     async createMany(payload) {
-      const items = loadStoredContent();
+      const { data: user } = await supabase.auth.getUser();
 
-      const imageItems = (payload.photos || []).map((url) => ({
-        id: generateId(),
-        owner_email: payload.owner_email,
-        content_url: url,
-        content_type: "IMAGE",
-        visibility: "PUBLIC_WALL",
-        moderation_status: "APPROVED",
-        caption: payload.caption || "",
-        location: payload.location || "",
-        view_count: 0,
-      }));
+      const items = [
+        ...(payload.photos || []).map((url) => ({
+          owner_id: user.user.id,
+          owner_email: payload.owner_email,
+          content_url: url,
+          content_type: "IMAGE",
+          caption: payload.caption,
+          location: payload.location,
+        })),
+        ...(payload.videos || []).map((url) => ({
+          owner_id: user.user.id,
+          owner_email: payload.owner_email,
+          content_url: url,
+          content_type: "VIDEO",
+          caption: payload.caption,
+          location: payload.location,
+        })),
+      ];
 
-      const videoItems = (payload.videos || []).map((url) => ({
-        id: generateId(),
-        owner_email: payload.owner_email,
-        content_url: url,
-        content_type: "VIDEO",
-        visibility: "PUBLIC_WALL",
-        moderation_status: "APPROVED",
-        caption: payload.caption || "",
-        location: payload.location || "",
-        view_count: 0,
-      }));
+      const { data, error } = await supabase
+        .from("dating_wall_content")
+        .insert(items)
+        .select();
 
-      const createdItems = [...imageItems, ...videoItems];
-      const next = [...createdItems, ...items];
-      saveStoredContent(next);
+      if (error) throw error;
 
       return {
         success: true,
-        items: createdItems,
+        items: data,
       };
     },
   },
 
   reactions: {
     async list() {
-      return [
-        {
-          id: "r1",
-          content_id: "content-2",
-          user_email: "you@example.com",
-          reaction_type: "heart",
-        },
-      ];
+      const { data, error } = await supabase
+        .from("dating_wall_reactions")
+        .select("*");
+
+      if (error) throw error;
+      return data || [];
     },
 
-    async toggle() {
-      return { success: true };
+    async toggle({ contentId, reactionType }) {
+      const { data: user } = await supabase.auth.getUser();
+
+      const { data: existing } = await supabase
+        .from("dating_wall_reactions")
+        .select("*")
+        .eq("content_id", contentId)
+        .eq("user_id", user.user.id)
+        .eq("reaction_type", reactionType)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("dating_wall_reactions")
+          .delete()
+          .eq("id", existing.id);
+      } else {
+        await supabase
+          .from("dating_wall_reactions")
+          .insert({
+            content_id: contentId,
+            user_id: user.user.id,
+            user_email: user.user.email,
+            reaction_type: reactionType,
+          });
+      }
+
+      return true;
     },
   },
 };
@@ -384,77 +433,112 @@ export default function Dating() {
   const [allReactionsState, setAllReactionsState] = React.useState([]);
 
   React.useEffect(() => {
-    let mounted = true;
+  let mounted = true;
 
-    (async () => {
-      try {
-        const currentUser = await getCurrentDatingUser();
-        if (mounted) setUser(currentUser);
-      } catch (error) {
-        console.error("Failed to load user:", error);
-        if (mounted) setUser(null);
+  (async () => {
+    try {
+      const currentUser = await getCurrentDatingUser();
+      if (mounted) setUser(currentUser);
+    } catch (error) {
+      console.error("Failed to load user:", error);
+      if (mounted) setUser(null);
+    }
+  })();
+
+  return () => {
+    mounted = false;
+  };
+}, []);
+
+React.useEffect(() => {
+  const channel = supabase
+    .channel("dating-wall")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "dating_wall_content",
+      },
+      () => {
+        queryClient.invalidateQueries({ queryKey: ["publicDateContent"] });
+        queryClient.invalidateQueries({ queryKey: ["myDateContent"] });
       }
-    })();
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "dating_wall_reactions",
+      },
+      () => {
+        queryClient.invalidateQueries({ queryKey: ["contentReactions"] });
+      }
+    )
+    .subscribe();
 
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [queryClient]);
 
-  React.useEffect(() => {
-    const updateMessage = () => setDailyAdvice(getFiveHourMessage());
-    updateMessage();
+React.useEffect(() => {
+  const updateMessage = () => setDailyAdvice(getFiveHourMessage());
+  updateMessage();
 
-    let timer;
-    const schedule = () => {
-      timer = setTimeout(() => {
-        updateMessage();
-        schedule();
-      }, getNextFiveHourRefreshMs());
-    };
-    schedule();
+  let timer;
+  const schedule = () => {
+    timer = setTimeout(() => {
+      updateMessage();
+      schedule();
+    }, getNextFiveHourRefreshMs());
+  };
 
-    return () => clearTimeout(timer);
-  }, []);
+  schedule();
 
-  React.useEffect(() => {
-    const onDocClick = () => setOpenMenuId(null);
-    document.addEventListener("click", onDocClick);
-    return () => document.removeEventListener("click", onDocClick);
-  }, []);
+  return () => clearTimeout(timer);
+}, []);
 
-  const { data: myContent = [] } = useQuery({
-    queryKey: ["myDateContent", user?.email],
-    queryFn: () => wallApi.content.listMine(user.email),
-    enabled: !!user?.email && showMyContent,
-  });
+React.useEffect(() => {
+  const onDocClick = () => setOpenMenuId(null);
+  document.addEventListener("click", onDocClick);
 
-  const { data: publicContent = [], isLoading: publicLoading } = useQuery({
-    queryKey: ["publicDateContent"],
-    queryFn: () => wallApi.content.listPublic(),
-    enabled: !!user?.email,
-    refetchInterval: false,
-    staleTime: 5 * 60 * 1000,
-  });
+  return () => document.removeEventListener("click", onDocClick);
+}, []);
 
-  const { data: allReactions = [] } = useQuery({
-    queryKey: ["contentReactions"],
-    queryFn: () => wallApi.reactions.list(),
-    enabled: !!user?.email,
-    refetchInterval: isUploading ? false : 15000,
-  });
+const { data: myContent = [] } = useQuery({
+  queryKey: ["myDateContent", user?.email],
+  queryFn: () => wallApi.content.listMine(user.email),
+  enabled: !!user?.email && showMyContent,
+});
 
-  React.useEffect(() => {
-    setMyContentState(myContent);
-  }, [myContent]);
+const { data: publicContent = [], isLoading: publicLoading } = useQuery({
+  queryKey: ["publicDateContent"],
+  queryFn: () => wallApi.content.listPublic(),
+  enabled: !!user?.email,
+  refetchInterval: false,
+  staleTime: 5 * 60 * 1000,
+});
 
-  React.useEffect(() => {
-    setPublicContentState(publicContent);
-  }, [publicContent]);
+const { data: allReactions = [] } = useQuery({
+  queryKey: ["contentReactions"],
+  queryFn: () => wallApi.reactions.list(),
+  enabled: !!user?.email,
+  refetchInterval: isUploading ? false : 15000,
+});
 
-  React.useEffect(() => {
-    setAllReactionsState(allReactions);
-  }, [allReactions]);
+React.useEffect(() => {
+  setMyContentState(myContent);
+}, [myContent]);
+
+React.useEffect(() => {
+  setPublicContentState(publicContent);
+}, [publicContent]);
+
+React.useEffect(() => {
+  setAllReactionsState(allReactions);
+}, [allReactions]);
 
   const handleReaction = async (contentId, reactionType) => {
     try {
@@ -630,6 +714,7 @@ export default function Dating() {
     try {
       const result = await wallApi.content.createMany({
         owner_email: user.email,
+        owner_name: user.full_name || user.name || user.email?.split("@")[0] || "User",
         caption: newPost.caption.trim(),
         location: newPost.location.trim(),
         photos: newPost.photos,
@@ -843,7 +928,7 @@ export default function Dating() {
 
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-slate-700">
-                            {content.owner_email.split("@")[0]}
+                            {content.owner_name || content.owner_email?.split("@")[0] || "User"}
                           </span>
 
                           <Badge variant="outline" className="flex items-center gap-1">

@@ -22,6 +22,7 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createPageUrl } from "@/utils";
+import { supabase } from "@/lib/supabase";
 
 const navItems = [
   { label: "Home", icon: HomeIcon, page: "Home" },
@@ -36,12 +37,21 @@ const navItems = [
 const verifyApi = {
   auth: {
     async me() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
       return {
-        id: "user-1",
-        email: "you@example.com",
-        full_name: "Your Name",
-        location: "Johannesburg",
-        profile_photo: "",
+        id: user.id,
+        email: user.email,
+        full_name: profile?.full_name || "",
+        location: profile?.location || "",
+        profile_photo: profile?.profile_photo || "",
         verification_code: null,
         verification_code_expires: null,
       };
@@ -49,55 +59,99 @@ const verifyApi = {
   },
 
   verification: {
-    async getHistory(email) {
-      if (!email) return [];
-      return [];
+    async getHistory() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data } = await supabase
+        .from("verification_history")
+        .select("*")
+        .eq("verifier_id", user.id)
+        .order("verification_timestamp", { ascending: false });
+
+      return data || [];
     },
 
     async generateCode() {
-      const code = String(Math.floor(100000 + Math.random() * 900000));
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError) throw authError;
+  if (!user) throw new Error("Not authenticated");
+
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+  const { error } = await supabase.from("verification_codes").insert({
+    user_id: user.id,
+    user_email: user.email,
+    code,
+    expires_at: expiresAt.toISOString(),
+  });
+
+  if (error) {
+    console.error("GENERATE CODE ERROR:", error);
+    throw error;
+  }
+
+  return {
+    code,
+    expiresAt: expiresAt.toISOString(),
+  };
+},
+
+    async validateCode(inputCode) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data, error } = await supabase
+        .from("verification_codes")
+        .select("*")
+        .eq("code", inputCode)
+        .is("used_at", null)
+        .single();
+
+      if (error || !data) throw new Error("Invalid or expired code");
+
+      if (new Date(data.expires_at) < new Date()) {
+        throw new Error("Code expired");
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", data.user_id)
+        .single();
+
+      const status = profile?.couple_profile_id ? "Date-Locked" : "No Data";
+
+      await supabase.from("verification_history").insert({
+        verifier_id: user.id,
+        verifier_email: user.email,
+        verified_user_id: data.user_id,
+        verified_user_email: data.user_email,
+        verified_user_name: profile?.full_name,
+        verification_status: status,
+        partner_name: null,
+      });
+
+      await supabase
+        .from("verification_codes")
+        .update({ used_at: new Date().toISOString() })
+        .eq("id", data.id);
+
       return {
-        code,
-        expiresAt,
+        status,
+        verifiedAt: new Date().toISOString(),
+        user: {
+          full_name: profile?.full_name,
+          location: profile?.location,
+          profile_photo: profile?.profile_photo,
+        },
+        partner: null,
       };
-    },
-
-    async validateCode(code) {
-      if (!code || code.length !== 6) {
-        throw new Error("Invalid or expired code");
-      }
-
-      if (code === "123456") {
-        return {
-          status: "Date-Locked",
-          verifiedAt: new Date().toISOString(),
-          user: {
-            full_name: "Partner Name",
-            location: "Pretoria",
-            profile_photo: "",
-          },
-          partner: {
-            full_name: "Your Name",
-            profile_photo: "",
-          },
-        };
-      }
-
-      if (code === "000000") {
-        return {
-          status: "No Data",
-          verifiedAt: new Date().toISOString(),
-          user: {
-            full_name: "Unknown User",
-            location: "",
-            profile_photo: "",
-          },
-          partner: null,
-        };
-      }
-
-      throw new Error("Invalid or expired code");
     },
   },
 };
@@ -301,20 +355,21 @@ export default function VerifyStatus() {
   };
 
   const generateCode = async () => {
-    setIsGenerating(true);
+  setIsGenerating(true);
+  setError("");
 
-    try {
-      const data = await verifyApi.verification.generateCode();
-      setMyCode(data.code);
-      setCodeExpiry(new Date(data.expiresAt));
-      setError("");
-    } catch (generateError) {
-      console.error("Error generating code:", generateError);
-      setError("Failed to generate code");
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+  try {
+    const data = await verifyApi.verification.generateCode();
+    setMyCode(data.code);
+    setCodeExpiry(new Date(data.expiresAt));
+  } catch (generateError) {
+    console.error("Error generating code:", generateError);
+    setError(generateError?.message || "Failed to generate code");
+    alert(generateError?.message || "Failed to generate code");
+  } finally {
+    setIsGenerating(false);
+  }
+};
 
   const validateCode = async () => {
     if (!inputCode || inputCode.length !== 6) {

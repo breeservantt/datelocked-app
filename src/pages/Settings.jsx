@@ -7,7 +7,6 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import {
-  ArrowLeft,
   Camera,
   User,
   MapPin,
@@ -20,8 +19,6 @@ import {
   Save,
   AlertTriangle,
   Unlock,
-  Archive,
-  Image as ImageIcon,
   Sparkles,
   X as XIcon,
   KeyRound,
@@ -78,10 +75,26 @@ function AppHeader({ title }) {
   );
 }
 
-function AppCard({ children, className = "" }) {
+function AppCard({ children, className = "", onClick }) {
+  const isClickable = typeof onClick === "function";
+
   return (
     <div
-      className={`overflow-hidden rounded-[12px] border border-slate-100 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.06)] ${className}`}
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (!isClickable) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={`overflow-hidden rounded-[12px] border border-slate-100 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.06)] ${
+        isClickable
+          ? "cursor-pointer transition active:scale-[0.98] hover:bg-slate-50"
+          : ""
+      } ${className}`}
     >
       {children}
     </div>
@@ -175,6 +188,17 @@ function FolderRow({ icon: Icon, title, subtitle, onClick }) {
   );
 }
 
+function PolicyPill({ to, children }) {
+  return (
+    <Link
+      to={to}
+      className="flex h-9 w-[118px] items-center justify-center rounded-[10px] border border-slate-200 bg-white px-2 text-center text-[11px] font-semibold text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
+    >
+      {children}
+    </Link>
+  );
+}
+
 function formatDisplayDate(dateString) {
   if (!dateString) return "";
   const date = parseSafeDate(dateString);
@@ -197,8 +221,6 @@ export default function Settings() {
   const [showDeactivateDialog, setShowDeactivateDialog] = React.useState(false);
 
   const [pendingTermination, setPendingTermination] = React.useState(null);
-  const [archivedMemories, setArchivedMemories] = React.useState([]);
-  const [showArchive, setShowArchive] = React.useState(false);
   const [openFolder, setOpenFolder] = React.useState(null);
 
   const [authPref, setAuthPref] = React.useState("PASSWORD");
@@ -212,8 +234,10 @@ export default function Settings() {
     profile_photo: "",
   });
 
-  const PRIVACY_POLICY_URL = createPageUrl("PrivacyPolicy");
-  const SECURITY_POLICY_URL = createPageUrl("SecurityPolicy");
+  const PRIVACY_POLICY_URL = createPageUrl("Privacy");
+  const TERMS_POLICY_URL = createPageUrl("Terms");
+  const SECURITY_POLICY_URL = createPageUrl("Security");
+  const REFUND_POLICY_URL = createPageUrl("Refunds");
 
   const buildFallbackProfile = React.useCallback((authUser) => {
     return {
@@ -273,30 +297,10 @@ export default function Settings() {
     return profile;
   }, [buildFallbackProfile, navigate]);
 
-  const loadArchivedMemories = React.useCallback(async (userId) => {
-    const { data, error } = await supabase
-      .from("archived_memories")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      setArchivedMemories([]);
-      return;
-    }
-
-    setArchivedMemories(Array.isArray(data) ? data : []);
-  }, []);
-
   const loadAll = React.useCallback(async () => {
-    const profile = await loadUserProfile();
-
-    if (profile?.id) {
-      await loadArchivedMemories(profile.id);
-    }
-
+    await loadUserProfile();
     setPendingTermination(null);
-  }, [loadUserProfile, loadArchivedMemories]);
+  }, [loadUserProfile]);
 
   React.useEffect(() => {
     let alive = true;
@@ -304,12 +308,7 @@ export default function Settings() {
     (async () => {
       try {
         setIsLoading(true);
-
-        const profile = await loadUserProfile();
-
-        if (profile?.id) {
-          await loadArchivedMemories(profile.id);
-        }
+        await loadUserProfile();
       } catch (e) {
         console.error("Settings load error:", e);
         if (alive) setUser(null);
@@ -321,7 +320,7 @@ export default function Settings() {
     return () => {
       alive = false;
     };
-  }, [loadUserProfile, loadArchivedMemories]);
+  }, [loadUserProfile]);
 
   const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -421,88 +420,92 @@ export default function Settings() {
   };
 
   const handleSetPin = async () => {
-    if (isAuthSaving) return;
+  if (isAuthSaving) return;
 
-    const a = (pinNew || "").trim();
-    const b = (pinConfirm || "").trim();
+  const a = (pinNew || "").trim();
+  const b = (pinConfirm || "").trim();
 
-    if (!/^\d{4,8}$/.test(a)) {
-      alert("PIN must be 4–8 digits.");
-      return;
-    }
+  if (!/^\d{4,8}$/.test(a)) {
+    alert("PIN must be 4–8 digits.");
+    return;
+  }
 
-    if (a !== b) {
-      alert("PIN confirmation does not match.");
-      return;
-    }
+  if (a !== b) {
+    alert("PIN confirmation does not match.");
+    return;
+  }
 
-    setIsAuthSaving(true);
+  setIsAuthSaving(true);
 
-    try {
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser();
+  try {
+    const { error } = await supabase.rpc("set_profile_pin", {
+      new_pin: a,
+    });
 
-      if (authError) throw authError;
-      if (!authUser) throw new Error("No signed-in user found.");
+    if (error) throw error;
 
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          pin_enabled: true,
-          auth_preference: "PIN",
-          pin_last_set_at: new Date().toISOString(),
-        })
-        .eq("id", authUser.id);
+    setPinNew("");
+    setPinConfirm("");
 
-      if (error) throw error;
+    await loadUserProfile();
 
-      setPinNew("");
-      setPinConfirm("");
-      await loadUserProfile();
-    } catch (e) {
-      console.error("Could not set PIN:", e);
-      alert(e?.message || "Could not set PIN.");
-    } finally {
-      setIsAuthSaving(false);
-    }
-  };
+    alert("PIN updated.");
+  } catch (e) {
+    console.error("Could not set PIN:", e);
+    alert(e?.message || "Could not set PIN.");
+  } finally {
+    setIsAuthSaving(false);
+  }
+};
 
   const handleTogglePin = async (checked) => {
-    if (isAuthSaving) return;
+  if (isAuthSaving) return;
 
-    setIsAuthSaving(true);
+  setIsAuthSaving(true);
 
-    try {
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser();
+  try {
+    const {
+      data: { user: authUser },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-      if (authError) throw authError;
-      if (!authUser) throw new Error("No signed-in user found.");
+    if (authError) throw authError;
+    if (!authUser) throw new Error("No signed-in user found.");
 
-      const { error } = await supabase.from("profiles").upsert(
-        {
+    const updatePayload = checked
+      ? {
           id: authUser.id,
           email: authUser.email,
-          pin_enabled: checked,
-          auth_preference: checked ? "PIN" : "PASSWORD",
-        },
-        { onConflict: "id" }
-      );
+          pin_enabled: true,
+          auth_preference: "PIN",
+        }
+      : {
+          id: authUser.id,
+          email: authUser.email,
+          pin_enabled: false,
+          auth_preference: "PASSWORD",
+          pin_hash: null,
+        };
 
-      if (error) throw error;
+    const { error } = await supabase.from("profiles").upsert(updatePayload, {
+      onConflict: "id",
+    });
 
-      await loadUserProfile();
-    } catch (e) {
-      console.error("Could not update PIN setting:", e);
-      alert(e?.message || "Could not update PIN setting.");
-    } finally {
-      setIsAuthSaving(false);
+    if (error) throw error;
+
+    if (!checked) {
+      setPinNew("");
+      setPinConfirm("");
     }
-  };
+
+    await loadUserProfile();
+  } catch (e) {
+    console.error("Could not update PIN setting:", e);
+    alert(e?.message || "Could not update PIN setting.");
+  } finally {
+    setIsAuthSaving(false);
+  }
+};
 
   const handleUnlock = async () => {
     if (isBusyAction) return;
@@ -685,7 +688,7 @@ export default function Settings() {
                       Your partner wants to terminate.
                     </p>
 
-                    <div className="mt-3 flex gap-2">
+                    <div className="mt-3 grid grid-cols-2 gap-2 max-w-[260px] mx-auto">
                       <button
                         type="button"
                         onClick={handleConfirmTermination}
@@ -834,102 +837,22 @@ export default function Settings() {
                 </div>
               </AppCard>
 
-              <AppCard className="p-3">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-amber-100 text-amber-600">
-                    <Archive className="h-4 w-4" />
-                  </div>
+              <AppCard>
+  <div className="flex items-start gap-3">
+    <div className="flex-1">
+      <div className="mt-3 mb-4 flex justify-center">
+        <div className="grid grid-cols-2 gap-3 w-fit">
+          <PolicyPill to={PRIVACY_POLICY_URL}>Privacy</PolicyPill>
+          <PolicyPill to={TERMS_POLICY_URL}>Terms</PolicyPill>
+          <PolicyPill to={SECURITY_POLICY_URL}>Security</PolicyPill>
+          <PolicyPill to={REFUND_POLICY_URL}>Refunds</PolicyPill>
+        </div>
+      </div>
+    </div>
+  </div>
+</AppCard>
 
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-slate-800">Archive</p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {archivedMemories.length} archived memories
-                    </p>
-
-                    {archivedMemories.length > 0 ? (
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowArchive((v) => !v)}
-                        className="mt-3 h-9 w-full rounded-[10px] border-slate-200 bg-white text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
-                      >
-                        <Archive className="mr-1.5 h-4 w-4" />
-                        {showArchive ? "Hide Archived Memories" : "View Archived Memories"}
-                      </Button>
-                    ) : (
-                      <p className="mt-3 text-xs text-slate-500">
-                        No archived memories yet
-                      </p>
-                    )}
-
-                    {showArchive && archivedMemories.length > 0 ? (
-                      <div className="mt-3 space-y-2">
-                        {archivedMemories.slice(0, 50).map((memory) => (
-                          <div
-                            key={memory.id}
-                            className="flex gap-3 rounded-[10px] border border-slate-200 bg-slate-50 p-3"
-                          >
-                            {memory.photos?.[0] ? (
-                              <img
-                                src={memory.photos[0]}
-                                alt=""
-                                className="h-14 w-14 rounded-[10px] object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-14 w-14 items-center justify-center rounded-[10px] bg-slate-200">
-                                <ImageIcon className="h-5 w-5 text-slate-400" />
-                              </div>
-                            )}
-
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold text-slate-800">
-                                {memory.title}
-                              </p>
-                              <p className="truncate text-xs text-slate-500">
-                                {memory.description}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </AppCard>
-
-              <AppCard className="p-3">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-slate-100 text-slate-700">
-                    <FileText className="h-4 w-4" />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-slate-800">Policies</p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Review privacy and security details
-                    </p>
-
-                    <div className="mt-3 flex gap-2">
-                      <Button
-                        asChild
-                        variant="outline"
-                        className="h-8 flex-1 rounded-[9px] border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
-                      >
-                        <Link to={PRIVACY_POLICY_URL}>Privacy Policy</Link>
-                      </Button>
-
-                      <Button
-                        asChild
-                        variant="outline"
-                        className="h-8 flex-1 rounded-[9px] border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
-                      >
-                        <Link to={SECURITY_POLICY_URL}>Security Policy</Link>
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </AppCard>
-
-              <AppCard className="p-3">
+              <AppCard className="px-3 pt-3 pb-5">
                 <div className="flex items-start gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-red-100 text-red-500">
                     <AlertTriangle className="h-4 w-4" />
@@ -980,16 +903,19 @@ export default function Settings() {
               <AppCard className="p-4">
                 <div className="mb-5 flex justify-center">
                   <div className="relative">
-                    <Avatar className="h-24 w-24 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-[0_8px_18px_rgba(15,23,42,0.10)]">
-                      <AvatarImage
-                        src={formData.profile_photo || ""}
-                        alt={formData.full_name || "Profile"}
-                        className="h-full w-full object-cover"
-                      />
-                      <AvatarFallback className="bg-gradient-to-br from-rose-100 to-pink-100 text-2xl text-rose-500">
-                        {formData.full_name?.[0] || <User className="h-8 w-8" />}
-                      </AvatarFallback>
-                    </Avatar>
+                    <div className="relative h-24 w-24 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-[0_8px_18px_rgba(15,23,42,0.10)]">
+  {formData.profile_photo ? (
+    <img
+      src={formData.profile_photo}
+      alt={formData.full_name || "Profile"}
+      className="absolute left-1/2 top-1/2 h-[122%] w-[122%] max-w-none -translate-x-1/2 -translate-y-1/2 object-cover"
+    />
+  ) : (
+    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-rose-100 to-pink-100 text-2xl text-rose-500">
+      {formData.full_name?.[0] || <User className="h-8 w-8" />}
+    </div>
+  )}
+</div>
 
                     <label className="absolute -bottom-1 -right-1 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] shadow-[0_4px_10px_rgba(142,197,255,0.24)] transition hover:scale-105">
                       <Camera className="h-5 w-5 text-black" />
@@ -1089,9 +1015,8 @@ export default function Settings() {
               <Button
                 variant="outline"
                 onClick={() => setOpenFolder(null)}
-                className="h-9 w-full rounded-[10px] border-slate-200 bg-white text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
+                className="h-9 w-full justify-center rounded-[10px] border-slate-200 bg-white text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
               >
-                <ArrowLeft className="mr-1.5 h-4 w-4" />
                 Back
               </Button>
 
@@ -1127,47 +1052,67 @@ export default function Settings() {
                       </div>
                     </div>
 
-                    <Switch
-                      checked={pinEnabled}
-                      disabled={isAuthSaving}
-                      onCheckedChange={handleTogglePin}
-                    />
+                    <button
+  type="button"
+  disabled={isAuthSaving}
+  onClick={() => {
+    if (pinEnabled) {
+      handleTogglePin(false);
+      return;
+    }
+
+    setPinEnabled(true);
+    setAuthPref("PIN");
+  }}
+  className={`flex h-5 w-5 items-center justify-center rounded-[5px] border transition ${
+    pinEnabled
+      ? "border-[#77aef7] bg-[#77aef7]"
+      : "border-slate-400 bg-white"
+  } disabled:opacity-60`}
+>
+  {pinEnabled ? (
+    <span className="text-[13px] font-bold leading-none text-white">✓</span>
+  ) : null}
+</button>
                   </div>
 
                   {pinEnabled ? (
                     <>
                       <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-sm font-medium text-slate-700">
-                            New PIN
-                          </Label>
-                          <Input
-                            value={pinNew}
-                            onChange={(e) =>
-                              setPinNew(e.target.value.replace(/\D/g, "").slice(0, 8))
-                            }
-                            placeholder="4–8 digits"
-                            inputMode="numeric"
-                            className="mt-2 h-10 rounded-[10px] border-slate-200 bg-white text-sm text-slate-800"
-                          />
-                        </div>
+  {/* NEW PIN */}
+  <div>
+    <Label className="text-sm font-medium text-slate-700">
+      New PIN
+    </Label>
 
-                        <div>
-                          <Label className="text-sm font-medium text-slate-700">
-                            Confirm
-                          </Label>
-                          <Input
-                            value={pinConfirm}
-                            onChange={(e) =>
-                              setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 8))
-                            }
-                            placeholder="Repeat PIN"
-                            inputMode="numeric"
-                            className="mt-2 h-10 rounded-[10px] border-slate-200 bg-white text-sm text-slate-800"
-                          />
-                        </div>
-                      </div>
+    <Input
+      value={pinNew}
+      onChange={(e) =>
+        setPinNew(e.target.value.replace(/\D/g, "").slice(0, 8))
+      }
+      placeholder="4–8 digits"
+      inputMode="numeric"
+      className="mt-2 h-10 w-full rounded-[10px] border-slate-200 bg-white px-3 text-center text-sm font-semibold tracking-[2px] text-slate-800"
+    />
+  </div>
 
+  {/* CONFIRM PIN */}
+  <div>
+    <Label className="text-sm font-medium text-slate-700">
+      Confirm
+    </Label>
+
+    <Input
+      value={pinConfirm}
+      onChange={(e) =>
+        setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 8))
+      }
+      placeholder="Repeat PIN"
+      inputMode="numeric"
+      className="mt-2 h-10 w-full rounded-[10px] border-slate-200 bg-white px-3 text-center text-sm font-semibold tracking-[2px] text-slate-800"
+    />
+  </div>
+</div>
                       <Button
                         onClick={handleSetPin}
                         disabled={isAuthSaving}
@@ -1195,24 +1140,6 @@ export default function Settings() {
                         {authPref === "PIN" ? "PIN" : "Password"}
                       </span>
                     </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      asChild
-                      variant="outline"
-                      className="h-8 flex-1 rounded-[9px] border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
-                    >
-                      <Link to={PRIVACY_POLICY_URL}>Privacy Policy</Link>
-                    </Button>
-
-                    <Button
-                      asChild
-                      variant="outline"
-                      className="h-8 flex-1 rounded-[9px] border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
-                    >
-                      <Link to={SECURITY_POLICY_URL}>Security Policy</Link>
-                    </Button>
                   </div>
                 </div>
               </AppCard>

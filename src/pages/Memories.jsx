@@ -29,7 +29,7 @@ import { createPageUrl } from "@/utils";
 import { supabase } from "@/lib/supabase";
 import confetti from "canvas-confetti";
 
-const MEMORY_BUCKET = "profile-photos";
+const MEMORY_BUCKET = "memories-media";
 const LOCAL_STORAGE_KEY = "datelocked_memories_testing_v3";
 
 const categories = [
@@ -454,7 +454,7 @@ export default function Memories() {
   },
 
   onSuccess: async () => {
-    await queryClient.invalidateQueries({ queryKey: ["memories"] });
+    queryClient.invalidateQueries({ queryKey: ["memories"] });
 
     setShowAddModal(false);
     setNewMemory(emptyMemory);
@@ -615,26 +615,59 @@ export default function Memories() {
   };
 
   React.useEffect(() => {
-    return () => {
-      if (locationTimerRef.current) clearTimeout(locationTimerRef.current);
-    };
-  }, []);
-
-  const handleSubmit = async () => {
-    if (!user?.id) {
-      alert("Please log in first.");
-      return;
-    }
-    if (!newMemory.title?.trim()) return;
-    if (isSubmitting) return;
-
-    setIsSubmitting(true);
-
-    createMemoryMutation.mutate({
-      ...newMemory,
-      title: newMemory.title.trim(),
-    });
+  return () => {
+    if (locationTimerRef.current) clearTimeout(locationTimerRef.current);
   };
+}, []);
+
+React.useEffect(() => {
+  let channel;
+
+  const setupRealtime = async () => {
+    const currentUser = await getCurrentProfileUser();
+
+    if (!currentUser?.couple_profile_id) return;
+
+    channel = supabase
+      .channel(`memories-${currentUser.couple_profile_id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "memories",
+          filter: `couple_profile_id=eq.${currentUser.couple_profile_id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["memories"] });
+        }
+      )
+      .subscribe();
+  };
+
+  setupRealtime();
+
+  return () => {
+    if (channel) supabase.removeChannel(channel);
+  };
+}, [queryClient]);
+
+const handleSubmit = async () => {
+  if (!user?.id) {
+    alert("Please log in first.");
+    return;
+  }
+
+  if (!newMemory.title?.trim()) return;
+  if (isSubmitting) return;
+
+  setIsSubmitting(true);
+
+  createMemoryMutation.mutate({
+    ...newMemory,
+    title: newMemory.title.trim(),
+  });
+};
 
   const filteredMemories = React.useMemo(() => {
     if (filter === "all") return memories;

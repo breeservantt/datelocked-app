@@ -12,8 +12,6 @@ import { format } from "date-fns";
 import { supabase } from "@/lib/supabase";
 import { parseSafeDate } from "@/components/utils/dateHelpers";
 
-const LOCAL_PARTNER_CHAT_KEY = "datelocked_local_partner_chat_v3";
-
 function AppShell({ children }) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0ea85f] via-[#25d366] to-[#128c7e] px-0 py-0 pb-0">
@@ -78,7 +76,9 @@ const ChatBubble = React.memo(function ChatBubble({ msg, isMe }) {
     <div className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
       <div className={`flex w-full flex-col ${isMe ? "items-end" : "items-start"}`}>
         {!isMe && msg.sender_name ? (
-          <p className="mb-1 px-2 text-[11px] font-medium text-white/85">{msg.sender_name}</p>
+          <p className="mb-1 px-2 text-[11px] font-medium text-white/85">
+            {msg.sender_name}
+          </p>
         ) : null}
 
         <div
@@ -93,13 +93,13 @@ const ChatBubble = React.memo(function ChatBubble({ msg, isMe }) {
           }`}
         >
           {isImage ? (
-  <>
-    <img
-      src={msg.content.slice(3)}
-      alt="Shared"
-      className="block w-full rounded-[18px] object-cover"
-      style={{ maxHeight: "60vh" }}
-    />
+            <>
+              <img
+                src={msg.content.slice(3)}
+                alt="Shared"
+                className="block w-full rounded-[18px] object-cover"
+                style={{ maxHeight: "60vh" }}
+              />
               <div className="flex items-center justify-end gap-1 px-2.5 py-2 text-[10px] text-slate-500">
                 {createdDate ? <span>{format(createdDate, "h:mm a")}</span> : null}
                 {isMe ? (
@@ -180,6 +180,26 @@ function EmptyState() {
         Start the conversation below.
       </p>
     </div>
+  );
+}
+
+function LockedChatState() {
+  return (
+    <AppShell>
+      <div className="flex min-h-[640px] items-center justify-center px-6 text-center">
+        <div>
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur">
+            <MessageCircle className="h-8 w-8 text-white/85" />
+          </div>
+          <h3 className="text-[18px] font-semibold text-white">
+            Chat unlocks after Date-Locked
+          </h3>
+          <p className="mt-2 text-[14px] leading-6 text-white/80">
+            Connect with your partner first to start a real two-way chat.
+          </p>
+        </div>
+      </div>
+    </AppShell>
   );
 }
 
@@ -321,6 +341,7 @@ async function tryProfileTablesById(userId) {
 
     if (!error && data) return data;
   }
+
   return null;
 }
 
@@ -338,32 +359,6 @@ async function tryProfileTablesByEmail(email) {
   }
 
   return null;
-}
-
-function loadLocalPartnerMessages() {
-  try {
-    const raw = localStorage.getItem(LOCAL_PARTNER_CHAT_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveLocalPartnerMessages(messages) {
-  localStorage.setItem(LOCAL_PARTNER_CHAT_KEY, JSON.stringify(messages));
-}
-
-function createLocalMessage({ sender_email, content, read = false, sender_name = "You" }) {
-  return {
-    id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-    sender_email,
-    sender_name,
-    content,
-    read,
-    created_date: new Date().toISOString(),
-  };
 }
 
 function areMessagesEqual(a, b) {
@@ -395,6 +390,7 @@ export default function Chat() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSending, setIsSending] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
+  const [isChatLocked, setIsChatLocked] = React.useState(false);
 
   const messagesEndRef = React.useRef(null);
   const fileInputRef = React.useRef(null);
@@ -410,32 +406,28 @@ export default function Chat() {
   }, []);
 
   const loadMessages = React.useCallback(
-    async (coupleId, currentUser) => {
-      if (coupleId) {
-        const { data, error } = await supabase
-          .from("messages")
-          .select("*")
-          .eq("couple_profile_id", coupleId)
-          .order("created_date", { ascending: true });
-
-        if (!error) {
-          setMessagesIfChanged(data || []);
-          return;
-        }
-      }
-
-      const local = loadLocalPartnerMessages();
-      setMessagesIfChanged(local);
-
-      if (!currentUser && local.length === 0) {
+    async (coupleId) => {
+      if (!coupleId) {
         setMessagesIfChanged([]);
+        return;
       }
+
+      const { data, error } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("couple_profile_id", coupleId)
+        .order("created_date", { ascending: true });
+
+      if (error) throw error;
+
+      setMessagesIfChanged(data || []);
     },
     [setMessagesIfChanged]
   );
 
   const loadPage = React.useCallback(async () => {
     setIsLoading(true);
+    setIsChatLocked(false);
 
     try {
       const {
@@ -480,40 +472,58 @@ export default function Chat() {
         mergedUser?.couple_profile_id || mergedUser?.user_metadata?.couple_profile_id || null;
 
       if (!activeCoupleId) {
-        const { data: foundProfile } = await supabase
+        const { data: foundProfile, error: profileError } = await supabase
           .from("profiles")
           .select("couple_profile_id")
           .eq("id", authUser.id)
           .maybeSingle();
+
+        if (profileError) throw profileError;
 
         activeCoupleId = foundProfile?.couple_profile_id || null;
       }
 
       coupleIdRef.current = activeCoupleId || null;
 
-      if (activeCoupleId && mergedUser?.email) {
-        const { data: coupleProfile } = await supabase
-          .from("couple_profiles")
-          .select("*")
-          .eq("id", activeCoupleId)
-          .maybeSingle();
-
-        if (coupleProfile) {
-          const partnerEmail =
-            coupleProfile.partner1_email === mergedUser.email
-              ? coupleProfile.partner2_email
-              : coupleProfile.partner1_email;
-
-          const partnerProfile = await tryProfileTablesByEmail(partnerEmail);
-          setPartner(partnerProfile || { email: partnerEmail, full_name: "Partner" });
-        } else {
-          setPartner(null);
-        }
-      } else {
+      if (!activeCoupleId) {
         setPartner(null);
+        setMessages([]);
+        setIsChatLocked(true);
+        return;
       }
 
-      await loadMessages(activeCoupleId, mergedUser);
+      const { data: coupleProfile, error: coupleError } = await supabase
+        .from("couple_profiles")
+        .select("*")
+        .eq("id", activeCoupleId)
+        .maybeSingle();
+
+      if (coupleError) throw coupleError;
+
+      if (!coupleProfile) {
+        setPartner(null);
+        setMessages([]);
+        setIsChatLocked(true);
+        return;
+      }
+
+      const partnerEmail =
+        coupleProfile.partner1_email === mergedUser.email
+          ? coupleProfile.partner2_email
+          : coupleProfile.partner1_email;
+
+      const partnerProfile = await tryProfileTablesByEmail(partnerEmail);
+      setPartner(partnerProfile || { email: partnerEmail, full_name: "Partner" });
+
+      await loadMessages(activeCoupleId);
+
+await supabase
+  .from("messages")
+  .update({ read: true })
+  .eq("couple_profile_id", activeCoupleId)
+  .neq("sender_email", mergedUser.email)
+  .eq("read", false);
+
     } catch (error) {
       console.error("Error loading chat:", error);
       setUser(null);
@@ -607,14 +617,22 @@ export default function Chat() {
     }
 
     if (hasNewMessage) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
+  const container = messageListRef.current;
+  if (!container) return;
+
+  const isNearBottom =
+    container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+
+  if (isNearBottom) {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }
+}
 
     prevMessageCountRef.current = messages.length;
   }, [messages.length]);
 
   const handleSend = async () => {
-    if (!user) return;
+    if (!user || !coupleIdRef.current) return;
 
     const content = newMessage.trim();
     if (!content) return;
@@ -622,29 +640,15 @@ export default function Chat() {
     setIsSending(true);
 
     try {
-      if (coupleIdRef.current) {
-        const { error } = await supabase.from("messages").insert({
-          couple_profile_id: coupleIdRef.current,
-          sender_email: user.email,
-          sender_name: user.full_name || user.name || "You",
-          content,
-          read: false,
-        });
+      const { error } = await supabase.from("messages").insert({
+        couple_profile_id: coupleIdRef.current,
+        sender_email: user.email,
+        sender_name: user.full_name || user.name || "You",
+        content,
+        read: false,
+      });
 
-        if (error) throw error;
-      } else {
-        const next = [
-          ...messages,
-          createLocalMessage({
-            sender_email: user.email,
-            sender_name: user.full_name || user.name || "You",
-            content,
-            read: true,
-          }),
-        ];
-        setMessagesIfChanged(next);
-        saveLocalPartnerMessages(next);
-      }
+      if (error) throw error;
 
       setNewMessage("");
     } catch (error) {
@@ -656,27 +660,25 @@ export default function Chat() {
   };
 
   const handleFileUpload = async (e) => {
-  const file = e.target.files?.[0];
-  e.target.value = "";
-  if (!file || !user) return;
+    const file = e.target.files?.[0];
+    e.target.value = "";
 
-  const isImage = file.type.startsWith("image/");
-  const isVideo = file.type.startsWith("video/");
+    if (!file || !user || !coupleIdRef.current) return;
 
-  if (!isImage && !isVideo) {
-    alert("Please select an image or video file.");
-    return;
-  }
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
 
-  setIsUploading(true);
+    if (!isImage && !isVideo) {
+      alert("Please select an image or video file.");
+      return;
+    }
 
-  try {
-    let content = "";
-    const prefix = isImage ? "📷 " : "🎥 ";
+    setIsUploading(true);
 
-    if (coupleIdRef.current) {
+    try {
+      const prefix = isImage ? "📷 " : "🎥 ";
       const fileExt = file.name.split(".").pop();
-      const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+      const filePath = `${coupleIdRef.current}/${user.id}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("chat-media")
@@ -685,7 +687,7 @@ export default function Chat() {
       if (uploadError) throw uploadError;
 
       const { data } = supabase.storage.from("chat-media").getPublicUrl(filePath);
-      content = `${prefix}${data.publicUrl}`;
+      const content = `${prefix}${data.publicUrl}`;
 
       const { error: insertError } = await supabase.from("messages").insert({
         couple_profile_id: coupleIdRef.current,
@@ -697,31 +699,14 @@ export default function Chat() {
 
       if (insertError) throw insertError;
 
-      await loadMessages(coupleIdRef.current, user);
-    } else {
-      const localUrl = URL.createObjectURL(file);
-      content = `${prefix}${localUrl}`;
-
-      const next = [
-        ...messages,
-        createLocalMessage({
-          sender_email: user.email,
-          sender_name: user.full_name || user.name || "You",
-          content,
-          read: true,
-        }),
-      ];
-
-      setMessages(next);
-      saveLocalPartnerMessages(next);
+      await loadMessages(coupleIdRef.current);
+    } catch (error) {
+      console.error("Upload failed:", error);
+      alert("Failed to upload file.");
+    } finally {
+      setIsUploading(false);
     }
-  } catch (error) {
-    console.error("Upload failed:", error);
-    alert("Failed to upload file.");
-  } finally {
-    setIsUploading(false);
-  }
-};
+  };
 
   if (isLoading) {
     return (
@@ -746,6 +731,15 @@ export default function Chat() {
           </div>
         </div>
       </AppShell>
+    );
+  }
+
+  if (isChatLocked || !coupleIdRef.current) {
+    return (
+      <>
+        <ChatHeader partner={partner} onBack={() => window.history.back()} />
+        <LockedChatState />
+      </>
     );
   }
 

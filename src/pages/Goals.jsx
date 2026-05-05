@@ -312,7 +312,8 @@ export default function Goals() {
   const [eventLocation, setEventLocation] = React.useState("");
 
   React.useEffect(() => {
-  let channel;
+  let goalsChannel;
+  let profileChannel;
 
   const mapGoals = (data = []) =>
     data.map((item) => ({
@@ -347,10 +348,15 @@ export default function Goals() {
 
     setItems(mapGoals(data || []));
 
+    if (goalsChannel) {
+      supabase.removeChannel(goalsChannel);
+      goalsChannel = null;
+    }
+
     if (coupleId) {
-      channel = supabase
-  .channel(`goals-realtime-${coupleId}`)
-  .on(
+      goalsChannel = supabase
+        .channel(`goals-realtime-${coupleId}`)
+        .on(
           "postgres_changes",
           {
             event: "*",
@@ -358,29 +364,40 @@ export default function Goals() {
             table: "couple_goals",
             filter: `couple_profile_id=eq.${coupleId}`,
           },
-          async () => {
-            const { data: freshData, error: freshError } = await supabase
-              .from("couple_goals")
-              .select("*")
-              .eq("couple_profile_id", coupleId)
-              .order("created_at", { ascending: false });
-
-            if (freshError) {
-              console.error("REALTIME GOALS REFRESH ERROR:", freshError);
-              return;
-            }
-
-            setItems(mapGoals(freshData || []));
-          }
+          loadGoals
         )
         .subscribe();
     }
   };
 
+  const watchProfile = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    profileChannel = supabase
+      .channel(`profile-watch-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${user.id}`,
+        },
+        loadGoals
+      )
+      .subscribe();
+  };
+
   loadGoals();
+  watchProfile();
 
   return () => {
-    if (channel) supabase.removeChannel(channel);
+    if (goalsChannel) supabase.removeChannel(goalsChannel);
+    if (profileChannel) supabase.removeChannel(profileChannel);
   };
 }, []);
 

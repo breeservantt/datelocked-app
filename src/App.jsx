@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
+import PinLock from "./components/PinLock";
 
 const Home = lazy(() => import("./pages/Home"));
 const Chat = lazy(() => import("./pages/Chat"));
@@ -10,6 +11,7 @@ const Goals = lazy(() => import("./pages/Goals"));
 const InvitePartner = lazy(() => import("./pages/InvitePartner"));
 const Memories = lazy(() => import("./pages/Memories"));
 const NightIn = lazy(() => import("./pages/NightIn"));
+const Security = lazy(() => import("./pages/Security"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Places = lazy(() => import("./pages/Places"));
@@ -67,6 +69,7 @@ function AppRoutes() {
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/places" element={<Places />} />
         <Route path="/privacy" element={<Privacy />} />
+        <Route path="/security" element={<Security />} />
         <Route path="/refunds" element={<Refunds />} />
         <Route path="/relationship-insights" element={<RelationshipInsights />} />
         <Route path="/settings" element={<Settings />} />
@@ -87,7 +90,9 @@ function AppRoutes() {
 export default function App() {
   return (
     <Router>
-      <AppRoutes />
+      <PinLock>
+        <AppRoutes />
+      </PinLock>
     </Router>
   );
 }

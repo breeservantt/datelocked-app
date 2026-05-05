@@ -7,114 +7,70 @@ import { Loader2, Mail, Chrome, User, Calendar, MapPin } from "lucide-react";
 
 function DateLockedLogo({ className = "h-40 w-40" }) {
   return (
-    <svg viewBox="0 0 260 260" className={className}>
+    <svg viewBox="0 0 320 320" className={className}>
       <defs>
-        <linearGradient id="heart3d" x1="45" y1="38" x2="210" y2="220">
-          <stop offset="0%" stopColor="#ff5f8f" />
-          <stop offset="50%" stopColor="#ef4f75" />
-          <stop offset="100%" stopColor="#d83d91" />
+        <linearGradient id="heartBlue" x1="55" y1="40" x2="260" y2="280">
+          <stop offset="0%" stopColor="#b8dcff" />
+          <stop offset="42%" stopColor="#5e9cff" />
+          <stop offset="100%" stopColor="#2f6df0" />
         </linearGradient>
 
-        <linearGradient id="lockGold" x1="80" y1="100" x2="175" y2="200">
-          <stop offset="0%" stopColor="#ffe08a" />
-          <stop offset="45%" stopColor="#e5a528" />
-          <stop offset="100%" stopColor="#b46b05" />
+        <linearGradient id="heartDepth" x1="70" y1="55" x2="240" y2="265">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.78" />
+          <stop offset="45%" stopColor="#ffffff" stopOpacity="0.16" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
         </linearGradient>
 
-        <linearGradient id="keyGold" x1="145" y1="130" x2="220" y2="185">
-          <stop offset="0%" stopColor="#ffe08a" />
-          <stop offset="55%" stopColor="#d99016" />
-          <stop offset="100%" stopColor="#8a4f04" />
-        </linearGradient>
-
-        <filter id="logoShadow" x="-25%" y="-25%" width="150%" height="150%">
+        <filter id="logoBlueShadow" x="-30%" y="-30%" width="160%" height="160%">
           <feDropShadow
             dx="0"
-            dy="10"
-            stdDeviation="8"
-            floodColor="#d83d91"
-            floodOpacity="0.22"
+            dy="14"
+            stdDeviation="12"
+            floodColor="#2f6df0"
+            floodOpacity="0.24"
           />
         </filter>
       </defs>
 
-      <g filter="url(#logoShadow)">
+      <g filter="url(#logoBlueShadow)">
         <path
-          d="M130 220S43 165 31 96C22 49 73 24 107 62C118 74 124 89 130 102C136 89 142 74 153 62C187 24 238 49 229 96C217 165 130 220 130 220Z"
-          fill="url(#heart3d)"
+          d="M160 282S50 207 37 119C29 64 88 29 131 71C145 85 153 101 160 116C167 101 175 85 189 71C232 29 291 64 283 119C270 207 160 282 160 282Z"
+          fill="url(#heartBlue)"
         />
 
         <path
-          d="M58 91C53 66 77 50 99 65"
+          d="M160 282S50 207 37 119C29 64 88 29 131 71C145 85 153 101 160 116C167 101 175 85 189 71C232 29 291 64 283 119C270 207 160 282 160 282Z"
+          fill="url(#heartDepth)"
+        />
+
+        <path
+          d="M72 113C66 84 94 62 122 80"
           fill="none"
-          stroke="white"
-          strokeWidth="9"
+          stroke="#ffffff"
+          strokeWidth="10"
           strokeLinecap="round"
-          opacity="0.78"
+          opacity="0.86"
         />
 
         <path
-          d="M91 132V108C91 84 108 67 130 67C152 67 169 84 169 108V132"
+          d="M185 101C207 82 238 82 254 105"
           fill="none"
-          stroke="#1b2847"
-          strokeWidth="13"
-          strokeLinecap="round"
-        />
-
-        <rect
-          x="73"
-          y="124"
-          width="114"
-          height="78"
-          rx="26"
-          fill="url(#lockGold)"
-          stroke="#1b2847"
-          strokeWidth="8"
-        />
-
-        <path
-          d="M93 140H138"
-          stroke="white"
+          stroke="#ffffff"
           strokeWidth="8"
           strokeLinecap="round"
-          opacity="0.55"
+          opacity="0.42"
         />
 
-        <circle cx="130" cy="156" r="11" fill="#1b2847" />
-        <path d="M123 164H137L142 188H118L123 164Z" fill="#1b2847" />
-
-        <g transform="rotate(-35 175 160)">
-          <rect
-            x="156"
-            y="150"
-            width="65"
-            height="16"
-            rx="8"
-            fill="url(#keyGold)"
-            stroke="#1b2847"
-            strokeWidth="5"
-          />
-          <circle
-            cx="151"
-            cy="158"
-            r="16"
-            fill="none"
-            stroke="#1b2847"
-            strokeWidth="6"
-          />
-          <path
-            d="M206 166V178M218 166V176"
-            stroke="#1b2847"
-            strokeWidth="5"
-            strokeLinecap="round"
-          />
-          <path
-            d="M164 153H206"
-            stroke="white"
-            strokeWidth="4"
-            strokeLinecap="round"
-            opacity="0.5"
-          />
+        <g fill="#ffffff">
+          <path d="M128 218C111 207 95 191 91 172C88 156 98 142 113 144C128 146 139 160 149 180C139 187 132 200 128 218Z" />
+          <path d="M197 218C214 207 230 191 234 172C237 156 227 142 212 144C197 146 186 160 176 180C186 187 193 200 197 218Z" />
+          <circle cx="135" cy="141" r="15" />
+          <circle cx="205" cy="141" r="15" />
+          <path d="M137 159C147 160 156 168 160 180C153 178 145 174 137 168Z" />
+          <path d="M203 159C193 160 184 168 180 180C187 178 195 174 203 168Z" />
+          <circle cx="165" cy="174" r="7" />
+          <path d="M155 187C162 195 170 195 177 187C180 200 174 214 166 223C158 214 152 200 155 187Z" />
+          <path d="M159 169C155 158 159 148 169 148C179 148 183 158 179 169C175 165 171 163 169 163C167 163 163 165 159 169Z" />
         </g>
       </g>
     </svg>
@@ -275,14 +231,14 @@ export default function Login() {
 
   if (mode === "profile") {
     return (
-      <div className="min-h-screen bg-[#fff7fb] px-5 py-6">
-        <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-[390px] flex-col justify-center rounded-[34px] bg-white px-5 py-7 shadow-[0_18px_45px_rgba(216,61,145,0.10)]">
+      <div className="min-h-screen bg-[#f3edf1] px-5 py-6">
+        <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-[390px] flex-col justify-center rounded-[34px] bg-white px-5 py-7 shadow-[0_18px_45px_rgba(47,109,240,0.12)]">
           <div className="mb-6 text-center">
             <div className="mb-2 flex justify-center">
               <DateLockedLogo className="h-32 w-32" />
             </div>
 
-            <h1 className="text-[34px] font-black tracking-[-0.04em] text-[#1b2847]">
+            <h1 className="text-[34px] font-black tracking-[-0.04em] text-[#172033]">
               Date-Locked
             </h1>
 
@@ -348,7 +304,7 @@ export default function Login() {
             <Button
               type="submit"
               disabled={isSavingProfile}
-              className="h-14 w-full rounded-full bg-gradient-to-r from-[#ef4f75] to-[#d83d91] text-base font-black text-white shadow-[0_10px_24px_rgba(216,61,145,0.24)]"
+              className="h-14 w-full rounded-full bg-gradient-to-r from-[#8ec5ff] via-[#5e9cff] to-[#2f6df0] text-base font-black text-white shadow-[0_10px_24px_rgba(47,109,240,0.24)]"
             >
               {isSavingProfile ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -363,19 +319,19 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fff7fb] px-5 py-6">
-      <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-[390px] flex-col rounded-[34px] bg-white px-5 py-7 shadow-[0_18px_45px_rgba(216,61,145,0.10)]">
+    <div className="min-h-screen bg-[#f3edf1] px-5 py-6">
+      <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-[390px] flex-col rounded-[34px] bg-white px-5 py-7 shadow-[0_18px_45px_rgba(47,109,240,0.12)]">
         <div className="flex flex-1 flex-col justify-center">
           <div className="mb-8 text-center">
             <div className="mb-1 flex justify-center">
               <DateLockedLogo className="h-36 w-36" />
             </div>
 
-            <h1 className="text-[42px] font-black leading-none tracking-[-0.07em] text-[#1b2847]">
+            <h1 className="text-[42px] font-black leading-none tracking-[-0.07em] text-[#172033]">
               Date-Locked
             </h1>
 
-            <p className="mt-4 text-lg font-medium text-[#111111]">
+            <p className="mt-4 text-lg font-medium text-[#172033]">
               Find the reason to stay in love
             </p>
           </div>
@@ -385,7 +341,7 @@ export default function Login() {
               type="button"
               onClick={handleGoogleLogin}
               disabled={isGoogleLoading || isEmailLoading}
-              className="mx-auto flex h-11 w-[92%] items-center justify-center rounded-full bg-gradient-to-r from-[#ef4f75] to-[#d83d91] text-sm font-black text-white shadow-[0_8px_18px_rgba(216,61,145,0.24)]"
+              className="mx-auto flex h-11 w-[92%] items-center justify-center rounded-full bg-gradient-to-r from-[#8ec5ff] via-[#5e9cff] to-[#2f6df0] text-sm font-black text-white shadow-[0_8px_18px_rgba(47,109,240,0.24)]"
             >
               {isGoogleLoading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -403,7 +359,7 @@ export default function Login() {
                 setMessage("");
               }}
               disabled={isGoogleLoading || isEmailLoading}
-              className="mx-auto flex h-11 w-[92%] items-center justify-center rounded-full bg-[#111111] text-sm font-black text-white hover:bg-[#111111]"
+              className="mx-auto flex h-11 w-[92%] items-center justify-center rounded-full bg-[#172033] text-sm font-black text-white hover:bg-[#172033]"
             >
               Continue with Email
             </Button>
@@ -425,7 +381,7 @@ export default function Login() {
                 <Button
                   type="submit"
                   disabled={isEmailLoading || isGoogleLoading}
-                  className="mx-auto flex h-11 w-[92%] rounded-full border-2 border-[#d83d91] bg-white text-sm font-black text-[#d83d91] hover:bg-white"
+                  className="mx-auto flex h-11 w-[92%] rounded-full border-2 border-[#5e9cff] bg-white text-sm font-black text-[#2f6df0] hover:bg-white"
                 >
                   {isEmailLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -443,7 +399,7 @@ export default function Login() {
             ) : null}
 
             {message ? (
-              <div className="mx-auto w-[92%] rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              <div className="mx-auto w-[92%] rounded-2xl bg-blue-50 px-4 py-3 text-sm text-blue-700">
                 {message}
               </div>
             ) : null}

@@ -421,6 +421,64 @@ export default function Home() {
   const myEmail = user?.email || null;
   const isDateLocked = user?.relationship_status === 'date_locked';
 
+  React.useEffect(() => {
+  if (!user?.id) return;
+
+  const channel = supabase
+    .channel(`home-refresh-${user.id}-${coupleId || "solo"}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "profiles",
+        filter: `id=eq.${user.id}`,
+      },
+      () => {
+        queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      }
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "couple_goals",
+      },
+      () => {
+        queryClient.invalidateQueries({ queryKey: ["homeGoalsData"] });
+        queryClient.invalidateQueries({ queryKey: ["homeEventsCount"] });
+      }
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "memories",
+      },
+      () => {
+        queryClient.invalidateQueries({ queryKey: ["homeMemoriesCount"] });
+      }
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "messages",
+      },
+      () => {
+        queryClient.invalidateQueries({ queryKey: ["homeChatsCount"] });
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [user?.id, coupleId, queryClient]);
+
   const inviteToken = React.useMemo(() => {
     const params = new URLSearchParams(location.search);
     return params.get('invite');
@@ -724,12 +782,11 @@ const { data: memoriesCount = 0 } = useQuery({
                 <X className="h-5 w-5" />
               </button>
 
-              <img
-                src={user.profile_photo}
-                alt="Profile"
-                className="h-full w-full object-cover rounded-[18px]"
-                onClick={(e) => e.stopPropagation()}
-              />
+              <AvatarImage
+  src={user.profile_photo}
+  alt="Profile"
+  className="h-full w-full object-cover object-center"
+/>
             </div>
           )}
 
@@ -742,21 +799,21 @@ const { data: memoriesCount = 0 } = useQuery({
                     onClick={() => {
                       if (hasProfilePhoto) setAvatarPreviewOpen(true);
                     }}
-                    className="block overflow-hidden rounded-full"
+                    className="block"
                   >
-                    <Avatar className="h-[84px] w-[84px] overflow-hidden rounded-full border-[3px] border-white/75 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.18)]">
-                      {hasProfilePhoto ? (
-                        <AvatarImage
-                          src={user.profile_photo}
-                          alt="Profile"
-                          className="h-full w-full rounded-full object-cover object-center"
-                        />
-                      ) : (
-                        <AvatarFallback className="h-full w-full rounded-full bg-white/20 text-[30px] font-semibold text-white">
-                          {user?.full_name?.[0] || 'U'}
-                        </AvatarFallback>
-                      )}
-                    </Avatar>
+                    <div className="relative h-[84px] w-[84px] shrink-0 overflow-hidden rounded-full border-[3px] border-white/75 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.18)]">
+  {hasProfilePhoto ? (
+    <img
+      src={user.profile_photo}
+      alt="Profile"
+      className="absolute left-1/2 top-1/2 h-[120%] w-[120%] max-w-none -translate-x-1/2 -translate-y-1/2 object-cover"
+    />
+  ) : (
+    <div className="flex h-full w-full items-center justify-center bg-white/20 text-[30px] font-semibold text-white">
+      {user?.full_name?.[0] || 'U'}
+    </div>
+  )}
+</div>
                   </button>
 
                   <button

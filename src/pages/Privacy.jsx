@@ -1,106 +1,95 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 
 export default function Privacy() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-rose-50 to-white p-4 pb-24">
-      <div className="max-w-3xl mx-auto">
-        <Button
-          variant="ghost"
+    <div className="min-h-screen bg-[#f7f1f4] px-3 py-3 pb-24">
+      <div className="mx-auto w-full max-w-[390px]">
+        
+        {/* Back */}
+        <button
           onClick={() => navigate(-1)}
-          className="mb-4"
+          className="mb-3 flex h-[44px] w-full items-center justify-center rounded-[14px] bg-white text-sm font-medium text-slate-700 shadow-[0_4px_12px_rgba(15,23,42,0.06)]"
         >
-          <ArrowLeft className="w-4 h-4 mr-2" />
           Back
-        </Button>
+        </button>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-3xl">Privacy Policy</CardTitle>
-            <p className="text-sm text-gray-500">Last updated: January 16, 2026</p>
-          </CardHeader>
-          <CardContent className="prose prose-sm max-w-none">
-            <h2>1. Information We Collect</h2>
-            <p>We collect information you provide directly to us, including:</p>
-            <ul>
-              <li>Account information (name, email, date of birth)</li>
-              <li>Profile information (photos, location, relationship status)</li>
-              <li>Content you upload (photos, videos, captions)</li>
-              <li>Communication data (messages, interactions)</li>
-              <li>Usage data (features used, time spent in app)</li>
+        {/* Card */}
+        <div className="rounded-[16px] border border-slate-200 bg-white p-4 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+          
+          <h1 className="text-[20px] font-semibold text-slate-800">
+            Privacy Policy
+          </h1>
+          <p className="mt-1 text-xs text-slate-500">
+            Last updated: January 16, 2026
+          </p>
+
+          <div className="mt-4 space-y-4 text-sm text-slate-600 leading-6">
+
+            <p>
+              Date-Locked (“we”, “our”, or “us”) operates the Date-Locked mobile application (“App”).
+              This Privacy Policy explains how we collect, use, and protect your data.
+            </p>
+
+            <h2 className="font-semibold text-slate-800">1. Information We Collect</h2>
+            <ul className="list-disc pl-5">
+              <li>Name, email, date of birth</li>
+              <li>Profile photo and location</li>
+              <li>Relationship data and partner info</li>
+              <li>Uploaded content (photos, videos, messages)</li>
+              <li>Usage and device data</li>
             </ul>
 
-            <h2>2. How We Use Your Information</h2>
-            <p>We use collected information to:</p>
-            <ul>
-              <li>Provide and maintain the App's services</li>
-              <li>Verify your age and identity</li>
-              <li>Enable relationship features (Date-Lock, memories, goals)</li>
-              <li>Moderate content for safety and policy compliance</li>
-              <li>Send notifications and updates</li>
-              <li>Improve our services and user experience</li>
-              <li>Prevent fraud and ensure platform security</li>
+            <h2 className="font-semibold text-slate-800">2. How We Use Data</h2>
+            <ul className="list-disc pl-5">
+              <li>Provide app features and services</li>
+              <li>Enable Date-Locked relationship system</li>
+              <li>Improve performance and user experience</li>
+              <li>Send notifications</li>
+              <li>Prevent fraud and abuse</li>
             </ul>
 
-            <h2>3. Content Moderation</h2>
+            <h2 className="font-semibold text-slate-800">3. AI Processing</h2>
             <p>
-              Uploaded content is analyzed using AI moderation to ensure compliance with our content policy. Moderation results are stored with your content.
+              AI may be used for content moderation and relationship insights.
+              You can disable insights in Settings.
             </p>
 
-            <h2>4. Data Sharing</h2>
-            <p>We do not sell your personal information. We may share data with:</p>
-            <ul>
-              <li>Your relationship partner (when Date-Locked)</li>
-              <li>Service providers (hosting, analytics, payment processing)</li>
-              <li>Law enforcement when required by law</li>
+            <h2 className="font-semibold text-slate-800">4. Data Sharing</h2>
+            <p>
+              We do not sell your data. Data may be shared with your partner,
+              service providers, or authorities if required by law.
+            </p>
+
+            <h2 className="font-semibold text-slate-800">5. Security</h2>
+            <p>
+              We use secure systems, encryption, and access controls to protect your data.
+            </p>
+
+            <h2 className="font-semibold text-slate-800">6. Your Rights</h2>
+            <ul className="list-disc pl-5">
+              <li>Access your data</li>
+              <li>Update your information</li>
+              <li>Delete your account</li>
+              <li>Withdraw consent</li>
             </ul>
 
-            <h2>5. Data Security</h2>
+            <h2 className="font-semibold text-slate-800">7. Age Restriction</h2>
+            <p>This app is strictly for users 18 years and older.</p>
+
+            <h2 className="font-semibold text-slate-800">8. Changes</h2>
             <p>
-              We implement security measures to protect your data, including encryption, secure storage, and access controls. However, no method of transmission over the internet is 100% secure.
+              We may update this policy. Continued use means acceptance.
             </p>
 
-            <h2>6. Your Rights</h2>
-            <p>You have the right to:</p>
-            <ul>
-              <li>Access your personal data</li>
-              <li>Correct inaccurate information</li>
-              <li>Delete your account and data</li>
-              <li>Export your data</li>
-              <li>Opt out of certain data processing</li>
-            </ul>
+            <h2 className="font-semibold text-slate-800">9. Contact</h2>
+            <p>Contact us via the app for any privacy concerns.</p>
 
-            <h2>7. Data Retention</h2>
-            <p>
-              We retain your data as long as your account is active. After account deletion, some data may be retained for legal compliance or dispute resolution.
-            </p>
-
-            <h2>8. Children's Privacy</h2>
-            <p>
-              The App is not intended for users under 18. We do not knowingly collect information from minors. If we discover such collection, we will delete it immediately.
-            </p>
-
-            <h2>9. International Users</h2>
-            <p>
-              Your data may be transferred to and processed in countries other than your own. By using the App, you consent to such transfers.
-            </p>
-
-            <h2>10. Changes to Privacy Policy</h2>
-            <p>
-              We may update this Privacy Policy from time to time. We will notify you of significant changes via email or in-app notification.
-            </p>
-
-            <h2>11. Contact Us</h2>
-            <p>
-              For privacy-related questions or to exercise your rights, contact us through the App's support channels.
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
