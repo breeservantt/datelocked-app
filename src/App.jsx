@@ -1,4 +1,5 @@
 import React, { Suspense, lazy } from "react";
+import { Loader2 } from "lucide-react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import Splash from "@/pages/Splash";
@@ -24,7 +25,7 @@ const Login = lazy(() => import("./pages/Login"));
 function PageLoader() {
   return (
     <div className="flex min-h-[50vh] items-center justify-center">
-      <div className="text-sm text-slate-500">Loading...</div>
+      <Loader2 className="h-7 w-7 animate-spin text-[#5e9cff]" />
     </div>
   );
 }

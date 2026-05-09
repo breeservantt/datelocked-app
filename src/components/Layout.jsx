@@ -1,19 +1,12 @@
 import { useLocation } from "react-router-dom";
-
 import BottomNav from "./BottomNav";
-import { useLocation } from "react-router-dom";
 
 export default function Layout({ children }) {
   const location = useLocation();
 
-  const hideBottomNavRoutes = [
-    "/",
-    "/splash",
-    "/login",
-  ];
+  const hideBottomNavRoutes = ["/", "/splash", "/login"];
 
-  const shouldHideBottomNav =
-    hideBottomNavRoutes.includes(location.pathname);
+  const shouldHideBottomNav = hideBottomNavRoutes.includes(location.pathname);
 
   return (
     <>

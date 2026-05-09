@@ -622,44 +622,6 @@ const handleMediaUpload = async (e) => {
   }
 };
 
-    if (!validFiles.length) return;
-
-    setIsUploadingMedia(true);
-    setUploadingCount(validFiles.length);
-
-    try {
-      const uploaded = await Promise.all(
-        validFiles.map(async (file) => {
-          const isImage = file.type.startsWith("image/");
-          const folder = isImage ? "memories/photos" : "memories/videos";
-          const url = await uploadFile(file, folder);
-
-          return {
-            type: isImage ? "photo" : "video",
-            url,
-          };
-        })
-      );
-
-      setNewMemory((prev) => ({
-        ...prev,
-        photos: [
-          ...(prev.photos || []),
-          ...uploaded.filter((item) => item.type === "photo").map((item) => item.url),
-        ],
-        videos: [
-          ...(prev.videos || []),
-          ...uploaded.filter((item) => item.type === "video").map((item) => item.url),
-        ],
-      }));
-    } catch (err) {
-      console.error("Media upload failed:", err);
-      alert(err?.message || "Failed to upload media. Please try again.");
-    } finally {
-      setIsUploadingMedia(false);
-      setUploadingCount(0);
-    }
-  };
 
   const removePhoto = (index) => {
     setNewMemory((prev) => ({

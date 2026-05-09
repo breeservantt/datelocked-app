@@ -412,7 +412,7 @@ function BottomNav() {
 export default function Dating() {
   const queryClient = useQueryClient();
 
-  const [user, setUser] = React.useState(null);
+  const [user, setUser] = React.useState(undefined);
   const [isUploading, setIsUploading] = React.useState(false);
   const [showMyContent, setShowMyContent] = React.useState(false);
   const [zoomedImage, setZoomedImage] = React.useState(null);
@@ -442,7 +442,7 @@ export default function Dating() {
       if (mounted) setUser(currentUser);
     } catch (error) {
       console.error("Failed to load user:", error);
-      if (mounted) setUser(null);
+      if (mounted) setUser(false);
     }
   })();
 
@@ -695,19 +695,6 @@ const handleMediaUpload = async (event) => {
   }
 };
 
-  const removePhoto = (index) => {
-    setNewPost((prev) => ({
-      ...prev,
-      photos: prev.photos.filter((_, i) => i !== index),
-    }));
-  };
-
-  const removeVideo = (index) => {
-    setNewPost((prev) => ({
-      ...prev,
-      videos: prev.videos.filter((_, i) => i !== index),
-    }));
-  };
 
   const handleSavePost = async () => {
     if (!user?.email) {
@@ -770,7 +757,7 @@ const handleMediaUpload = async (event) => {
     }
   };
 
-  if (user === null) {
+  if (user === undefined) {
   return (
     <>
       <div className="flex min-h-screen items-center justify-center bg-[#f3edf1]">
@@ -834,8 +821,10 @@ const handleMediaUpload = async (event) => {
 
             <div className="space-y-4">
               {publicLoading ? (
-                <div className="text-sm text-slate-500">Loading public content...</div>
-              ) : publicContentState.length === 0 ? (
+  <div className="flex items-center justify-center py-10">
+    <Loader2 className="h-7 w-7 animate-spin text-[#5e9cff]" />
+  </div>
+) : publicContentState.length === 0 ? (
                 <Card className="rounded-[20px] border border-slate-100 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
                   <CardContent className="p-12 text-center text-slate-500">
                     No public content yet. Be the first to share!
@@ -1085,48 +1074,6 @@ const handleMediaUpload = async (event) => {
 </label>
 
 <div className="space-y-3">
-  {newPost.photos.map((photo, index) => (
-    <div
-      key={`${photo}-${index}`}
-      className="relative overflow-hidden rounded-[12px] border border-slate-200 bg-black"
-    >
-      <img
-        src={photo}
-        alt=""
-        className="h-auto w-full object-contain"
-        loading="lazy"
-      />
-      <button
-        type="button"
-        onClick={() => removePhoto(index)}
-        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50"
-      >
-        <X className="h-4 w-4 text-white" />
-      </button>
-    </div>
-  ))}
-
-  {newPost.videos.map((video, index) => (
-    <div
-      key={`${video}-${index}`}
-      className="relative overflow-hidden rounded-[12px] bg-black"
-    >
-      <video
-        src={video}
-        controls
-        preload="metadata"
-        playsInline
-        className="h-auto w-full object-contain"
-      />
-      <button
-        type="button"
-        onClick={() => removeVideo(index)}
-        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50"
-      >
-        <X className="h-4 w-4 text-white" />
-      </button>
-    </div>
-  ))}
 
   <label
     className={`flex min-h-[130px] w-full cursor-pointer flex-col items-center justify-center rounded-[14px] border border-dashed border-[#c7d7ff] bg-gradient-to-br from-[#f8fbff] to-[#eef4ff] text-slate-600 transition hover:border-[#8ec5ff] ${

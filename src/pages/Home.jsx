@@ -5,7 +5,7 @@ import { createPageUrl } from '@/utils';
 import { calculateInteractionScore } from "@/components/utils/interactionScore";
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { AvatarImage } from '@/components/ui/avatar';
 import {
   Lock,
   Heart,
@@ -24,10 +24,8 @@ import {
   MapPin,
   MessageCircle,
   Fingerprint,
-  CalendarDays,
 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
-import PartnerCard from '@/components/profile/PartnerCard';
 import { parseSafeDate } from '@/components/utils/dateHelpers';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -79,7 +77,7 @@ function getDisplayStatus(relationshipStatus) {
 
 function StatusPill({ relationshipStatus }) {
   const isLocked = relationshipStatus === 'date_locked';
-  const text = getDisplayStatus(relationshipStatus);  
+  const text = getDisplayStatus(relationshipStatus);
 
   return (
     <div
@@ -111,7 +109,7 @@ function StatCard({ icon, value, label, iconColor, iconWrap }) {
           {value}
         </p>
 
-        <p className="mt-2 text-[11px] font-medium text-slate-500 truncate">
+        <p className="mt-2 truncate text-[11px] font-medium text-slate-500">
           {label}
         </p>
       </div>
@@ -163,26 +161,6 @@ function BottomNav() {
   );
 }
 
-function extractGoalDate(goal) {
-  const possibleFields = [
-    goal?.event_datetime,
-    goal?.target_date,
-    goal?.target_datetime,
-    goal?.due_date,
-    goal?.scheduled_for,
-    goal?.goal_date,
-    goal?.date,
-  ];
-
-  for (const value of possibleFields) {
-    if (!value) continue;
-    const parsed = parseSafeDate(value);
-    if (parsed) return parsed;
-  }
-
-  return null;
-}
-
 function getGoalDisplayTitle(goal) {
   return (
     goal?.title ||
@@ -198,7 +176,6 @@ function InteractionGauge({
   goals = 0,
   memories = 0,
   dates = 0,
-  className = '',
 }) {
   const navigate = useNavigate();
 
@@ -256,7 +233,6 @@ function InteractionGauge({
           <span>High</span>
         </div>
       </div>
-
     </button>
   );
 }
@@ -312,7 +288,10 @@ export default function Home() {
 
         if (uploadError) throw uploadError;
 
-        const { data } = supabase.storage.from('profile-photos').getPublicUrl(filePath);
+        const { data } = supabase.storage
+          .from('profile-photos')
+          .getPublicUrl(filePath);
+
         const publicUrl = data.publicUrl;
 
         const payload = {
@@ -341,65 +320,66 @@ export default function Home() {
   );
 
   const [nowTick, setNowTick] = React.useState(Date.now());
+
   React.useEffect(() => {
     const timer = setInterval(() => setNowTick(Date.now()), 60 * 1000);
     return () => clearInterval(timer);
   }, []);
 
   const {
-  data: user,
-  isLoading,
-  isError,
-  refetch: refetchUser,
-} = useQuery({
-  queryKey: ['currentUser'],
-  queryFn: async () => {
-    const {
-      data: { user: authUser },
-      error: authError,
-    } = await supabase.auth.getUser();
+    data: user,
+    isLoading,
+    isError,
+    refetch: refetchUser,
+  } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: async () => {
+      const {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-    if (authError) {
-      console.error('HOME AUTH ERROR:', authError);
-      throw authError;
-    }
+      if (authError) {
+        console.error('HOME AUTH ERROR:', authError);
+        throw authError;
+      }
 
-    if (!authUser) {
-      return null;
-    }
+      if (!authUser) {
+        return null;
+      }
 
-    let profile = await tryProfileTablesById(authUser.id);
+      let profile = await tryProfileTablesById(authUser.id);
 
-    if (!profile) {
-      const fallbackProfile = {
-        id: authUser.id,
+      if (!profile) {
+        const fallbackProfile = {
+          id: authUser.id,
+          email: authUser.email,
+          full_name:
+            authUser.user_metadata?.full_name ||
+            authUser.user_metadata?.name ||
+            authUser.email?.split('@')[0] ||
+            'User',
+          relationship_status: 'single',
+        };
+
+        await supabase.from('profiles').upsert(fallbackProfile, { onConflict: 'id' });
+        await supabase.from('users').upsert(fallbackProfile, { onConflict: 'id' });
+
+        profile = fallbackProfile;
+      }
+
+      return {
+        ...authUser,
+        ...profile,
         email: authUser.email,
-        full_name:
-          authUser.user_metadata?.full_name ||
-          authUser.user_metadata?.name ||
-          authUser.email?.split('@')[0] ||
-          'User',
-        relationship_status: 'single',
       };
-
-      await supabase.from('profiles').upsert(fallbackProfile, { onConflict: 'id' });
-      await supabase.from('users').upsert(fallbackProfile, { onConflict: 'id' });
-
-      profile = fallbackProfile;
-    }
-
-    return {
-      ...authUser,
-      ...profile,
-      email: authUser.email,
-    };
-  },
-  staleTime: 5 * 60 * 1000,
-  retry: 1,
-});
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
 
   React.useEffect(() => {
-    if (location.pathname.includes('Home')) {
+    if (location.pathname.toLowerCase().includes('home')) {
       refetchUser();
     }
   }, [location.pathname, refetchUser]);
@@ -422,62 +402,62 @@ export default function Home() {
   const isDateLocked = user?.relationship_status === 'date_locked';
 
   React.useEffect(() => {
-  if (!user?.id) return;
+    if (!user?.id) return;
 
-  const channel = supabase
-    .channel(`home-refresh-${user.id}-${coupleId || "solo"}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "profiles",
-        filter: `id=eq.${user.id}`,
-      },
-      () => {
-        queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-      }
-    )
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "couple_goals",
-      },
-      () => {
-        queryClient.invalidateQueries({ queryKey: ["homeGoalsData"] });
-        queryClient.invalidateQueries({ queryKey: ["homeEventsCount"] });
-      }
-    )
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "memories",
-      },
-      () => {
-        queryClient.invalidateQueries({ queryKey: ["homeMemoriesCount"] });
-      }
-    )
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "messages",
-      },
-      () => {
-        queryClient.invalidateQueries({ queryKey: ["homeChatsCount"] });
-      }
-    )
-    .subscribe();
+    const channel = supabase
+      .channel(`home-refresh-${user.id}-${coupleId || 'solo'}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'couple_goals',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['homeGoalsData'] });
+          queryClient.invalidateQueries({ queryKey: ['homeEventsCount'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'memories',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['homeMemoriesCount'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['homeChatsCount'] });
+        }
+      )
+      .subscribe();
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [user?.id, coupleId, queryClient]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, coupleId, queryClient]);
 
   const inviteToken = React.useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -542,96 +522,92 @@ export default function Home() {
   });
 
   const { data: eventsCount = 0 } = useQuery({
-  queryKey: ['homeEventsCount', coupleId, user?.id],
-  enabled: !!user?.id,
-  retry: 1,
-  staleTime: 60 * 1000,
-  queryFn: async () => {
-    let query = supabase
-      .from('couple_goals')
-      .select('*');
-
-    if (coupleId) {
-      query = query.eq('couple_profile_id', coupleId);
-    } else {
-      query = query.eq('owner_id', user.id);
-    }
-
-    const { data, error } = await query;
-
-    if (error) throw error;
-
-    const events = (data || []).filter((item) => item?.type === 'event');
-
-    return events.length;
-  },
-});
-
- const { data: goalsData = { count: 0, eventsCount: 0, countdownGoal: null } } =
-  useQuery({
-    queryKey: ["homeGoalsData", coupleId, user?.id],
+    queryKey: ['homeEventsCount', coupleId, user?.id],
     enabled: !!user?.id,
     retry: 1,
     staleTime: 60 * 1000,
     queryFn: async () => {
-      let query = supabase
-        .from("couple_goals")
-        .select("*");
+      let query = supabase.from('couple_goals').select('*');
 
       if (coupleId) {
-        query = query.eq("couple_profile_id", coupleId);
+        query = query.eq('couple_profile_id', coupleId);
       } else {
-        query = query.eq("owner_id", user.id);
+        query = query.eq('owner_id', user.id);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      const goalItems = (data || []).filter((g) => g.type === "goal");
-      const eventItems = (data || []).filter((g) => g.type === "event");
+      const events = (data || []).filter((item) => item?.type === 'event');
 
-      const countdownGoal =
-  goalItems
-    .filter((g) => g.target_date)
-    .map((g) => ({
-      ...g,
-      _dateMs: new Date(g.target_date).getTime(),
-    }))
-    .filter((g) => !Number.isNaN(g._dateMs))
-    .sort((a, b) => a._dateMs - b._dateMs)[0] || null;
-
-      return {
-        count: goalItems.length,
-        eventsCount: eventItems.length,
-        countdownGoal,
-      };
+      return events.length;
     },
   });
 
-const { data: memoriesCount = 0 } = useQuery({
-  queryKey: ["homeMemoriesCount", coupleId, user?.id],
-  enabled: !!user?.id,
-  retry: 1,
-  staleTime: 60 * 1000,
-  queryFn: async () => {
-    let query = supabase
-      .from("memories")
-      .select("*", { count: "exact", head: false });
+  const { data: goalsData = { count: 0, eventsCount: 0, countdownGoal: null } } =
+    useQuery({
+      queryKey: ['homeGoalsData', coupleId, user?.id],
+      enabled: !!user?.id,
+      retry: 1,
+      staleTime: 60 * 1000,
+      queryFn: async () => {
+        let query = supabase.from('couple_goals').select('*');
 
-    if (coupleId) {
-      query = query.eq("couple_profile_id", coupleId);
-    } else {
-      query = query.eq("created_by", user.id);
-    }
+        if (coupleId) {
+          query = query.eq('couple_profile_id', coupleId);
+        } else {
+          query = query.eq('owner_id', user.id);
+        }
 
-    const { data, error } = await query;
+        const { data, error } = await query;
 
-    if (error) throw error;
+        if (error) throw error;
 
-    return Array.isArray(data) ? data.length : 0;
-  },
-});
+        const goalItems = (data || []).filter((g) => g.type === 'goal');
+        const eventItems = (data || []).filter((g) => g.type === 'event');
+
+        const countdownGoal =
+          goalItems
+            .filter((g) => g.target_date)
+            .map((g) => ({
+              ...g,
+              _dateMs: new Date(g.target_date).getTime(),
+            }))
+            .filter((g) => !Number.isNaN(g._dateMs))
+            .sort((a, b) => a._dateMs - b._dateMs)[0] || null;
+
+        return {
+          count: goalItems.length,
+          eventsCount: eventItems.length,
+          countdownGoal,
+        };
+      },
+    });
+
+  const { data: memoriesCount = 0 } = useQuery({
+    queryKey: ['homeMemoriesCount', coupleId, user?.id],
+    enabled: !!user?.id,
+    retry: 1,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      let query = supabase
+        .from('memories')
+        .select('*', { count: 'exact', head: false });
+
+      if (coupleId) {
+        query = query.eq('couple_profile_id', coupleId);
+      } else {
+        query = query.eq('created_by', user.id);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      return Array.isArray(data) ? data.length : 0;
+    },
+  });
 
   const { data: chatsCount = 0 } = useQuery({
     queryKey: ['homeChatsCount', coupleId],
@@ -650,12 +626,12 @@ const { data: memoriesCount = 0 } = useQuery({
   });
 
   const { total: interactionScore, level: interactionLevel } =
-  calculateInteractionScore({
-    chats: chatsCount,
-    goals: goalsData.count,
-    memories: memoriesCount,
-    dates: eventsCount,
-  });
+    calculateInteractionScore({
+      chats: chatsCount,
+      goals: goalsData.count,
+      memories: memoriesCount,
+      dates: eventsCount,
+    });
 
   const countdownGoal = goalsData.countdownGoal;
 
@@ -678,7 +654,14 @@ const { data: memoriesCount = 0 } = useQuery({
       lastCountdownAlertIdRef.current = countdownGoal.id;
       queryClient.invalidateQueries({ queryKey: ['homeGoalsData', coupleId] });
     }
-  }, [nowTick, countdownGoal?._dateMs, countdownGoal?.id, playNotify, queryClient, coupleId]);
+  }, [
+    nowTick,
+    countdownGoal?._dateMs,
+    countdownGoal?.id,
+    playNotify,
+    queryClient,
+    coupleId,
+  ]);
 
   const handleOpenCountdownGoal = React.useCallback(() => {
     if (!countdownGoal?.id) {
@@ -716,7 +699,7 @@ const { data: memoriesCount = 0 } = useQuery({
 
       await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       await queryClient.invalidateQueries({ queryKey: ['coupleProfile'] });
-      navigate("/home", { replace: true });
+      navigate('/home', { replace: true });
     } catch (e) {
       console.error('Error accepting invitation:', e);
       alert(e?.message || 'Failed to accept invitation. Please try again.');
@@ -725,8 +708,27 @@ const { data: memoriesCount = 0 } = useQuery({
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f3edf1]">
-        <Loader2 className="h-8 w-8 animate-spin text-rose-500" />
+      <div className="flex min-h-screen items-center justify-center bg-[#f3edf1]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#5e9cff]" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f3edf1] px-4">
+        <Card className="w-full max-w-[360px] p-6 text-center">
+          <p className="mb-4 text-sm text-slate-600">
+            Please sign in to continue.
+          </p>
+
+          <Button
+            onClick={() => navigate('/login', { replace: true })}
+            className="bg-[#2f6df0] hover:bg-[#2f6df0]"
+          >
+            Go to Login
+          </Button>
+        </Card>
       </div>
     );
   }
@@ -734,7 +736,7 @@ const { data: memoriesCount = 0 } = useQuery({
   if (isError) {
     return (
       <>
-        <div className="min-h-screen bg-[#f7f1f4] px-3 py-3 pb-24 flex items-center justify-center">
+        <div className="flex min-h-screen items-center justify-center bg-[#f7f1f4] px-3 py-3 pb-24">
           <div className="mx-auto w-full max-w-[390px]">
             <Card className="w-full p-6 text-center">
               <p className="mb-4 text-slate-600">
@@ -783,10 +785,10 @@ const { data: memoriesCount = 0 } = useQuery({
               </button>
 
               <AvatarImage
-  src={user.profile_photo}
-  alt="Profile"
-  className="h-full w-full object-cover object-center"
-/>
+                src={user.profile_photo}
+                alt="Profile"
+                className="h-full w-full object-cover object-center"
+              />
             </div>
           )}
 
@@ -802,18 +804,18 @@ const { data: memoriesCount = 0 } = useQuery({
                     className="block"
                   >
                     <div className="relative h-[84px] w-[84px] shrink-0 overflow-hidden rounded-full border-[3px] border-white/75 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.18)]">
-  {hasProfilePhoto ? (
-    <img
-      src={user.profile_photo}
-      alt="Profile"
-      className="absolute left-1/2 top-1/2 h-[120%] w-[120%] max-w-none -translate-x-1/2 -translate-y-1/2 object-cover"
-    />
-  ) : (
-    <div className="flex h-full w-full items-center justify-center bg-white/20 text-[30px] font-semibold text-white">
-      {user?.full_name?.[0] || 'U'}
-    </div>
-  )}
-</div>
+                      {hasProfilePhoto ? (
+                        <img
+                          src={user.profile_photo}
+                          alt="Profile"
+                          className="absolute left-1/2 top-1/2 h-[120%] w-[120%] max-w-none -translate-x-1/2 -translate-y-1/2 object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-white/20 text-[30px] font-semibold text-white">
+                          {user?.full_name?.[0] || 'U'}
+                        </div>
+                      )}
+                    </div>
                   </button>
 
                   <button
@@ -914,7 +916,7 @@ const { data: memoriesCount = 0 } = useQuery({
                     {countdownText}
                   </p>
 
-                  <p className="mt-2 text-[11px] font-medium text-slate-500 truncate">
+                  <p className="mt-2 truncate text-[11px] font-medium text-slate-500">
                     {getGoalDisplayTitle(countdownGoal)}
                   </p>
                 </div>
@@ -952,35 +954,38 @@ const { data: memoriesCount = 0 } = useQuery({
             </AnimatePresence>
 
             {!pendingInvitation && !isDateLocked && (
-  <div className="mb-4 flex gap-3">
-    <Button
-      type="button"
-      onClick={() => navigate(`${createPageUrl('InvitePartner')}?mode=email-invite`)}
-      className="flex h-[42px] w-full items-center justify-center gap-2 rounded-[14px] bg-white px-3 text-[13px] font-medium text-rose-500 shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
-    >
-      <Heart className="h-3.5 w-3.5 shrink-0" />
-      <span className="leading-none">Email Invite</span>
-    </Button>
+              <div className="mb-4 flex gap-3">
+                <Button
+                  type="button"
+                  onClick={() =>
+                    navigate(`${createPageUrl('InvitePartner')}?mode=email-invite`)
+                  }
+                  className="flex h-[42px] w-full items-center justify-center gap-2 rounded-[14px] bg-white px-3 text-[13px] font-medium text-rose-500 shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
+                >
+                  <Heart className="h-3.5 w-3.5 shrink-0" />
+                  <span className="leading-none">Email Invite</span>
+                </Button>
 
-    <Button
-      type="button"
-      onClick={() => navigate(`${createPageUrl('InvitePartner')}?mode=email-accept`)}
-      className="flex h-[42px] w-full items-center justify-center rounded-[14px] bg-rose-500 px-3 text-[13px] font-medium text-white shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
-    >
-      <span className="leading-none">Enter Email OTP</span>
-    </Button>
-  </div>
-)}
+                <Button
+                  type="button"
+                  onClick={() =>
+                    navigate(`${createPageUrl('InvitePartner')}?mode=email-accept`)
+                  }
+                  className="flex h-[42px] w-full items-center justify-center rounded-[14px] bg-rose-500 px-3 text-[13px] font-medium text-white shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
+                >
+                  <span className="leading-none">Enter Email OTP</span>
+                </Button>
+              </div>
+            )}
 
-<InteractionGauge
-  chats={chatsCount}
-  goals={goalsData.count}
-  memories={memoriesCount}
-  dates={eventsCount}
-  className="mb-4"
-/>
+            <InteractionGauge
+              chats={chatsCount}
+              goals={goalsData.count}
+              memories={memoriesCount}
+              dates={eventsCount}
+            />
 
-            <div className="space-y-3 mt-3">
+            <div className="mt-3 space-y-3">
               <Link to={createPageUrl('Memories')} className="block">
                 <div className="flex items-center justify-between rounded-[26px] bg-white px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
                   <div className="flex items-center gap-4">
