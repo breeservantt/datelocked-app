@@ -550,7 +550,6 @@ export default function NightIn() {
         <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-[28px] border border-[#e8e2e7] bg-[#f7f3f6] shadow-[0_12px_40px_rgba(15,23,42,0.10)]">
           <div className="bg-gradient-to-r from-[#5e9cff] via-[#2f6df0] to-[#6aa7ff] px-5 pb-6 pt-7">
             <div className="min-w-0">
-              <p className="text-[14px] text-white/80">Welcome to</p>
               <h2 className="truncate text-[22px] font-semibold text-white">NightIn</h2>
               {saving ? (
                 <p className="mt-1 text-[11px] text-white/75">Syncing…</p>

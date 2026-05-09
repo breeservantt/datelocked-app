@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
+import Splash from "@/pages/Splash";
 import PinLock from "./components/PinLock";
 
 const Home = lazy(() => import("./pages/Home"));
@@ -43,22 +44,25 @@ function AppRoutes() {
   const location = useLocation();
 
   const noLayoutRoutes = [
-    "/login",
-    "/chat",
-    "/goals",
-    "/memories",
-    "/verifystatus",
-  ];
+  "/",
+  "/login",
+  "/chat",
+  "/goals",
+  "/memories",
+  "/verifystatus",
+  "/splash",
+];
 
   const shouldUseLayout = !noLayoutRoutes.includes(location.pathname);
 
   const routes = (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<Splash />} />
         <Route path="/login" element={<Login />} />
         <Route path="/home" element={<Home />} />
         <Route path="/chat" element={<Chat />} />
+        <Route path="/splash" element={<Splash />} />
         <Route path="/consent" element={<Consent />} />
         <Route path="/dating" element={<Dating />} />
         <Route path="/goals" element={<Goals />} />

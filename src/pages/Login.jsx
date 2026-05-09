@@ -4,84 +4,15 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Mail, Chrome, User, Calendar, MapPin } from "lucide-react";
-
-function DateLockedLogo({ className = "h-40 w-40" }) {
-  return (
-    <svg viewBox="0 0 320 320" className={className}>
-      <defs>
-        <linearGradient id="heartBlue" x1="55" y1="40" x2="260" y2="280">
-          <stop offset="0%" stopColor="#b8dcff" />
-          <stop offset="42%" stopColor="#5e9cff" />
-          <stop offset="100%" stopColor="#2f6df0" />
-        </linearGradient>
-
-        <linearGradient id="heartDepth" x1="70" y1="55" x2="240" y2="265">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.78" />
-          <stop offset="45%" stopColor="#ffffff" stopOpacity="0.16" />
-          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-        </linearGradient>
-
-        <filter id="logoBlueShadow" x="-30%" y="-30%" width="160%" height="160%">
-          <feDropShadow
-            dx="0"
-            dy="14"
-            stdDeviation="12"
-            floodColor="#2f6df0"
-            floodOpacity="0.24"
-          />
-        </filter>
-      </defs>
-
-      <g filter="url(#logoBlueShadow)">
-        <path
-          d="M160 282S50 207 37 119C29 64 88 29 131 71C145 85 153 101 160 116C167 101 175 85 189 71C232 29 291 64 283 119C270 207 160 282 160 282Z"
-          fill="url(#heartBlue)"
-        />
-
-        <path
-          d="M160 282S50 207 37 119C29 64 88 29 131 71C145 85 153 101 160 116C167 101 175 85 189 71C232 29 291 64 283 119C270 207 160 282 160 282Z"
-          fill="url(#heartDepth)"
-        />
-
-        <path
-          d="M72 113C66 84 94 62 122 80"
-          fill="none"
-          stroke="#ffffff"
-          strokeWidth="10"
-          strokeLinecap="round"
-          opacity="0.86"
-        />
-
-        <path
-          d="M185 101C207 82 238 82 254 105"
-          fill="none"
-          stroke="#ffffff"
-          strokeWidth="8"
-          strokeLinecap="round"
-          opacity="0.42"
-        />
-
-        <g fill="#ffffff">
-          <path d="M128 218C111 207 95 191 91 172C88 156 98 142 113 144C128 146 139 160 149 180C139 187 132 200 128 218Z" />
-          <path d="M197 218C214 207 230 191 234 172C237 156 227 142 212 144C197 146 186 160 176 180C186 187 193 200 197 218Z" />
-          <circle cx="135" cy="141" r="15" />
-          <circle cx="205" cy="141" r="15" />
-          <path d="M137 159C147 160 156 168 160 180C153 178 145 174 137 168Z" />
-          <path d="M203 159C193 160 184 168 180 180C187 178 195 174 203 168Z" />
-          <circle cx="165" cy="174" r="7" />
-          <path d="M155 187C162 195 170 195 177 187C180 200 174 214 166 223C158 214 152 200 155 187Z" />
-          <path d="M159 169C155 158 159 148 169 148C179 148 183 158 179 169C175 165 171 163 169 163C167 163 163 165 159 169Z" />
-        </g>
-      </g>
-    </svg>
-  );
-}
+import DateLockedLogo from "@/components/DateLockedLogo";
 
 export default function Login() {
   const navigate = useNavigate();
 
+
   const [mode, setMode] = React.useState("landing");
   const [authUser, setAuthUser] = React.useState(null);
+  const [checkingSession, setCheckingSession] = React.useState(true);
 
   const [email, setEmail] = React.useState("");
   const [fullName, setFullName] = React.useState("");
@@ -96,44 +27,35 @@ export default function Login() {
   const [error, setError] = React.useState("");
 
   React.useEffect(() => {
-    const finishAuthFlow = async () => {
-      const { data, error: userError } = await supabase.auth.getUser();
+  const finishAuthFlow = async () => {
+    try {
+      const { data, error: userError } =
+        await supabase.auth.getUser();
+
       const user = data?.user;
 
-      if (userError || !user) return;
+      if (userError || !user) {
+        setCheckingSession(false);
+        return;
+      }
 
       setAuthUser(user);
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("id, full_name, age, gender, location")
-        .eq("id", user.id)
-        .maybeSingle();
+      navigate("/home", {
+        replace: true,
+      });
 
-      if (profileError) {
-        setError(profileError.message);
-        return;
-      }
+      setCheckingSession(false);
 
-      if (
-        profile?.full_name &&
-        profile?.age &&
-        profile?.gender &&
-        profile?.location
-      ) {
-        navigate("/home", { replace: true });
-        return;
-      }
+    } catch (err) {
+      console.error(err);
 
-      setFullName(profile?.full_name || "");
-      setAge(profile?.age ? String(profile.age) : "");
-      setGender(profile?.gender || "");
-      setLocation(profile?.location || "");
-      setMode("profile");
-    };
+      setCheckingSession(false);
+    }
+  };
 
-    finishAuthFlow();
-  }, [navigate]);
+  finishAuthFlow();
+}, [navigate]);
 
   const handleGoogleLogin = async () => {
     setError("");
@@ -228,6 +150,14 @@ export default function Login() {
       setIsSavingProfile(false);
     }
   };
+
+  if (checkingSession) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#0f172a] via-[#172033] to-[#2f6df0]">
+      <Loader2 className="h-8 w-8 animate-spin text-white" />
+    </div>
+  );
+}
 
   if (mode === "profile") {
     return (
