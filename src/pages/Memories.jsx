@@ -1,5 +1,4 @@
 import React from "react";
-import { generateId } from "@/lib/generateId";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,8 +13,6 @@ import {
   Star,
   X,
   Loader2,
-  Camera,
-  Video,
   Trash2,
   Play,
   Home as HomeIcon,
@@ -30,7 +27,6 @@ import { supabase } from "@/lib/supabase";
 import confetti from "canvas-confetti";
 
 const MEMORY_BUCKET = "memories-media";
-const LOCAL_STORAGE_KEY = "datelocked_memories_testing_v3";
 
 const categories = [
   { value: "date", label: "Date Night", icon: Heart },
@@ -60,22 +56,6 @@ const emptyMemory = {
   photos: [],
   videos: [],
 };
-
-function loadStoredMemories() {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (!raw) return [];
-
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveStoredMemories(items) {
-  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
-}
 
 function AppShell({ children }) {
   return (
@@ -253,11 +233,7 @@ function MemoryTile({ memory, onClick }) {
   const previewVideo = memory.videos?.[0] || null;
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="block w-full text-left"
-    >
+    <button type="button" onClick={onClick} className="block w-full text-left">
       <AppCard className="overflow-hidden">
         <div className="relative">
           {previewImage ? (
@@ -266,7 +242,7 @@ function MemoryTile({ memory, onClick }) {
                 src={previewImage}
                 alt={memory.title || "Memory"}
                 loading="lazy"
-                className="w-full h-auto object-contain"
+                className="h-auto w-full object-contain"
               />
             </MediaFrame>
           ) : previewVideo ? (
@@ -350,6 +326,8 @@ export default function Memories() {
   const [selectedMemory, setSelectedMemory] = React.useState(null);
   const [filter, setFilter] = React.useState("all");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isUploadingMedia, setIsUploadingMedia] = React.useState(false);
+  const [uploadingCount, setUploadingCount] = React.useState(0);
   const [newMemory, setNewMemory] = React.useState(emptyMemory);
   const [locationSuggestions, setLocationSuggestions] = React.useState([]);
   const [isSearchingLocation, setIsSearchingLocation] = React.useState(false);
@@ -390,119 +368,119 @@ export default function Memories() {
   const canEdit = !!user?.id;
 
   const {
-  data: memories = [],
-  isLoading: memoriesLoading,
-  isError: memoriesError,
-  refetch: refetchMemories,
-} = useQuery({
-  queryKey: ["memories", user?.couple_profile_id || user?.id],
-  enabled: !!user?.id,
-  staleTime: 0,
-  retry: 1,
-  queryFn: async () => {
-    let query = supabase
-      .from("memories")
-      .select("*")
-      .order("created_at", { ascending: false });
+    data: memories = [],
+    isLoading: memoriesLoading,
+    isError: memoriesError,
+    refetch: refetchMemories,
+  } = useQuery({
+    queryKey: ["memories", user?.couple_profile_id || user?.id],
+    enabled: !!user?.id,
+    staleTime: 0,
+    retry: 1,
+    queryFn: async () => {
+      let query = supabase
+        .from("memories")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-    if (user?.couple_profile_id) {
-      query = query.eq("couple_profile_id", user.couple_profile_id);
-    } else {
-      query = query.eq("created_by", user.id);
-    }
+      if (user?.couple_profile_id) {
+        query = query.eq("couple_profile_id", user.couple_profile_id);
+      } else {
+        query = query.eq("created_by", user.id);
+      }
 
-    const { data, error } = await query;
+      const { data, error } = await query;
 
-    if (error) throw error;
+      if (error) throw error;
 
-    return Array.isArray(data) ? data : [];
-  },
-});
+      return Array.isArray(data) ? data : [];
+    },
+  });
 
   const createMemoryMutation = useMutation({
-  mutationFn: async (payload) => {
-    const currentUser = await getCurrentProfileUser();
+    mutationFn: async (payload) => {
+      const currentUser = await getCurrentProfileUser();
 
-    if (!currentUser?.id) {
-      throw new Error("Please log in first.");
-    }
+      if (!currentUser?.id) {
+        throw new Error("Please log in first.");
+      }
 
-    const newItem = {
-      owner_id: currentUser.id,
-      created_by: currentUser.id,
-      owner_email: currentUser.email || "",
-      couple_profile_id: currentUser.couple_profile_id || null,
-      created_at: new Date().toISOString(),
-      title: payload.title || "",
-      description: payload.description || "",
-      date: payload.date || null,
-      location: payload.location || "",
-      category: payload.category || "other",
-      photos: payload.photos || [],
-      videos: payload.videos || [],
-    };
+      const newItem = {
+        owner_id: currentUser.id,
+        created_by: currentUser.id,
+        owner_email: currentUser.email || "",
+        couple_profile_id: currentUser.couple_profile_id || null,
+        created_at: new Date().toISOString(),
+        title: payload.title || "",
+        description: payload.description || "",
+        date: payload.date || null,
+        location: payload.location || "",
+        category: payload.category || "other",
+        photos: payload.photos || [],
+        videos: payload.videos || [],
+      };
 
-    const { data, error } = await supabase
-      .from("memories")
-      .insert(newItem)
-      .select()
-      .single();
+      const { data, error } = await supabase
+        .from("memories")
+        .insert(newItem)
+        .select()
+        .single();
 
-    if (error) throw error;
+      if (error) throw error;
 
-    return data;
-  },
+      return data;
+    },
 
-  onSuccess: async () => {
-    queryClient.invalidateQueries({ queryKey: ["memories"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["memories"] });
 
-    setShowAddModal(false);
-    setNewMemory(emptyMemory);
-    setLocationSuggestions([]);
+      setShowAddModal(false);
+      setNewMemory(emptyMemory);
+      setLocationSuggestions([]);
 
-    const duration = 1200;
-    const end = Date.now() + duration;
+      const duration = 1200;
+      const end = Date.now() + duration;
 
-    const frame = () => {
-      confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 } });
-      confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 } });
+      const frame = () => {
+        confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 } });
+        confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 } });
 
-      if (Date.now() < end) requestAnimationFrame(frame);
-    };
+        if (Date.now() < end) requestAnimationFrame(frame);
+      };
 
-    frame();
-  },
+      frame();
+    },
 
-  onError: (e) => {
-    console.error("Error creating memory:", e);
-    alert(e?.message || "Failed to save memory. Please try again.");
-  },
+    onError: (e) => {
+      console.error("Error creating memory:", e);
+      alert(e?.message || "Failed to save memory. Please try again.");
+    },
 
-  onSettled: () => setIsSubmitting(false),
-});
+    onSettled: () => setIsSubmitting(false),
+  });
 
   const deleteMemoryMutation = useMutation({
-  mutationFn: async (memoryId) => {
-    const { error } = await supabase
-      .from("memories")
-      .delete()
-      .eq("id", memoryId);
+    mutationFn: async (memoryId) => {
+      const { error } = await supabase
+        .from("memories")
+        .delete()
+        .eq("id", memoryId);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    return memoryId;
-  },
+      return memoryId;
+    },
 
-  onSuccess: async () => {
-    setSelectedMemory(null);
-    await queryClient.invalidateQueries({ queryKey: ["memories"] });
-  },
+    onSuccess: async () => {
+      setSelectedMemory(null);
+      await queryClient.invalidateQueries({ queryKey: ["memories"] });
+    },
 
-  onError: (e) => {
-    console.error("Error deleting memory:", e);
-    alert(e?.message || "Failed to delete memory. Please try again.");
-  },
-});
+    onError: (e) => {
+      console.error("Error deleting memory:", e);
+      alert(e?.message || "Failed to delete memory. Please try again.");
+    },
+  });
 
   const handleDeleteMemory = (memoryId) => {
     if (!memoryId) return;
@@ -510,11 +488,19 @@ export default function Memories() {
     deleteMemoryMutation.mutate(memoryId);
   };
 
-  const uploadFile = React.useCallback(async (file, folder = "memories/photos") => {
+  const uploadFile = React.useCallback(async (file, folder) => {
     if (!file) throw new Error("No file selected");
 
-    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const ext = file.name.split(".").pop()?.toLowerCase() || "file";
+    const cleanName = file.name
+      .replace(/\.[^/.]+$/, "")
+      .replace(/[^a-zA-Z0-9-_]/g, "-")
+      .slice(0, 40);
+
+    const fileName = `${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}-${cleanName}.${ext}`;
+
     const filePath = `${folder}/${fileName}`;
 
     const { data, error } = await supabase.storage
@@ -522,6 +508,7 @@ export default function Memories() {
       .upload(filePath, file, {
         cacheControl: "3600",
         upsert: false,
+        contentType: file.type || undefined,
       });
 
     if (error) throw error;
@@ -537,39 +524,65 @@ export default function Memories() {
     return publicUrlData.publicUrl;
   }, []);
 
-  const handlePhotoUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleMediaUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+
+    if (!files.length) return;
+
+    const validFiles = files.filter((file) => {
+      const isImage = file.type.startsWith("image/");
+      const isVideo = file.type.startsWith("video/");
+
+      if (!isImage && !isVideo) {
+        alert(`${file.name} is not supported. Only photos and videos are allowed.`);
+        return false;
+      }
+
+      if (isVideo && file.size > 50 * 1024 * 1024) {
+        alert(`${file.name} is too large. Video size must be less than 50MB.`);
+        return false;
+      }
+
+      return true;
+    });
+
+    if (!validFiles.length) return;
+
+    setIsUploadingMedia(true);
+    setUploadingCount(validFiles.length);
 
     try {
-      const url = await uploadFile(file, "memories/photos");
-      setNewMemory((prev) => ({ ...prev, photos: [...prev.photos, url] }));
+      const uploaded = await Promise.all(
+        validFiles.map(async (file) => {
+          const isImage = file.type.startsWith("image/");
+          const folder = isImage ? "memories/photos" : "memories/videos";
+          const url = await uploadFile(file, folder);
+
+          return {
+            type: isImage ? "photo" : "video",
+            url,
+          };
+        })
+      );
+
+      setNewMemory((prev) => ({
+        ...prev,
+        photos: [
+          ...(prev.photos || []),
+          ...uploaded.filter((item) => item.type === "photo").map((item) => item.url),
+        ],
+        videos: [
+          ...(prev.videos || []),
+          ...uploaded.filter((item) => item.type === "video").map((item) => item.url),
+        ],
+      }));
     } catch (err) {
-      console.error("Photo upload failed:", err);
-      alert(err?.message || "Failed to upload photo. Please try again.");
+      console.error("Media upload failed:", err);
+      alert(err?.message || "Failed to upload media. Please try again.");
     } finally {
-      e.target.value = "";
-    }
-  };
-
-  const handleVideoUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 50 * 1024 * 1024) {
-      alert("Video size must be less than 50MB");
-      e.target.value = "";
-      return;
-    }
-
-    try {
-      const url = await uploadFile(file, "memories/videos");
-      setNewMemory((prev) => ({ ...prev, videos: [...prev.videos, url] }));
-    } catch (err) {
-      console.error("Video upload failed:", err);
-      alert(err?.message || "Failed to upload video. Please try again.");
-    } finally {
-      e.target.value = "";
+      setIsUploadingMedia(false);
+      setUploadingCount(0);
     }
   };
 
@@ -615,59 +628,77 @@ export default function Memories() {
   };
 
   React.useEffect(() => {
-  return () => {
-    if (locationTimerRef.current) clearTimeout(locationTimerRef.current);
+    return () => {
+      if (locationTimerRef.current) clearTimeout(locationTimerRef.current);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    let channel;
+
+    const setupRealtime = async () => {
+      const currentUser = await getCurrentProfileUser();
+
+      if (!currentUser?.couple_profile_id) return;
+
+      channel = supabase
+        .channel(`memories-${currentUser.couple_profile_id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "memories",
+            filter: `couple_profile_id=eq.${currentUser.couple_profile_id}`,
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ["memories"] });
+          }
+        )
+        .subscribe();
+    };
+
+    setupRealtime();
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  const handleSubmit = async () => {
+    if (!user?.id) {
+      alert("Please log in first.");
+      return;
+    }
+
+    if (!newMemory.title?.trim()) {
+      alert("Please enter a memory title.");
+      return;
+    }
+
+    if (!newMemory.photos.length && !newMemory.videos.length) {
+      alert("Please upload at least one photo or video.");
+      return;
+    }
+
+    if (isUploadingMedia) {
+      alert("Please wait for media upload to finish.");
+      return;
+    }
+
+    if (isSubmitting || createMemoryMutation.isPending) return;
+
+    setIsSubmitting(true);
+
+    try {
+      await createMemoryMutation.mutateAsync({
+        ...newMemory,
+        title: newMemory.title.trim(),
+      });
+    } catch (err) {
+      console.error("Save memory failed:", err);
+    }
   };
-}, []);
-
-React.useEffect(() => {
-  let channel;
-
-  const setupRealtime = async () => {
-    const currentUser = await getCurrentProfileUser();
-
-    if (!currentUser?.couple_profile_id) return;
-
-    channel = supabase
-      .channel(`memories-${currentUser.couple_profile_id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "memories",
-          filter: `couple_profile_id=eq.${currentUser.couple_profile_id}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["memories"] });
-        }
-      )
-      .subscribe();
-  };
-
-  setupRealtime();
-
-  return () => {
-    if (channel) supabase.removeChannel(channel);
-  };
-}, [queryClient]);
-
-const handleSubmit = async () => {
-  if (!user?.id) {
-    alert("Please log in first.");
-    return;
-  }
-
-  if (!newMemory.title?.trim()) return;
-  if (isSubmitting) return;
-
-  setIsSubmitting(true);
-
-  createMemoryMutation.mutate({
-    ...newMemory,
-    title: newMemory.title.trim(),
-  });
-};
 
   const filteredMemories = React.useMemo(() => {
     if (filter === "all") return memories;
@@ -932,9 +963,10 @@ const handleSubmit = async () => {
           </div>
 
           <label className="mb-2 block text-sm font-medium text-slate-700">
-            Photos
+            Media
           </label>
-          <div className="mb-4 space-y-3">
+
+          <div className="space-y-3">
             {newMemory.photos.map((photo, index) => (
               <div
                 key={`${photo}-${index}`}
@@ -956,36 +988,18 @@ const handleSubmit = async () => {
               </div>
             ))}
 
-            <label className="flex min-h-[110px] w-full cursor-pointer flex-col items-center justify-center rounded-[12px] border border-dashed border-slate-200 bg-white text-slate-500 hover:bg-slate-50">
-              <Camera className="h-6 w-6" />
-              <span className="mt-2 text-xs font-medium">Add Photo</span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoUpload}
-                className="hidden"
-              />
-            </label>
-          </div>
-
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Videos
-          </label>
-          <div className="space-y-3">
             {newMemory.videos.map((video, index) => (
               <div
                 key={`${video}-${index}`}
                 className="relative overflow-hidden rounded-[12px] bg-black"
               >
-                <div className="flex w-full items-center justify-center">
-                  <video
-                    src={video}
-                    controls
-                    preload="metadata"
-                    playsInline
-                    className="h-auto w-full object-contain"
-                  />
-                </div>
+                <video
+                  src={video}
+                  controls
+                  preload="metadata"
+                  playsInline
+                  className="h-auto w-full object-contain"
+                />
                 <button
                   type="button"
                   onClick={() => removeVideo(index)}
@@ -996,13 +1010,33 @@ const handleSubmit = async () => {
               </div>
             ))}
 
-            <label className="flex min-h-[110px] w-full cursor-pointer flex-col items-center justify-center rounded-[12px] border border-dashed border-slate-200 bg-white text-slate-500 hover:bg-slate-50">
-              <Video className="h-6 w-6" />
-              <span className="mt-2 text-xs font-medium">Add Video</span>
+            <label
+              className={`flex min-h-[130px] w-full cursor-pointer flex-col items-center justify-center rounded-[14px] border border-dashed border-[#c7d7ff] bg-gradient-to-br from-[#f8fbff] to-[#eef4ff] text-slate-600 transition hover:border-[#8ec5ff] ${
+                isUploadingMedia ? "pointer-events-none opacity-70" : ""
+              }`}
+            >
+              {isUploadingMedia ? (
+                <Loader2 className="h-7 w-7 animate-spin text-[#5e9cff]" />
+              ) : (
+                <ImageIcon className="h-7 w-7 text-[#5e9cff]" />
+              )}
+
+              <span className="mt-2 text-sm font-semibold text-slate-700">
+                {isUploadingMedia
+                  ? `Uploading ${uploadingCount} file${uploadingCount > 1 ? "s" : ""}...`
+                  : "Add Photos & Videos"}
+              </span>
+
+              <span className="mt-1 text-xs text-slate-500">
+                Select one or multiple media files
+              </span>
+
               <input
                 type="file"
-                accept="video/*"
-                onChange={handleVideoUpload}
+                accept="image/*,video/*"
+                multiple
+                disabled={isUploadingMedia}
+                onChange={handleMediaUpload}
                 className="hidden"
               />
             </label>
@@ -1014,10 +1048,11 @@ const handleSubmit = async () => {
           onClick={handleSubmit}
           disabled={
             !newMemory.title.trim() ||
+            isUploadingMedia ||
             isSubmitting ||
             createMemoryMutation.isPending
           }
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-[#ff4d6d] text-white hover:bg-[#f03d5f]"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-[#ff4d6d] text-white hover:bg-[#f03d5f] disabled:opacity-60"
         >
           {isSubmitting || createMemoryMutation.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -1084,21 +1119,21 @@ const handleSubmit = async () => {
             selectedMemory.videos.length > 0 ? (
               <AppCard className="p-4">
                 <div className="space-y-3">
-                  <div className="text-base font-semibold text-slate-800">Videos</div>
+                  <div className="text-base font-semibold text-slate-800">
+                    Videos
+                  </div>
                   {selectedMemory.videos.map((video, index) => (
                     <div
                       key={`${video}-${index}`}
                       className="overflow-hidden rounded-[12px] bg-black"
                     >
-                      <div className="flex w-full items-center justify-center">
-                        <video
-                          src={video}
-                          controls
-                          preload="metadata"
-                          playsInline
-                          className="h-auto w-full object-contain"
-                        />
-                      </div>
+                      <video
+                        src={video}
+                        controls
+                        preload="metadata"
+                        playsInline
+                        className="h-auto w-full object-contain"
+                      />
                     </div>
                   ))}
                 </div>

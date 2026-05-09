@@ -6,16 +6,13 @@ import PinLock from "./components/PinLock";
 
 const Home = lazy(() => import("./pages/Home"));
 const Chat = lazy(() => import("./pages/Chat"));
-const Consent = lazy(() => import("./pages/Consent"));
 const Dating = lazy(() => import("./pages/Dating"));
 const Goals = lazy(() => import("./pages/Goals"));
 const InvitePartner = lazy(() => import("./pages/InvitePartner"));
 const Memories = lazy(() => import("./pages/Memories"));
 const NightIn = lazy(() => import("./pages/NightIn"));
 const Security = lazy(() => import("./pages/Security"));
-const Notifications = lazy(() => import("./pages/Notifications"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
-const Places = lazy(() => import("./pages/Places"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Refunds = lazy(() => import("./pages/Refunds"));
 const RelationshipInsights = lazy(() => import("./pages/RelationshipInsights"));
@@ -63,15 +60,12 @@ function AppRoutes() {
         <Route path="/home" element={<Home />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/splash" element={<Splash />} />
-        <Route path="/consent" element={<Consent />} />
         <Route path="/dating" element={<Dating />} />
         <Route path="/goals" element={<Goals />} />
         <Route path="/invite-partner" element={<InvitePartner />} />
         <Route path="/memories" element={<Memories />} />
         <Route path="/nightin" element={<NightIn />} />
-        <Route path="/notifications" element={<Notifications />} />
         <Route path="/onboarding" element={<Onboarding />} />
-        <Route path="/places" element={<Places />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/security" element={<Security />} />
         <Route path="/refunds" element={<Refunds />} />
