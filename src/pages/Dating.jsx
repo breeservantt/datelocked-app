@@ -1,7 +1,7 @@
 import React from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { Loader2, Video } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { generateId } from "@/lib/generateId";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -151,7 +151,8 @@ async function uploadDatingFile(file, folder = "dating/photos") {
   const { data, error } = await supabase.storage
     .from(STORAGE_BUCKET)
     .upload(filePath, file, {
-      cacheControl: "3600",
+      cacheControl: "31536000",
+      contentType: file.type || undefined,
       upsert: false,
     });
 
@@ -770,8 +771,16 @@ const handleMediaUpload = async (event) => {
   };
 
   if (user === null) {
-    return <div className="p-4">Loading...</div>;
-  }
+  return (
+    <>
+      <div className="flex min-h-screen items-center justify-center bg-[#f3edf1]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#5e9cff]" />
+      </div>
+
+      <BottomNav />
+    </>
+  );
+}
 
   return (
     <>
@@ -1148,6 +1157,7 @@ const handleMediaUpload = async (event) => {
     />
   </label>
 </div>
+          </CardContent>
         </Card>
 
         <Button
