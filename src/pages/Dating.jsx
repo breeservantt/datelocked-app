@@ -29,7 +29,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
-const STORAGE_BUCKET = "profile-photos";
+const STORAGE_BUCKET = "dating-wall-media";
 const STORAGE_KEY = "dating_wall_content";
 
 const navItems = [
@@ -600,83 +600,99 @@ React.useEffect(() => {
     }
   };
 
-  const handlePhotoUpload = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
+  const compressImage = async (file) => {
+  if (!file.type.startsWith("image/")) return file;
 
-    if (!file) return;
-    if (!user?.email) {
-      toast.error("User not loaded yet");
-      return;
+  const imageBitmap = await createImageBitmap(file);
+  const maxWidth = 1600;
+  const scale = Math.min(1, maxWidth / imageBitmap.width);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(imageBitmap.width * scale);
+  canvas.height = Math.round(imageBitmap.height * scale);
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+
+  const blob = await new Promise((resolve) => {
+    canvas.toBlob(resolve, "image/jpeg", 0.78);
+  });
+
+  if (!blob) return file;
+
+  return new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+    type: "image/jpeg",
+  });
+};
+
+const handleMediaUpload = async (event) => {
+  const files = Array.from(event.target.files || []);
+  event.target.value = "";
+
+  if (!files.length) return;
+
+  if (!user?.email) {
+    toast.error("User not loaded yet");
+    return;
+  }
+
+  const validFiles = files.filter((file) => {
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+
+    if (!isImage && !isVideo) {
+      toast.error(`${file.name} is not supported.`);
+      return false;
     }
 
-    const sizeMB = file.size / (1024 * 1024);
-    const maxImageMB = 8;
-
-    if (!file.type.startsWith("image/")) {
-      toast.error("Only image files are allowed");
-      return;
+    if (isVideo && file.size > 25 * 1024 * 1024) {
+      toast.error(`${file.name} is too large. Max video size is 25MB.`);
+      return false;
     }
 
-    if (sizeMB > maxImageMB) {
-      toast.error(`Image too large (${sizeMB.toFixed(1)}MB). Max ${maxImageMB}MB.`);
-      return;
+    return true;
+  });
+
+  if (!validFiles.length) return;
+
+  setIsUploading(true);
+
+  try {
+    const uploaded = [];
+
+    for (const originalFile of validFiles) {
+      const isImage = originalFile.type.startsWith("image/");
+      const preparedFile = isImage
+        ? await compressImage(originalFile)
+        : originalFile;
+
+      const folder = isImage ? "dating/photos" : "dating/videos";
+      const url = await uploadDatingFile(preparedFile, folder);
+
+      uploaded.push({
+        type: isImage ? "photo" : "video",
+        url,
+      });
     }
 
-    setIsUploading(true);
-
-    try {
-      const url = await uploadDatingFile(file, "dating/photos");
-      setNewPost((prev) => ({
-        ...prev,
-        photos: [...prev.photos, url],
-      }));
-    } catch (error) {
-      console.error("Photo upload failed:", error);
-      toast.error(error?.message || "Upload failed");
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleVideoUpload = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-
-    if (!file) return;
-    if (!user?.email) {
-      toast.error("User not loaded yet");
-      return;
-    }
-
-    const sizeMB = file.size / (1024 * 1024);
-    const maxVideoMB = 30;
-
-    if (!file.type.startsWith("video/")) {
-      toast.error("Only video files are allowed");
-      return;
-    }
-
-    if (sizeMB > maxVideoMB) {
-      toast.error(`Video too large (${sizeMB.toFixed(1)}MB). Max ${maxVideoMB}MB.`);
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      const url = await uploadDatingFile(file, "dating/videos");
-      setNewPost((prev) => ({
-        ...prev,
-        videos: [...prev.videos, url],
-      }));
-    } catch (error) {
-      console.error("Video upload failed:", error);
-      toast.error(error?.message || "Upload failed");
-    } finally {
-      setIsUploading(false);
-    }
-  };
+    setNewPost((prev) => ({
+      ...prev,
+      photos: [
+        ...prev.photos,
+        ...uploaded.filter((x) => x.type === "photo").map((x) => x.url),
+      ],
+      videos: [
+        ...prev.videos,
+        ...uploaded.filter((x) => x.type === "video").map((x) => x.url),
+      ],
+    }));
+  } catch (error) {
+    console.error("Media upload failed:", error);
+    toast.error(error?.message || "Upload failed");
+  } finally {
+    setIsUploading(false);
+  }
+};
 
   const removePhoto = (index) => {
     setNewPost((prev) => ({
@@ -1056,82 +1072,82 @@ React.useEffect(() => {
             </div>
 
             <label className="mb-2 block text-sm font-medium text-slate-700">
-              Photos
-            </label>
-            <div className="mb-4 space-y-3">
-              {newPost.photos.map((photo, index) => (
-                <div
-                  key={`${photo}-${index}`}
-                  className="relative overflow-hidden rounded-[12px] border border-slate-200 bg-black"
-                >
-                  <img
-                    src={photo}
-                    alt=""
-                    className="h-auto w-full object-contain"
-                    loading="lazy"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removePhoto(index)}
-                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50"
-                  >
-                    <X className="h-4 w-4 text-white" />
-                  </button>
-                </div>
-              ))}
+  Media
+</label>
 
-              <label className="flex min-h-[110px] w-full cursor-pointer flex-col items-center justify-center rounded-[12px] border border-dashed border-slate-200 bg-white text-slate-500 hover:bg-slate-50">
-                <Camera className="h-6 w-6" />
-                <span className="mt-2 text-xs font-medium">Add Photo</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoUpload}
-                  className="hidden"
-                />
-              </label>
-            </div>
+<div className="space-y-3">
+  {newPost.photos.map((photo, index) => (
+    <div
+      key={`${photo}-${index}`}
+      className="relative overflow-hidden rounded-[12px] border border-slate-200 bg-black"
+    >
+      <img
+        src={photo}
+        alt=""
+        className="h-auto w-full object-contain"
+        loading="lazy"
+      />
+      <button
+        type="button"
+        onClick={() => removePhoto(index)}
+        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50"
+      >
+        <X className="h-4 w-4 text-white" />
+      </button>
+    </div>
+  ))}
 
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Videos
-            </label>
-            <div className="space-y-3">
-              {newPost.videos.map((video, index) => (
-                <div
-                  key={`${video}-${index}`}
-                  className="relative overflow-hidden rounded-[12px] bg-black"
-                >
-                  <div className="flex w-full items-center justify-center">
-                    <video
-  src={video}
-  controls
-  preload="metadata"
-  playsInline
-  className="h-auto w-full object-contain"
- />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeVideo(index)}
-                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50"
-                  >
-                    <X className="h-4 w-4 text-white" />
-                  </button>
-                </div>
-              ))}
+  {newPost.videos.map((video, index) => (
+    <div
+      key={`${video}-${index}`}
+      className="relative overflow-hidden rounded-[12px] bg-black"
+    >
+      <video
+        src={video}
+        controls
+        preload="metadata"
+        playsInline
+        className="h-auto w-full object-contain"
+      />
+      <button
+        type="button"
+        onClick={() => removeVideo(index)}
+        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50"
+      >
+        <X className="h-4 w-4 text-white" />
+      </button>
+    </div>
+  ))}
 
-              <label className="flex min-h-[110px] w-full cursor-pointer flex-col items-center justify-center rounded-[12px] border border-dashed border-slate-200 bg-white text-slate-500 hover:bg-slate-50">
-                <Video className="h-6 w-6" />
-                <span className="mt-2 text-xs font-medium">Add Video</span>
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={handleVideoUpload}
-                  className="hidden"
-                />
-              </label>
-            </div>
-          </CardContent>
+  <label
+    className={`flex min-h-[130px] w-full cursor-pointer flex-col items-center justify-center rounded-[14px] border border-dashed border-[#c7d7ff] bg-gradient-to-br from-[#f8fbff] to-[#eef4ff] text-slate-600 transition hover:border-[#8ec5ff] ${
+      isUploading ? "pointer-events-none opacity-70" : ""
+    }`}
+  >
+    {isUploading ? (
+      <Loader2 className="h-7 w-7 animate-spin text-[#5e9cff]" />
+    ) : (
+      <ImageIcon className="h-7 w-7 text-[#5e9cff]" />
+    )}
+
+    <span className="mt-2 text-sm font-semibold text-slate-700">
+      {isUploading ? "Uploading media..." : "Add Photos & Videos"}
+    </span>
+
+    <span className="mt-1 text-xs text-slate-500">
+      Select one or multiple media files
+    </span>
+
+    <input
+      type="file"
+      accept="image/*,video/*"
+      multiple
+      disabled={isUploading}
+      onChange={handleMediaUpload}
+      className="hidden"
+    />
+  </label>
+</div>
         </Card>
 
         <Button

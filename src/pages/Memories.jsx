@@ -488,64 +488,139 @@ export default function Memories() {
     deleteMemoryMutation.mutate(memoryId);
   };
 
-  const uploadFile = React.useCallback(async (file, folder) => {
-    if (!file) throw new Error("No file selected");
+  const compressImage = async (file) => {
+  if (!file.type.startsWith("image/")) return file;
 
-    const ext = file.name.split(".").pop()?.toLowerCase() || "file";
-    const cleanName = file.name
-      .replace(/\.[^/.]+$/, "")
-      .replace(/[^a-zA-Z0-9-_]/g, "-")
-      .slice(0, 40);
+  const imageBitmap = await createImageBitmap(file);
 
-    const fileName = `${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}-${cleanName}.${ext}`;
+  const maxWidth = 1600;
+  const scale = Math.min(1, maxWidth / imageBitmap.width);
 
-    const filePath = `${folder}/${fileName}`;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(imageBitmap.width * scale);
+  canvas.height = Math.round(imageBitmap.height * scale);
 
-    const { data, error } = await supabase.storage
-      .from(MEMORY_BUCKET)
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: file.type || undefined,
-      });
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
 
-    if (error) throw error;
+  const blob = await new Promise((resolve) => {
+    canvas.toBlob(resolve, "image/jpeg", 0.78);
+  });
 
-    const { data: publicUrlData } = supabase.storage
-      .from(MEMORY_BUCKET)
-      .getPublicUrl(data.path);
+  if (!blob) return file;
 
-    if (!publicUrlData?.publicUrl) {
-      throw new Error("Upload succeeded but no public URL was returned");
+  return new File(
+    [blob],
+    file.name.replace(/\.[^/.]+$/, ".jpg"),
+    { type: "image/jpeg" }
+  );
+};
+
+const uploadFile = React.useCallback(async (file, folder) => {
+  if (!file) throw new Error("No file selected");
+
+  const ext = file.name.split(".").pop()?.toLowerCase() || "file";
+  const cleanName = file.name
+    .replace(/\.[^/.]+$/, "")
+    .replace(/[^a-zA-Z0-9-_]/g, "-")
+    .slice(0, 40);
+
+  const fileName = `${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}-${cleanName}.${ext}`;
+
+  const filePath = `${folder}/${fileName}`;
+
+  const { data, error } = await supabase.storage
+    .from(MEMORY_BUCKET)
+    .upload(filePath, file, {
+      cacheControl: "31536000",
+      upsert: false,
+      contentType: file.type || undefined,
+    });
+
+  if (error) throw error;
+
+  const { data: publicUrlData } = supabase.storage
+    .from(MEMORY_BUCKET)
+    .getPublicUrl(data.path);
+
+  if (!publicUrlData?.publicUrl) {
+    throw new Error("Upload succeeded but no public URL was returned");
+  }
+
+  return publicUrlData.publicUrl;
+}, []);
+
+const handleMediaUpload = async (e) => {
+  const files = Array.from(e.target.files || []);
+  e.target.value = "";
+
+  if (!files.length) return;
+
+  const validFiles = files.filter((file) => {
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+
+    if (!isImage && !isVideo) {
+      alert(`${file.name} is not supported. Only photos and videos are allowed.`);
+      return false;
     }
 
-    return publicUrlData.publicUrl;
-  }, []);
+    if (isVideo && file.size > 25 * 1024 * 1024) {
+      alert(`${file.name} is too large. Videos must be less than 25MB for fast upload.`);
+      return false;
+    }
 
-  const handleMediaUpload = async (e) => {
-    const files = Array.from(e.target.files || []);
-    e.target.value = "";
+    return true;
+  });
 
-    if (!files.length) return;
+  if (!validFiles.length) return;
 
-    const validFiles = files.filter((file) => {
-      const isImage = file.type.startsWith("image/");
-      const isVideo = file.type.startsWith("video/");
+  setIsUploadingMedia(true);
+  setUploadingCount(validFiles.length);
 
-      if (!isImage && !isVideo) {
-        alert(`${file.name} is not supported. Only photos and videos are allowed.`);
-        return false;
-      }
+  try {
+    const uploaded = [];
 
-      if (isVideo && file.size > 50 * 1024 * 1024) {
-        alert(`${file.name} is too large. Video size must be less than 50MB.`);
-        return false;
-      }
+    for (const originalFile of validFiles) {
+      const isImage = originalFile.type.startsWith("image/");
+      const preparedFile = isImage
+        ? await compressImage(originalFile)
+        : originalFile;
 
-      return true;
-    });
+      const folder = isImage ? "memories/photos" : "memories/videos";
+      const url = await uploadFile(preparedFile, folder);
+
+      uploaded.push({
+        type: isImage ? "photo" : "video",
+        url,
+      });
+    }
+
+    setNewMemory((prev) => ({
+      ...prev,
+      photos: [
+        ...(prev.photos || []),
+        ...uploaded
+          .filter((item) => item.type === "photo")
+          .map((item) => item.url),
+      ],
+      videos: [
+        ...(prev.videos || []),
+        ...uploaded
+          .filter((item) => item.type === "video")
+          .map((item) => item.url),
+      ],
+    }));
+  } catch (err) {
+    console.error("Media upload failed:", err);
+    alert(err?.message || "Failed to upload media. Please try again.");
+  } finally {
+    setIsUploadingMedia(false);
+    setUploadingCount(0);
+  }
+};
 
     if (!validFiles.length) return;
 
