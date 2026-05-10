@@ -80,7 +80,7 @@ export default function Splash() {
         <div className="absolute right-[18%] top-[38%] h-1.5 w-1.5 rotate-45 bg-white/90" />
         <div className="absolute left-[14%] top-[45%] h-1.5 w-1.5 rotate-45 bg-white/90" />
 
-        <div className="relative z-10 flex h-full flex-col items-center px-7 pb-3 pt-[6vh] text-center">
+        <div className="relative z-10 flex h-full flex-col items-center justify-between px-7 pb-4 pt-[7vh] text-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.78, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -220,7 +220,7 @@ export default function Splash() {
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 1.12 }}
-            className="mt-auto grid w-full max-w-[310px] grid-cols-3 overflow-hidden rounded-[18px] bg-white/96 px-1.5 py-2 shadow-[0_10px_22px_rgba(77,24,126,0.16)]"
+            className="grid w-full max-w-[310px] grid-cols-3 overflow-hidden rounded-[18px] bg-white/96 px-1.5 py-2 shadow-[0_10px_22px_rgba(77,24,126,0.16)]"
           >
             <div className="flex flex-col items-center px-1 py-0.5">
               <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#f4ecff]">
