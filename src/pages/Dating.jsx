@@ -13,7 +13,6 @@ import {
   Plus,
   MapPin,
   X,
-  Trash2,
   Heart,
   Sparkles,
   Play,
@@ -30,7 +29,6 @@ import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
 const STORAGE_BUCKET = "dating-wall-media";
-const STORAGE_KEY = "dating_wall_content";
 
 const navItems = [
   { label: "Home", icon: HomeIcon, page: "Home" },
@@ -55,33 +53,6 @@ const ROMANTIC_MESSAGES = [
   "A thriving relationship is often the result of two people choosing softness over ego.",
 ];
 
-const DEFAULT_CONTENT = [
-  {
-    id: "content-1",
-    owner_email: "you@example.com",
-    content_url:
-      "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?q=80&w=1200&auto=format&fit=crop",
-    content_type: "IMAGE",
-    visibility: "PUBLIC_WALL",
-    moderation_status: "APPROVED",
-    caption: "A beautiful moment together.",
-    location: "Johannesburg",
-    view_count: 12,
-  },
-  {
-    id: "content-2",
-    owner_email: "partner@example.com",
-    content_url:
-      "https://images.unsplash.com/photo-1511988617509-a57c8a288659?q=80&w=1200&auto=format&fit=crop",
-    content_type: "IMAGE",
-    visibility: "PUBLIC_WALL",
-    moderation_status: "APPROVED",
-    caption: "Date night vibes.",
-    location: "Pretoria",
-    view_count: 21,
-  },
-];
-
 function getFiveHourMessage() {
   const now = new Date();
   const bucket = Math.floor(now.getTime() / (5 * 60 * 60 * 1000));
@@ -95,24 +66,6 @@ function getNextFiveHourRefreshMs() {
   return Math.max(nextBoundary - now, 1000);
 }
 
-function loadStoredContent() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CONTENT));
-      return DEFAULT_CONTENT;
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : DEFAULT_CONTENT;
-  } catch {
-    return DEFAULT_CONTENT;
-  }
-}
-
-function saveStoredContent(items) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-}
-
 async function getCurrentDatingUser() {
   const {
     data: { user },
@@ -120,7 +73,7 @@ async function getCurrentDatingUser() {
   } = await supabase.auth.getUser();
 
   if (error) throw error;
-  if (!user) return null;
+  if (!user) return false;
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -141,18 +94,47 @@ async function getCurrentDatingUser() {
   };
 }
 
-async function uploadDatingFile(file, folder = "dating/photos") {
+async function compressImage(file) {
+  if (!file.type.startsWith("image/")) return file;
+
+  const imageBitmap = await createImageBitmap(file);
+  const maxWidth = 1080;
+  const scale = Math.min(1, maxWidth / imageBitmap.width);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(imageBitmap.width * scale);
+  canvas.height = Math.round(imageBitmap.height * scale);
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+
+  const blob = await new Promise((resolve) => {
+    canvas.toBlob(resolve, "image/jpeg", 0.75);
+  });
+
+  if (!blob) return file;
+
+  return new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+    type: "image/jpeg",
+  });
+}
+
+async function uploadDatingFile(file) {
   if (!file) throw new Error("No file selected");
 
-  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const isImage = file.type.startsWith("image/");
+  const ext = isImage ? "jpg" : file.name.split(".").pop()?.toLowerCase() || "mp4";
+  const folder = isImage ? "dating/photos" : "dating/videos";
   const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
   const filePath = `${folder}/${fileName}`;
 
+  const preparedFile = isImage ? await compressImage(file) : file;
+
   const { data, error } = await supabase.storage
     .from(STORAGE_BUCKET)
-    .upload(filePath, file, {
+    .upload(filePath, preparedFile, {
       cacheControl: "31536000",
-      contentType: file.type || undefined,
+      contentType: preparedFile.type || file.type || undefined,
       upsert: false,
     });
 
@@ -166,7 +148,10 @@ async function uploadDatingFile(file, folder = "dating/photos") {
     throw new Error("Upload succeeded but no public URL was returned");
   }
 
-  return publicUrlData.publicUrl;
+  return {
+    url: publicUrlData.publicUrl,
+    type: isImage ? "IMAGE" : "VIDEO",
+  };
 }
 
 const wallApi = {
@@ -203,42 +188,42 @@ const wallApi = {
     },
 
     async report({ contentId, reason }) {
-      const { data: user } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      const { error } = await supabase
-        .from("dating_wall_reports")
-        .insert({
-          content_id: contentId,
-          reporter_id: user.user.id,
-          reporter_email: user.user.email,
-          reason,
-        });
+      if (!user) throw new Error("User not loaded");
+
+      const { error } = await supabase.from("dating_wall_reports").insert({
+        content_id: contentId,
+        reporter_id: user.id,
+        reporter_email: user.email,
+        reason,
+      });
 
       if (error) throw error;
       return true;
     },
 
     async createMany(payload) {
-      const { data: user } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      const items = [
-        ...(payload.photos || []).map((url) => ({
-          owner_id: user.user.id,
-          owner_email: payload.owner_email,
-          content_url: url,
-          content_type: "IMAGE",
-          caption: payload.caption,
-          location: payload.location,
-        })),
-        ...(payload.videos || []).map((url) => ({
-          owner_id: user.user.id,
-          owner_email: payload.owner_email,
-          content_url: url,
-          content_type: "VIDEO",
-          caption: payload.caption,
-          location: payload.location,
-        })),
-      ];
+      if (!user) throw new Error("User not loaded");
+
+      const items = payload.media.map((item) => ({
+        owner_id: user.id,
+        owner_email: payload.owner_email,
+        owner_name: payload.owner_name,
+        content_url: item.url,
+        content_type: item.type,
+        caption: payload.caption,
+        location: payload.location,
+        visibility: "PUBLIC_WALL",
+        moderation_status: "APPROVED",
+        view_count: 0,
+      }));
 
       const { data, error } = await supabase
         .from("dating_wall_content")
@@ -249,7 +234,7 @@ const wallApi = {
 
       return {
         success: true,
-        items: data,
+        items: data || [],
       };
     },
   },
@@ -265,60 +250,42 @@ const wallApi = {
     },
 
     async toggle({ contentId, reactionType }) {
-      const { data: user } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) throw new Error("User not loaded");
 
       const { data: existing } = await supabase
         .from("dating_wall_reactions")
         .select("*")
         .eq("content_id", contentId)
-        .eq("user_id", user.user.id)
+        .eq("user_id", user.id)
         .eq("reaction_type", reactionType)
         .maybeSingle();
 
       if (existing) {
-        await supabase
+        const { error } = await supabase
           .from("dating_wall_reactions")
           .delete()
           .eq("id", existing.id);
+
+        if (error) throw error;
       } else {
-        await supabase
-          .from("dating_wall_reactions")
-          .insert({
-            content_id: contentId,
-            user_id: user.user.id,
-            user_email: user.user.email,
-            reaction_type: reactionType,
-          });
+        const { error } = await supabase.from("dating_wall_reactions").insert({
+          content_id: contentId,
+          user_id: user.id,
+          user_email: user.email,
+          reaction_type: reactionType,
+        });
+
+        if (error) throw error;
       }
 
       return true;
     },
   },
 };
-
-function MediaFrame({ children }) {
-  return <div className="relative block w-full overflow-hidden bg-black">{children}</div>;
-}
-
-function VideoPreview({ src }) {
-  return (
-    <MediaFrame>
-      <video
-        src={src}
-        preload="metadata"
-        muted
-        playsInline
-        className="block w-full h-auto max-h-[78vh] object-contain bg-black"
-      />
-
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/45">
-          <Play className="h-6 w-6 text-white" />
-        </div>
-      </div>
-    </MediaFrame>
-  );
-}
 
 function Modal({ open, onClose, title, children }) {
   if (!open) return null;
@@ -339,7 +306,9 @@ function Modal({ open, onClose, title, children }) {
           </div>
         </div>
 
-        <div className="max-h-[78vh] space-y-4 overflow-y-auto px-4 py-4">{children}</div>
+        <div className="max-h-[78vh] space-y-4 overflow-y-auto px-4 py-4">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -377,7 +346,8 @@ function BottomNav() {
       <div className="mx-auto grid w-full max-w-[390px] grid-cols-7 gap-0.5 px-2">
         {navItems.map((item) => {
           const href = createPageUrl(item.page);
-          const active = location.pathname === href || (href === "/" && location.pathname === "/");
+          const active =
+            location.pathname === href || (href === "/" && location.pathname === "/");
           const Icon = item.icon;
 
           return (
@@ -414,6 +384,7 @@ export default function Dating() {
 
   const [user, setUser] = React.useState(undefined);
   const [isUploading, setIsUploading] = React.useState(false);
+  const [uploadProgressText, setUploadProgressText] = React.useState("");
   const [showMyContent, setShowMyContent] = React.useState(false);
   const [zoomedImage, setZoomedImage] = React.useState(null);
   const [activeVideo, setActiveVideo] = React.useState(null);
@@ -425,8 +396,7 @@ export default function Dating() {
   const [newPost, setNewPost] = React.useState({
     caption: "",
     location: "",
-    photos: [],
-    videos: [],
+    media: [],
   });
 
   const [myContentState, setMyContentState] = React.useState([]);
@@ -434,112 +404,112 @@ export default function Dating() {
   const [allReactionsState, setAllReactionsState] = React.useState([]);
 
   React.useEffect(() => {
-  let mounted = true;
+    let mounted = true;
 
-  (async () => {
-    try {
-      const currentUser = await getCurrentDatingUser();
-      if (mounted) setUser(currentUser);
-    } catch (error) {
-      console.error("Failed to load user:", error);
-      if (mounted) setUser(false);
-    }
-  })();
-
-  return () => {
-    mounted = false;
-  };
-}, []);
-
-React.useEffect(() => {
-  const channel = supabase
-    .channel("dating-wall")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "dating_wall_content",
-      },
-      () => {
-        queryClient.invalidateQueries({ queryKey: ["publicDateContent"] });
-        queryClient.invalidateQueries({ queryKey: ["myDateContent"] });
+    (async () => {
+      try {
+        const currentUser = await getCurrentDatingUser();
+        if (mounted) setUser(currentUser);
+      } catch (error) {
+        console.error("Failed to load user:", error);
+        if (mounted) setUser(false);
       }
-    )
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "dating_wall_reactions",
-      },
-      () => {
-        queryClient.invalidateQueries({ queryKey: ["contentReactions"] });
-      }
-    )
-    .subscribe();
+    })();
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [queryClient]);
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-React.useEffect(() => {
-  const updateMessage = () => setDailyAdvice(getFiveHourMessage());
-  updateMessage();
+  React.useEffect(() => {
+    const channel = supabase
+      .channel("dating-wall")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "dating_wall_content",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["publicDateContent"] });
+          queryClient.invalidateQueries({ queryKey: ["myDateContent"] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "dating_wall_reactions",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["contentReactions"] });
+        }
+      )
+      .subscribe();
 
-  let timer;
-  const schedule = () => {
-    timer = setTimeout(() => {
-      updateMessage();
-      schedule();
-    }, getNextFiveHourRefreshMs());
-  };
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
-  schedule();
+  React.useEffect(() => {
+    const updateMessage = () => setDailyAdvice(getFiveHourMessage());
+    updateMessage();
 
-  return () => clearTimeout(timer);
-}, []);
+    let timer;
+    const schedule = () => {
+      timer = setTimeout(() => {
+        updateMessage();
+        schedule();
+      }, getNextFiveHourRefreshMs());
+    };
 
-React.useEffect(() => {
-  const onDocClick = () => setOpenMenuId(null);
-  document.addEventListener("click", onDocClick);
+    schedule();
 
-  return () => document.removeEventListener("click", onDocClick);
-}, []);
+    return () => clearTimeout(timer);
+  }, []);
 
-const { data: myContent = [] } = useQuery({
-  queryKey: ["myDateContent", user?.email],
-  queryFn: () => wallApi.content.listMine(user.email),
-  enabled: !!user?.email && showMyContent,
-});
+  React.useEffect(() => {
+    const onDocClick = () => setOpenMenuId(null);
+    document.addEventListener("click", onDocClick);
 
-const { data: publicContent = [], isLoading: publicLoading } = useQuery({
-  queryKey: ["publicDateContent"],
-  queryFn: () => wallApi.content.listPublic(),
-  enabled: !!user?.email,
-  refetchInterval: false,
-  staleTime: 5 * 60 * 1000,
-});
+    return () => document.removeEventListener("click", onDocClick);
+  }, []);
 
-const { data: allReactions = [] } = useQuery({
-  queryKey: ["contentReactions"],
-  queryFn: () => wallApi.reactions.list(),
-  enabled: !!user?.email,
-  refetchInterval: isUploading ? false : 15000,
-});
+  const { data: myContent = [] } = useQuery({
+    queryKey: ["myDateContent", user?.email],
+    queryFn: () => wallApi.content.listMine(user.email),
+    enabled: !!user?.email && showMyContent,
+  });
 
-React.useEffect(() => {
-  setMyContentState(myContent);
-}, [myContent]);
+  const { data: publicContent = [], isLoading: publicLoading } = useQuery({
+    queryKey: ["publicDateContent"],
+    queryFn: () => wallApi.content.listPublic(),
+    enabled: !!user?.email,
+    refetchInterval: false,
+    staleTime: 5 * 60 * 1000,
+  });
 
-React.useEffect(() => {
-  setPublicContentState(publicContent);
-}, [publicContent]);
+  const { data: allReactions = [] } = useQuery({
+    queryKey: ["contentReactions"],
+    queryFn: () => wallApi.reactions.list(),
+    enabled: !!user?.email,
+    refetchInterval: isUploading || isSubmitting ? false : 15000,
+  });
 
-React.useEffect(() => {
-  setAllReactionsState(allReactions);
-}, [allReactions]);
+  React.useEffect(() => {
+    setMyContentState(myContent);
+  }, [myContent]);
+
+  React.useEffect(() => {
+    setPublicContentState(publicContent);
+  }, [publicContent]);
+
+  React.useEffect(() => {
+    setAllReactionsState(allReactions);
+  }, [allReactions]);
 
   const handleReaction = async (contentId, reactionType) => {
     try {
@@ -601,187 +571,142 @@ React.useEffect(() => {
     }
   };
 
-  const compressImage = async (file) => {
-  if (!file.type.startsWith("image/")) return file;
+  const handleMediaUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
 
-  const imageBitmap = await createImageBitmap(file);
-  const maxWidth = 1600;
-  const scale = Math.min(1, maxWidth / imageBitmap.width);
+    if (!files.length) return;
 
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(imageBitmap.width * scale);
-  canvas.height = Math.round(imageBitmap.height * scale);
-
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
-
-  const blob = await new Promise((resolve) => {
-    canvas.toBlob(resolve, "image/jpeg", 0.78);
-  });
-
-  if (!blob) return file;
-
-  return new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
-    type: "image/jpeg",
-  });
-};
-
-const handleMediaUpload = async (event) => {
-  const files = Array.from(event.target.files || []);
-  event.target.value = "";
-
-  if (!files.length) return;
-
-  if (!user?.email) {
-    toast.error("User not loaded yet");
-    return;
-  }
-
-  const validFiles = files.filter((file) => {
-    const isImage = file.type.startsWith("image/");
-    const isVideo = file.type.startsWith("video/");
-
-    if (!isImage && !isVideo) {
-      toast.error(`${file.name} is not supported.`);
-      return false;
-    }
-
-    if (isVideo && file.size > 25 * 1024 * 1024) {
-      toast.error(`${file.name} is too large. Max video size is 25MB.`);
-      return false;
-    }
-
-    return true;
-  });
-
-  if (!validFiles.length) return;
-
-  setIsUploading(true);
-
-  try {
-    const uploaded = [];
-
-    for (const originalFile of validFiles) {
-      const isImage = originalFile.type.startsWith("image/");
-      const preparedFile = isImage
-        ? await compressImage(originalFile)
-        : originalFile;
-
-      const folder = isImage ? "dating/photos" : "dating/videos";
-      const url = await uploadDatingFile(preparedFile, folder);
-
-      uploaded.push({
-        type: isImage ? "photo" : "video",
-        url,
-      });
-    }
-
-    setNewPost((prev) => ({
-      ...prev,
-      photos: [
-        ...prev.photos,
-        ...uploaded.filter((x) => x.type === "photo").map((x) => x.url),
-      ],
-      videos: [
-        ...prev.videos,
-        ...uploaded.filter((x) => x.type === "video").map((x) => x.url),
-      ],
-    }));
-  } catch (error) {
-    console.error("Media upload failed:", error);
-    toast.error(error?.message || "Upload failed");
-  } finally {
-    setIsUploading(false);
-  }
-};
-
-
-  const handleSavePost = async () => {
     if (!user?.email) {
       toast.error("User not loaded yet");
       return;
     }
 
-    if (
-      !newPost.caption.trim() &&
-      newPost.photos.length === 0 &&
-      newPost.videos.length === 0
-    ) {
-      toast.error("Add media or a caption before saving");
-      return;
-    }
+    const validFiles = files.filter((file) => {
+      const isImage = file.type.startsWith("image/");
+      const isVideo = file.type.startsWith("video/");
 
-    if (isSubmitting) return;
+      if (!isImage && !isVideo) {
+        toast.error(`${file.name} is not supported.`);
+        return false;
+      }
 
-    setIsSubmitting(true);
+      if (isVideo && file.size > 25 * 1024 * 1024) {
+        toast.error(`${file.name} is too large. Max video size is 25MB.`);
+        return false;
+      }
+
+      return true;
+    });
+
+    if (!validFiles.length) return;
+
+    setIsUploading(true);
+    setUploadProgressText(`Uploading ${validFiles.length} file${validFiles.length > 1 ? "s" : ""}...`);
 
     try {
-      const result = await wallApi.content.createMany({
-        owner_email: user.email,
-        owner_name: user.full_name || user.name || user.email?.split("@")[0] || "User",
-        caption: newPost.caption.trim(),
-        location: newPost.location.trim(),
-        photos: newPost.photos,
-        videos: newPost.videos,
+      const uploaded = await Promise.all(validFiles.map((file) => uploadDatingFile(file)));
+
+      setNewPost((prev) => {
+        const existingUrls = new Set(prev.media.map((item) => item.url));
+        const nextMedia = uploaded.filter((item) => !existingUrls.has(item.url));
+
+        return {
+          ...prev,
+          media: [...prev.media, ...nextMedia],
+        };
       });
 
-      if (!result?.success || !Array.isArray(result.items)) {
-        toast.error("Upload failed");
-        return;
-      }
-
-      const createdItems = result.items;
-      setPublicContentState((current) => [...createdItems, ...current]);
-
-      if (showMyContent) {
-        setMyContentState((current) => [...createdItems, ...current]);
-      }
-
-      toast.success("Post uploaded successfully!");
-      queryClient.invalidateQueries({ queryKey: ["publicDateContent"] });
-      if (showMyContent) {
-        queryClient.invalidateQueries({ queryKey: ["myDateContent"] });
-      }
-
-      setShowAddModal(false);
-      setNewPost({
-        caption: "",
-        location: "",
-        photos: [],
-        videos: [],
-      });
+      toast.success("Media ready");
     } catch (error) {
+      console.error("Media upload failed:", error);
       toast.error(error?.message || "Upload failed");
     } finally {
-      setIsSubmitting(false);
+      setIsUploading(false);
+      setUploadProgressText("");
     }
   };
 
-  if (user === undefined) {
+  const removeMedia = (index) => {
+    setNewPost((prev) => ({
+      ...prev,
+      media: prev.media.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleSavePost = async () => {
+  if (!user?.email) {
+    toast.error("User not loaded yet");
+    return;
+  }
+
+  const cleanName = user?.full_name?.trim();
+
+  if (!cleanName || cleanName === user.email?.split("@")[0]) {
+    toast.error("Complete your profile name before posting");
+    return;
+  }
+
+  if (!newPost.caption.trim() && newPost.media.length === 0) {
+    toast.error("Add media or a caption before saving");
+    return;
+  }
+
+  if (isSubmitting || isUploading) return;
+
+  setIsSubmitting(true);
+
+  try {
+    const result = await wallApi.content.createMany({
+      owner_email: user.email,
+      owner_name: cleanName,
+      caption: newPost.caption.trim(),
+      location: newPost.location.trim(),
+      media: newPost.media,
+    });
+
+    if (!result?.success || !Array.isArray(result.items)) {
+      toast.error("Upload failed");
+      return;
+    }
+
+    const createdItems = result.items;
+    setPublicContentState((current) => [...createdItems, ...current]);
+
+    if (showMyContent) {
+      setMyContentState((current) => [...createdItems, ...current]);
+    }
+
+    toast.success("Post uploaded successfully");
+    queryClient.invalidateQueries({ queryKey: ["publicDateContent"] });
+    queryClient.invalidateQueries({ queryKey: ["myDateContent"] });
+
+    setShowAddModal(false);
+    setNewPost({
+      caption: "",
+      location: "",
+      media: [],
+    });
+  } catch (error) {
+    toast.error(error?.message || "Upload failed");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
   return (
     <>
-      <div className="flex min-h-screen items-center justify-center bg-[#f3edf1]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#5e9cff]" />
-      </div>
-
-      <BottomNav />
-    </>
-  );
-}
-
-  return (
-    <>
-      <div className="min-h-screen w-screen bg-[#f3edf1] px-0 py-0 pb-[74px] overflow-x-hidden">
+      <div className="min-h-screen w-screen overflow-x-hidden bg-[#f3edf1] px-0 py-0 pb-[74px]">
         <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-[28px] border border-[#e8e2e7] bg-[#f7f3f6] shadow-[0_12px_40px_rgba(15,23,42,0.10)]">
           <div className="bg-gradient-to-r from-[#5e9cff] via-[#2f6df0] to-[#6aa7ff] px-5 pb-8 pt-7">
             <div className="min-w-0">
-              <p className="text-[14px] text-white/80"></p>
-              <h1 className="truncate text-[22px] font-semibold text-white">Dating</h1>
-              <p className="mt-1 text-[12px] text-white/80"></p>
+              <h1 className="truncate text-[22px] font-semibold text-white">
+                Dating
+              </h1>
             </div>
           </div>
 
-          <div className="-mt-7 space-y-4 px-4 pt-1 pb-6">
+          <div className="-mt-7 space-y-4 px-4 pb-6 pt-1">
             <AnimatePresence>
               {showAdvice && dailyAdvice && (
                 <motion.div
@@ -821,13 +746,13 @@ const handleMediaUpload = async (event) => {
 
             <div className="space-y-4">
               {publicLoading ? (
-  <div className="flex items-center justify-center py-10">
-    <Loader2 className="h-7 w-7 animate-spin text-[#5e9cff]" />
-  </div>
-) : publicContentState.length === 0 ? (
+                <div className="flex min-h-[180px] items-center justify-center">
+                  <Loader2 className="h-7 w-7 animate-spin text-[#5e9cff]" />
+                </div>
+              ) : publicContentState.length === 0 ? (
                 <Card className="rounded-[20px] border border-slate-100 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
                   <CardContent className="p-12 text-center text-slate-500">
-                    No public content yet. Be the first to share!
+                    No public content yet.
                   </CardContent>
                 </Card>
               ) : (
@@ -844,13 +769,13 @@ const handleMediaUpload = async (event) => {
                             onClick={() => setActiveVideo(content.content_url)}
                             className="block w-full"
                           >
-                            <div className="relative block w-full overflow-hidden bg-black">
+                            <div className="relative aspect-[4/5] w-full overflow-hidden bg-black">
                               <video
                                 src={content.content_url}
-                                preload="none"
+                                preload="metadata"
                                 muted
                                 playsInline
-                                className="block w-full h-auto max-h-[78vh] object-contain bg-black"
+                                className="h-full w-full object-cover"
                               />
 
                               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -866,18 +791,18 @@ const handleMediaUpload = async (event) => {
                             onClick={() => setZoomedImage(content.content_url)}
                             className="block w-full"
                           >
-                            <div className="relative block w-full overflow-hidden bg-black">
+                            <div className="relative aspect-[4/5] w-full overflow-hidden bg-black">
                               <img
-  src={content.content_url}
-  alt=""
-  loading="lazy"
-  className="block w-full h-auto object-cover bg-black"
-/>
+                                src={content.content_url}
+                                alt=""
+                                loading="lazy"
+                                className="h-full w-full object-cover"
+                              />
                             </div>
                           </button>
                         )}
 
-                        {content.owner_email !== user.email ? (
+                        {content.owner_email !== user?.email ? (
                           <div
                             className="absolute right-3 top-3 z-20"
                             onClick={(e) => e.stopPropagation()}
@@ -942,7 +867,9 @@ const handleMediaUpload = async (event) => {
 
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-slate-700">
-                            {content.owner_name || content.owner_email?.split("@")[0] || "User"}
+                            {content.owner_name ||
+                              content.owner_email?.split("@")[0] ||
+                              "User"}
                           </span>
 
                           <Badge variant="outline" className="flex items-center gap-1">
@@ -950,10 +877,6 @@ const handleMediaUpload = async (event) => {
                             {content.view_count || 0}
                           </Badge>
                         </div>
-
-                        {content.owner_email !== user.email ? (
-                          <div className="border-t border-slate-100 pt-2"></div>
-                        ) : null}
                       </div>
                     </div>
                   ))}
@@ -1028,13 +951,12 @@ const handleMediaUpload = async (event) => {
       <Modal
         open={showAddModal}
         onClose={() => {
-          if (isSubmitting) return;
+          if (isSubmitting || isUploading) return;
           setShowAddModal(false);
           setNewPost({
             caption: "",
             location: "",
-            photos: [],
-            videos: [],
+            media: [],
           });
         }}
         title="Add a Post"
@@ -1070,40 +992,73 @@ const handleMediaUpload = async (event) => {
             </div>
 
             <label className="mb-2 block text-sm font-medium text-slate-700">
-  Media
-</label>
+              Media
+            </label>
 
-<div className="space-y-3">
+            {newPost.media.length > 0 ? (
+              <div className="mb-3 grid grid-cols-3 gap-2">
+                {newPost.media.map((item, index) => (
+                  <div
+                    key={`${item.url}-${index}`}
+                    className="relative aspect-square overflow-hidden rounded-[10px] bg-black"
+                  >
+                    {item.type === "VIDEO" ? (
+                      <video
+                        src={item.url}
+                        preload="metadata"
+                        muted
+                        playsInline
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={item.url}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    )}
 
-  <label
-    className={`flex min-h-[130px] w-full cursor-pointer flex-col items-center justify-center rounded-[14px] border border-dashed border-[#c7d7ff] bg-gradient-to-br from-[#f8fbff] to-[#eef4ff] text-slate-600 transition hover:border-[#8ec5ff] ${
-      isUploading ? "pointer-events-none opacity-70" : ""
-    }`}
-  >
-    {isUploading ? (
-      <Loader2 className="h-7 w-7 animate-spin text-[#5e9cff]" />
-    ) : (
-      <ImageIcon className="h-7 w-7 text-[#5e9cff]" />
-    )}
+                    <button
+                      type="button"
+                      onClick={() => removeMedia(index)}
+                      className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/55"
+                    >
+                      <X className="h-4 w-4 text-white" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
 
-    <span className="mt-2 text-sm font-semibold text-slate-700">
-      {isUploading ? "Uploading media..." : "Add Photos & Videos"}
-    </span>
+            <label
+              className={`flex min-h-[130px] w-full cursor-pointer flex-col items-center justify-center rounded-[14px] border border-dashed border-[#c7d7ff] bg-gradient-to-br from-[#f8fbff] to-[#eef4ff] text-slate-600 transition hover:border-[#8ec5ff] ${
+                isUploading ? "pointer-events-none opacity-70" : ""
+              }`}
+            >
+              {isUploading ? (
+                <Loader2 className="h-7 w-7 animate-spin text-[#5e9cff]" />
+              ) : (
+                <ImageIcon className="h-7 w-7 text-[#5e9cff]" />
+              )}
 
-    <span className="mt-1 text-xs text-slate-500">
-      Select one or multiple media files
-    </span>
+              <span className="mt-2 text-sm font-semibold text-slate-700">
+                {isUploading ? uploadProgressText || "Uploading media..." : "Add Photos & Videos"}
+              </span>
 
-    <input
-      type="file"
-      accept="image/*,video/*"
-      multiple
-      disabled={isUploading}
-      onChange={handleMediaUpload}
-      className="hidden"
-    />
-  </label>
-</div>
+              <span className="mt-1 text-xs text-slate-500">
+                Select one or multiple media files
+              </span>
+
+              <input
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                disabled={isUploading}
+                onChange={handleMediaUpload}
+                className="hidden"
+              />
+            </label>
           </CardContent>
         </Card>
 
@@ -1113,9 +1068,7 @@ const handleMediaUpload = async (event) => {
           disabled={
             isSubmitting ||
             isUploading ||
-            (!newPost.caption.trim() &&
-              newPost.photos.length === 0 &&
-              newPost.videos.length === 0)
+            (!newPost.caption.trim() && newPost.media.length === 0)
           }
           className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-[#ef4f75] text-white hover:bg-[#e24469]"
         >
