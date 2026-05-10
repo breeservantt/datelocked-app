@@ -14,6 +14,8 @@ import {
   Image as ImageIcon,
   MessageCircle,
   Fingerprint,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -49,6 +51,16 @@ async function getCurrentProfileUser() {
     email: authUser.email,
     ...(profile || {}),
     couple_profile_id: profile?.couple_profile_id || null,
+  };
+}
+
+function normalizeItem(item) {
+  return {
+    ...item,
+    targetDate: item.target_date ?? item.targetDate ?? "",
+    invitationStatus: item.invitation_status ?? item.invitationStatus ?? "",
+    status: item.status || "planned",
+    type: item.type || "goal",
   };
 }
 
@@ -288,7 +300,7 @@ function BottomNav() {
 
 function formatDate(dateString) {
   if (!dateString) return "";
-  const date = new Date(dateString);
+  const date = new Date(`${dateString}T00:00:00`);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleDateString("en-ZA", {
     year: "numeric",
@@ -301,6 +313,8 @@ export default function Goals() {
   const [items, setItems] = React.useState([]);
   const [statusFilter, setStatusFilter] = React.useState("all");
 
+  const [openActionsId, setOpenActionsId] = React.useState(null);
+
   const [showGoalModal, setShowGoalModal] = React.useState(false);
   const [showEventModal, setShowEventModal] = React.useState(false);
 
@@ -310,19 +324,15 @@ export default function Goals() {
 
   const [eventTitle, setEventTitle] = React.useState("");
   const [eventLocation, setEventLocation] = React.useState("");
+  const [eventDate, setEventDate] = React.useState("");
 
-  React.useEffect(() => {
-  let goalsChannel;
-  let profileChannel;
+  const [editingItem, setEditingItem] = React.useState(null);
+  const [editTitle, setEditTitle] = React.useState("");
+  const [editDescription, setEditDescription] = React.useState("");
+  const [editDate, setEditDate] = React.useState("");
+  const [editStatus, setEditStatus] = React.useState("planned");
 
-  const mapGoals = (data = []) =>
-    data.map((item) => ({
-      ...item,
-      targetDate: item.target_date ?? item.targetDate ?? "",
-      invitationStatus: item.invitation_status ?? item.invitationStatus ?? "",
-    }));
-
-  const loadGoals = async () => {
+  const loadGoals = React.useCallback(async () => {
     const currentUser = await getCurrentProfileUser();
     if (!currentUser) return;
 
@@ -346,60 +356,72 @@ export default function Goals() {
       return;
     }
 
-    setItems(mapGoals(data || []));
+    setItems((data || []).map(normalizeItem));
+  }, []);
 
-    if (goalsChannel) {
-      supabase.removeChannel(goalsChannel);
-      goalsChannel = null;
-    }
+  React.useEffect(() => {
+    let goalsChannel;
+    let profileChannel;
 
-    if (coupleId) {
-      goalsChannel = supabase
-        .channel(`goals-realtime-${coupleId}`)
+    const setup = async () => {
+      const currentUser = await getCurrentProfileUser();
+
+      await loadGoals();
+
+      if (!currentUser?.id) return;
+
+      profileChannel = supabase
+        .channel(`profile-watch-${currentUser.id}`)
         .on(
           "postgres_changes",
           {
-            event: "*",
+            event: "UPDATE",
             schema: "public",
-            table: "couple_goals",
-            filter: `couple_profile_id=eq.${coupleId}`,
+            table: "profiles",
+            filter: `id=eq.${currentUser.id}`,
           },
           loadGoals
         )
         .subscribe();
-    }
-  };
 
-  const watchProfile = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      if (currentUser.couple_profile_id) {
+        goalsChannel = supabase
+          .channel(`goals-realtime-${currentUser.couple_profile_id}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "couple_goals",
+              filter: `couple_profile_id=eq.${currentUser.couple_profile_id}`,
+            },
+            loadGoals
+          )
+          .subscribe();
+      } else {
+        goalsChannel = supabase
+          .channel(`goals-realtime-user-${currentUser.id}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "couple_goals",
+              filter: `owner_id=eq.${currentUser.id}`,
+            },
+            loadGoals
+          )
+          .subscribe();
+      }
+    };
 
-    if (!user) return;
+    setup();
 
-    profileChannel = supabase
-      .channel(`profile-watch-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "profiles",
-          filter: `id=eq.${user.id}`,
-        },
-        loadGoals
-      )
-      .subscribe();
-  };
-
-  loadGoals();
-  watchProfile();
-
-  return () => {
-    if (goalsChannel) supabase.removeChannel(goalsChannel);
-    if (profileChannel) supabase.removeChannel(profileChannel);
-  };
-}, []);
+    return () => {
+      if (goalsChannel) supabase.removeChannel(goalsChannel);
+      if (profileChannel) supabase.removeChannel(profileChannel);
+    };
+  }, [loadGoals]);
 
   const filteredItems = React.useMemo(() => {
     if (statusFilter === "all") return items;
@@ -426,31 +448,43 @@ export default function Goals() {
 
   const stats = React.useMemo(() => {
     let planned = 0;
+    let pending = 0;
     let inProgress = 0;
     let completed = 0;
-    let pending = 0;
 
     for (const item of items) {
       if (item.type === "event") {
         if (item.invitationStatus === "pending") pending += 1;
-        else if (item.invitationStatus === "accepted") inProgress += 1;
-      } else {
-        if (item.status === "planned") planned += 1;
-        else if (item.status === "in_progress") inProgress += 1;
-        else if (item.status === "completed") completed += 1;
+        if (item.invitationStatus === "accepted") inProgress += 1;
+        continue;
       }
+
+      if (item.status === "completed") completed += 1;
+      else if (item.status === "in_progress") inProgress += 1;
+      else planned += 1;
     }
 
-    return { planned, inProgress, completed, pending };
+    return { planned, pending, inProgress, completed };
   }, [items]);
 
-  const handleAddGoal = async () => {
-  if (!goalTitle.trim()) {
-    alert("Enter a goal title first.");
-    return;
-  }
+  const resetGoalForm = () => {
+    setGoalTitle("");
+    setGoalDescription("");
+    setGoalDate("");
+  };
 
-  try {
+  const resetEventForm = () => {
+    setEventTitle("");
+    setEventLocation("");
+    setEventDate("");
+  };
+
+  const handleAddGoal = async () => {
+    if (!goalTitle.trim()) {
+      alert("Enter a goal title first.");
+      return;
+    }
+
     const currentUser = await getCurrentProfileUser();
 
     if (!currentUser?.id) {
@@ -458,17 +492,15 @@ export default function Goals() {
       return;
     }
 
-    const coupleId = currentUser.couple_profile_id || null;
-
     const newGoal = {
-  owner_id: currentUser.id,
-  couple_profile_id: coupleId,
-  title: goalTitle.trim(),
-  description: goalDescription.trim(),
-  target_date: goalDate || null,
-  status: "planned",
-  type: "goal",
-};
+      owner_id: currentUser.id,
+      couple_profile_id: currentUser.couple_profile_id || null,
+      title: goalTitle.trim(),
+      description: goalDescription.trim(),
+      target_date: goalDate || null,
+      status: "planned",
+      type: "goal",
+    };
 
     const { data, error } = await supabase
       .from("couple_goals")
@@ -482,32 +514,17 @@ export default function Goals() {
       return;
     }
 
-    setItems((prev) => [
-      {
-        ...data,
-        targetDate: data.target_date ?? "",
-        invitationStatus: data.invitation_status ?? "",
-      },
-      ...prev,
-    ]);
-
-    setGoalTitle("");
-    setGoalDescription("");
-    setGoalDate("");
+    setItems((prev) => [normalizeItem(data), ...prev]);
+    resetGoalForm();
     setShowGoalModal(false);
-  } catch (error) {
-    console.error("ADD GOAL FAILED:", error);
-    alert(error?.message || "Failed to save goal.");
-  }
-};
+  };
 
   const handleCreateInvitation = async () => {
-  if (!eventTitle.trim()) {
-    alert("Enter event title first.");
-    return;
-  }
+    if (!eventTitle.trim()) {
+      alert("Enter event title first.");
+      return;
+    }
 
-  try {
     const currentUser = await getCurrentProfileUser();
 
     if (!currentUser?.id) {
@@ -522,18 +539,18 @@ export default function Goals() {
       return;
     }
 
+    const locationText = eventLocation.trim();
+
     const newEvent = {
-  // REMOVE id completely
-  owner_id: currentUser.id,
-  couple_profile_id: coupleId,
-  title: eventTitle.trim(),
-  description: eventLocation.trim()
-    ? `Location: ${eventLocation.trim()}`
-    : "Waiting for partner response",
-  status: "pending",
-  invitation_status: "pending",
-  type: "event",
-};
+      owner_id: currentUser.id,
+      couple_profile_id: coupleId,
+      title: eventTitle.trim(),
+      description: locationText ? `Location: ${locationText}` : "Waiting for partner response",
+      target_date: eventDate || null,
+      status: "pending",
+      invitation_status: "pending",
+      type: "event",
+    };
 
     const { data, error } = await supabase
       .from("couple_goals")
@@ -547,23 +564,10 @@ export default function Goals() {
       return;
     }
 
-    setItems((prev) => [
-      {
-        ...data,
-        targetDate: data.target_date ?? "",
-        invitationStatus: data.invitation_status ?? "",
-      },
-      ...prev,
-    ]);
-
-    setEventTitle("");
-    setEventLocation("");
+    setItems((prev) => [normalizeItem(data), ...prev]);
+    resetEventForm();
     setShowEventModal(false);
-  } catch (error) {
-    console.error("CREATE EVENT FAILED:", error);
-    alert(error?.message || "Failed to create invitation.");
-  }
-};
+  };
 
   const acceptInvitation = async (id) => {
     const { data, error } = await supabase
@@ -578,20 +582,12 @@ export default function Goals() {
 
     if (error) {
       console.error("ACCEPT ERROR:", error);
+      alert(error.message || "Failed to accept invitation.");
       return;
     }
 
     setItems((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              ...data,
-              invitationStatus: "accepted",
-              status: "in_progress",
-            }
-          : item
-      )
+      prev.map((item) => (item.id === id ? normalizeItem(data) : item))
     );
   };
 
@@ -609,74 +605,135 @@ export default function Goals() {
 
     if (error) {
       console.error("DECLINE ERROR:", error);
+      alert(error.message || "Failed to decline invitation.");
       return;
     }
 
     setItems((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              ...data,
-              invitationStatus: "declined",
-              status: "declined",
-              description: "Invitation declined",
-            }
-          : item
-      )
+      prev.map((item) => (item.id === id ? normalizeItem(data) : item))
     );
   };
 
+  const openEditModal = (item) => {
+    setEditingItem(item);
+    setEditTitle(item.title || "");
+    setEditDescription(item.description || "");
+    setEditDate(item.targetDate || item.target_date || "");
+    setEditStatus(item.type === "event" ? item.status || "pending" : item.status || "planned");
+  };
+
+  const handleUpdateItem = async () => {
+    if (!editingItem?.id) return;
+
+    if (!editTitle.trim()) {
+      alert("Enter a title first.");
+      return;
+    }
+
+    const payload = {
+      title: editTitle.trim(),
+      description: editDescription.trim(),
+      status: editStatus,
+    };
+
+    if (editingItem.type === "goal") {
+      payload.target_date = editDate || null;
+    }
+
+    if (editingItem.type === "event") {
+      payload.target_date = editDate || null;
+
+      if (editStatus === "in_progress") {
+        payload.invitation_status = "accepted";
+      } else if (editStatus === "pending") {
+        payload.invitation_status = "pending";
+      } else if (editStatus === "declined") {
+        payload.invitation_status = "declined";
+      }
+    }
+
+    const { data, error } = await supabase
+      .from("couple_goals")
+      .update(payload)
+      .eq("id", editingItem.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("UPDATE ERROR:", error);
+      alert(error.message || "Failed to update item.");
+      return;
+    }
+
+    setItems((prev) =>
+      prev.map((item) => (item.id === editingItem.id ? normalizeItem(data) : item))
+    );
+
+    setEditingItem(null);
+  };
+
+  const handleDeleteItem = async (item) => {
+    if (!item?.id) return;
+
+    const confirmed = window.confirm("Delete this item? This cannot be undone.");
+    if (!confirmed) return;
+
+    const { error } = await supabase.from("couple_goals").delete().eq("id", item.id);
+
+    if (error) {
+      console.error("DELETE ERROR:", error);
+      alert(error.message || "Failed to delete item.");
+      return;
+    }
+
+    setItems((prev) => prev.filter((row) => row.id !== item.id));
+  };
+
   return (
-  <>
-    <AppShell>
-      <AppHeader title="Our Goals" />
+    <>
+      <AppShell>
+        <AppHeader title="Our Goals" />
 
-      <div className="space-y-4 px-3 py-3">
+        <div className="space-y-4 px-3 py-3">
+          <div className="grid grid-cols-2 gap-2">
+            <SmallActionButton
+              onClick={() => setShowGoalModal(true)}
+              icon={<Target className="h-4 w-4 text-slate-700" />}
+              text="Add a Goal"
+            />
 
-        {/* ACTION BUTTONS (2 only, no middle button) */}
-        <div className="grid grid-cols-2 gap-2">
-          <SmallActionButton
-            onClick={() => setShowGoalModal(true)}
-            icon={<Target className="h-4 w-4 text-slate-700" />}
-            text="Add a Goal"
-          />
-
-          <SmallActionButton
-            onClick={() => setShowEventModal(true)}
-            icon={<Send className="h-4 w-4 text-slate-700" />}
-            text="Events"
-          />
-        </div>
-
-        {/* STATS */}
-        <div className="grid grid-cols-4 gap-2">
-          <StatCard value={stats.planned} label="Planned" tone="slate" />
-          <StatCard value={stats.pending} label="Pending" tone="amber" />
-          <StatCard value={stats.inProgress} label="Active" tone="blue" />
-          <StatCard value={stats.completed} label="Done" tone="green" />
-        </div>
-
-        {/* FILTER TABS */}
-        <AppCard className="bg-slate-100 p-1">
-          <div className="flex gap-1">
-            {[
-              { key: "all", label: "All" },
-              { key: "planned", label: "Planned" },
-              { key: "in_progress", label: "Active" },
-              { key: "completed", label: "Done" },
-            ].map((tab) => (
-              <TabButton
-                key={tab.key}
-                active={statusFilter === tab.key}
-                onClick={() => setStatusFilter(tab.key)}
-              >
-                {tab.label}
-              </TabButton>
-            ))}
+            <SmallActionButton
+              onClick={() => setShowEventModal(true)}
+              icon={<Send className="h-4 w-4 text-slate-700" />}
+              text="Events"
+            />
           </div>
-        </AppCard>
 
+          <div className="grid grid-cols-4 gap-2">
+            <StatCard value={stats.planned} label="Planned" tone="slate" />
+            <StatCard value={stats.pending} label="Pending" tone="amber" />
+            <StatCard value={stats.inProgress} label="Active" tone="blue" />
+            <StatCard value={stats.completed} label="Done" tone="green" />
+          </div>
+
+          <AppCard className="bg-slate-100 p-1">
+            <div className="flex gap-1">
+              {[
+                { key: "all", label: "All" },
+                { key: "planned", label: "Planned" },
+                { key: "in_progress", label: "Active" },
+                { key: "completed", label: "Done" },
+              ].map((tab) => (
+                <TabButton
+                  key={tab.key}
+                  active={statusFilter === tab.key}
+                  onClick={() => setStatusFilter(tab.key)}
+                >
+                  {tab.label}
+                </TabButton>
+              ))}
+            </div>
+          </AppCard>
 
           <div className="space-y-3">
             <SectionTitle>
@@ -693,68 +750,97 @@ export default function Goals() {
               <div className="space-y-3">
                 {filteredItems.map((item) => (
                   <AppCard key={item.id} className="p-3">
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${
-                          item.type === "event"
-                            ? "bg-[#eaf3ff] text-[#77aef7]"
-                            : "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {item.type === "event" ? (
-                          <Calendar className="h-4 w-4" />
-                        ) : (
-                          <Target className="h-4 w-4" />
-                        )}
-                      </div>
+  <button
+    type="button"
+    onClick={() =>
+  setOpenActionsId((current) => (current === item.id ? null : item.id))
+  }
+    className="block w-full text-left"
+  >
+    <div className="flex items-start gap-3">
+      <div
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${
+          item.type === "event"
+            ? "bg-[#eaf3ff] text-[#77aef7]"
+            : "bg-slate-100 text-slate-700"
+        }`}
+      >
+        {item.type === "event" ? (
+          <Calendar className="h-4 w-4" />
+        ) : (
+          <Target className="h-4 w-4" />
+        )}
+      </div>
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="text-sm font-semibold text-slate-800">
-                              {item.title}
-                            </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-slate-800">
+              {item.title}
+            </div>
 
-                            {item.description ? (
-                              <p className="mt-1 text-xs text-slate-500">
-                                {item.description}
-                              </p>
-                            ) : null}
+            {item.description ? (
+              <p className="mt-1 text-xs text-slate-500">
+                {item.description}
+              </p>
+            ) : null}
 
-                            {item.type === "goal" && item.targetDate ? (
-                              <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] text-slate-600">
-                                <Calendar className="h-3 w-3" />
-                                {formatDate(item.targetDate)}
-                              </div>
-                            ) : null}
-                          </div>
+            {item.targetDate ? (
+              <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] text-slate-600">
+                <Calendar className="h-3 w-3" />
+                {formatDate(item.targetDate)}
+              </div>
+            ) : null}
+          </div>
 
-                          <StatusBadge item={item} />
-                        </div>
+          <StatusBadge item={item} />
+        </div>
+      </div>
+    </div>
+  </button>
 
-                        {item.type === "event" &&
-                        item.invitationStatus === "pending" ? (
-                          <div className="mt-3 flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => acceptInvitation(item.id)}
-                              className="inline-flex h-8 items-center justify-center rounded-[9px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] px-3 text-xs font-medium text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
-                            >
-                              Accept
-                            </button>
+  {openActionsId === item.id ? (
+  <div className="mt-3 grid grid-cols-2 gap-2">
+    <button
+      type="button"
+      onClick={() => openEditModal(item)}
+      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[10px] bg-slate-100 px-3 text-xs font-medium text-slate-700 hover:bg-slate-200"
+    >
+      <Pencil className="h-3.5 w-3.5" />
+      Edit
+    </button>
 
-                            <button
-                              type="button"
-                              onClick={() => declineInvitation(item.id)}
-                              className="inline-flex h-8 items-center justify-center rounded-[9px] border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
-                            >
-                              Decline
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </AppCard>
+    <button
+      type="button"
+      onClick={() => handleDeleteItem(item)}
+      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[10px] bg-red-50 px-3 text-xs font-medium text-red-500 hover:bg-red-100"
+    >
+      <Trash2 className="h-3.5 w-3.5" />
+      Delete
+    </button>
+  </div>
+) : null}
+
+{item.type === "event" && item.invitationStatus === "pending" ? (
+    <div className="mt-3 flex gap-2">
+      <button
+        type="button"
+        onClick={() => acceptInvitation(item.id)}
+        className="inline-flex h-8 items-center justify-center rounded-[9px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] px-3 text-xs font-medium text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
+      >
+        Accept
+      </button>
+
+      <button
+        type="button"
+        onClick={() => declineInvitation(item.id)}
+        className="inline-flex h-8 items-center justify-center rounded-[9px] border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
+      >
+        Decline
+      </button>
+    </div>
+  ) : null}
+</AppCard>
                 ))}
               </div>
             ) : (
@@ -768,11 +854,7 @@ export default function Goals() {
         </div>
       </AppShell>
 
-      <Modal
-        open={showGoalModal}
-        onClose={() => setShowGoalModal(false)}
-        title="Add a Goal"
-      >
+      <Modal open={showGoalModal} onClose={() => setShowGoalModal(false)} title="Add a Goal">
         <AppCard className="p-4">
           <label className="mb-2 block text-sm font-medium text-slate-700">
             Goal Title
@@ -816,12 +898,7 @@ export default function Goals() {
         </Button>
       </Modal>
 
-
-      <Modal
-        open={showEventModal}
-        onClose={() => setShowEventModal(false)}
-        title="Event Invitation"
-      >
+      <Modal open={showEventModal} onClose={() => setShowEventModal(false)} title="Event Invitation">
         <AppCard className="p-4">
           <label className="mb-2 block text-sm font-medium text-slate-700">
             Event Title
@@ -832,6 +909,16 @@ export default function Goals() {
             onChange={(e) => setEventTitle(e.target.value)}
             placeholder="Enter event title..."
             className="mb-4 h-10 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#8ec5ff]"
+          />
+
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            Event Date
+          </label>
+          <input
+            type="date"
+            value={eventDate}
+            onChange={(e) => setEventDate(e.target.value)}
+            className="mb-4 h-10 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#8ec5ff]"
           />
 
           <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -856,6 +943,74 @@ export default function Goals() {
         >
           <Send className="h-4 w-4" />
           <span>Create Invitation</span>
+        </Button>
+      </Modal>
+
+      <Modal
+        open={!!editingItem}
+        onClose={() => setEditingItem(null)}
+        title={editingItem?.type === "event" ? "Edit Event" : "Edit Goal"}
+      >
+        <AppCard className="p-4">
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            Title
+          </label>
+          <input
+            type="text"
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            className="mb-4 h-10 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#8ec5ff]"
+          />
+
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            Description
+          </label>
+          <textarea
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
+            className="mb-4 min-h-[90px] w-full rounded-[10px] border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 outline-none focus:border-[#8ec5ff]"
+          />
+
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            Date
+          </label>
+          <input
+            type="date"
+            value={editDate || ""}
+            onChange={(e) => setEditDate(e.target.value)}
+            className="mb-4 h-10 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#8ec5ff]"
+          />
+
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            Status
+          </label>
+          <select
+            value={editStatus}
+            onChange={(e) => setEditStatus(e.target.value)}
+            className="h-10 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#8ec5ff]"
+          >
+            {editingItem?.type === "event" ? (
+              <>
+                <option value="pending">Pending</option>
+                <option value="in_progress">Active</option>
+                <option value="declined">Declined</option>
+              </>
+            ) : (
+              <>
+                <option value="planned">Planned</option>
+                <option value="in_progress">Active</option>
+                <option value="completed">Done</option>
+              </>
+            )}
+          </select>
+        </AppCard>
+
+        <Button
+          type="button"
+          onClick={handleUpdateItem}
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)]"
+        >
+          Save Changes
         </Button>
       </Modal>
 
