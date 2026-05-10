@@ -22,13 +22,24 @@ import {
   Target,
   MessageCircle,
   Fingerprint,
+  Crown,
+  Check,
+  Shield,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import {
+  FEATURE_KEYS,
+  checkDailyLimit,
+  consumeDailyLimit,
+  awardCouplePoints,
+} from "@/lib/monetization";
 
 const STORAGE_BUCKET = "dating-wall-media";
+const FREE_DAILY_POST_LIMIT = 2;
 
 const navItems = [
   { label: "Home", icon: HomeIcon, page: "Home" },
@@ -64,6 +75,22 @@ function getNextFiveHourRefreshMs() {
   const windowMs = 5 * 60 * 60 * 1000;
   const nextBoundary = Math.ceil(now / windowMs) * windowMs;
   return Math.max(nextBoundary - now, 1000);
+}
+
+function isPremiumUser(user) {
+  if (!user) return false;
+
+  if (user.account_tier === "PREMIUM") {
+    if (!user.subscription_expires) return false;
+
+    const expiryDate = new Date(user.subscription_expires);
+
+    if (Number.isNaN(expiryDate.getTime())) return false;
+
+    return expiryDate.getTime() > Date.now();
+  }
+
+  return false;
 }
 
 async function getCurrentDatingUser() {
@@ -392,7 +419,10 @@ export default function Dating() {
   const [showAdvice, setShowAdvice] = React.useState(true);
   const [openMenuId, setOpenMenuId] = React.useState(null);
   const [showAddModal, setShowAddModal] = React.useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [processingPlan, setProcessingPlan] = React.useState(null);
+  const [limitInfo, setLimitInfo] = React.useState(null);
   const [newPost, setNewPost] = React.useState({
     caption: "",
     location: "",
@@ -402,6 +432,8 @@ export default function Dating() {
   const [myContentState, setMyContentState] = React.useState([]);
   const [publicContentState, setPublicContentState] = React.useState([]);
   const [allReactionsState, setAllReactionsState] = React.useState([]);
+
+  const premiumActive = isPremiumUser(user);
 
   React.useEffect(() => {
     let mounted = true;
@@ -420,6 +452,99 @@ export default function Dating() {
       mounted = false;
     };
   }, []);
+
+  React.useEffect(() => {
+    if (!user?.email || premiumActive) return;
+
+    let mounted = true;
+
+    (async () => {
+      try {
+        const result = await checkDailyLimit(FEATURE_KEYS.DATING_WALL_POST);
+        if (mounted) setLimitInfo(result);
+      } catch (error) {
+        console.error("Daily limit check failed:", error);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user?.email, premiumActive]);
+
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get("status");
+    const token = urlParams.get("token");
+    const plan = urlParams.get("plan");
+
+    if (status === "success" && token && plan) {
+      capturePayment(token, plan);
+    } else if (status === "cancelled") {
+      toast.error("Payment was cancelled.");
+      window.history.replaceState({}, "", createPageUrl("Dating"));
+    }
+  }, []);
+
+  const handlePayPalPayment = async (plan) => {
+    setProcessingPlan(plan);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("createPayPalPayment", {
+        body: {
+          plan,
+          returnPage: "Dating",
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data?.approvalUrl) {
+        window.location.href = data.approvalUrl;
+        return;
+      }
+
+      toast.error("Payment initialization failed. Please try again.");
+      setProcessingPlan(null);
+    } catch (error) {
+      console.error("Payment error:", error);
+      toast.error(error?.message || "Payment failed. Please try again.");
+      setProcessingPlan(null);
+    }
+  };
+
+  const capturePayment = async (token, plan) => {
+    setProcessingPlan(plan);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("capturePayPalPayment", {
+        body: {
+          orderId: token,
+          plan,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success("Subscription activated successfully");
+
+        const refreshedUser = await getCurrentDatingUser();
+        setUser(refreshedUser);
+
+        window.history.replaceState({}, "", createPageUrl("Dating"));
+        setShowSubscriptionModal(false);
+        return;
+      }
+
+      toast.error("Payment capture failed. Please contact support.");
+    } catch (error) {
+      console.error("Capture error:", error);
+      toast.error(error?.message || "Payment processing failed.");
+    } finally {
+      setProcessingPlan(null);
+    }
+  };
 
   React.useEffect(() => {
     const channel = supabase
@@ -602,7 +727,9 @@ export default function Dating() {
     if (!validFiles.length) return;
 
     setIsUploading(true);
-    setUploadProgressText(`Uploading ${validFiles.length} file${validFiles.length > 1 ? "s" : ""}...`);
+    setUploadProgressText(
+      `Uploading ${validFiles.length} file${validFiles.length > 1 ? "s" : ""}...`
+    );
 
     try {
       const uploaded = await Promise.all(validFiles.map((file) => uploadDatingFile(file)));
@@ -635,78 +762,110 @@ export default function Dating() {
   };
 
   const handleSavePost = async () => {
-  if (!user?.email) {
-    toast.error("User not loaded yet");
-    return;
-  }
-
-  const cleanName = user?.full_name?.trim();
-
-  if (!cleanName || cleanName === user.email?.split("@")[0]) {
-    toast.error("Complete your profile name before posting");
-    return;
-  }
-
-  if (!newPost.caption.trim() && newPost.media.length === 0) {
-    toast.error("Add media or a caption before saving");
-    return;
-  }
-
-  if (isSubmitting || isUploading) return;
-
-  setIsSubmitting(true);
-
-  try {
-    const result = await wallApi.content.createMany({
-      owner_email: user.email,
-      owner_name: cleanName,
-      caption: newPost.caption.trim(),
-      location: newPost.location.trim(),
-      media: newPost.media,
-    });
-
-    if (!result?.success || !Array.isArray(result.items)) {
-      toast.error("Upload failed");
+    if (!user?.email) {
+      toast.error("User not loaded yet");
       return;
     }
 
-    const createdItems = result.items;
-    setPublicContentState((current) => [...createdItems, ...current]);
+    const cleanName = user?.full_name?.trim();
 
-    if (showMyContent) {
-      setMyContentState((current) => [...createdItems, ...current]);
+    if (!cleanName || cleanName === user.email?.split("@")[0]) {
+      toast.error("Complete your profile name before posting");
+      return;
     }
 
-    toast.success("Post uploaded successfully");
-    queryClient.invalidateQueries({ queryKey: ["publicDateContent"] });
-    queryClient.invalidateQueries({ queryKey: ["myDateContent"] });
+    if (!newPost.caption.trim() && newPost.media.length === 0) {
+      toast.error("Add media or a caption before saving");
+      return;
+    }
 
-    setShowAddModal(false);
-    setNewPost({
-      caption: "",
-      location: "",
-      media: [],
-    });
-  } catch (error) {
-    toast.error(error?.message || "Upload failed");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+    if (isSubmitting || isUploading) return;
+
+    setIsSubmitting(true);
+
+    try {
+      if (!premiumActive) {
+        const limitResult = await consumeDailyLimit(FEATURE_KEYS.DATING_WALL_POST);
+
+        if (!limitResult?.allowed) {
+          setShowSubscriptionModal(true);
+          toast.error(`Daily free limit reached. Free users get ${FREE_DAILY_POST_LIMIT} Dating posts per day.`);
+          return;
+        }
+
+        setLimitInfo(limitResult);
+      }
+
+      const result = await wallApi.content.createMany({
+        owner_email: user.email,
+        owner_name: cleanName,
+        caption: newPost.caption.trim(),
+        location: newPost.location.trim(),
+        media: newPost.media,
+      });
+
+      if (!result?.success || !Array.isArray(result.items)) {
+        toast.error("Upload failed");
+        return;
+      }
+
+      const createdItems = result.items;
+      setPublicContentState((current) => [...createdItems, ...current]);
+
+      if (showMyContent) {
+        setMyContentState((current) => [...createdItems, ...current]);
+      }
+
+      try {
+        await awardCouplePoints?.("DATING_WALL_POST", 5);
+      } catch {
+        // Points must never block posting.
+      }
+
+      toast.success("Post uploaded successfully");
+      queryClient.invalidateQueries({ queryKey: ["publicDateContent"] });
+      queryClient.invalidateQueries({ queryKey: ["myDateContent"] });
+
+      setShowAddModal(false);
+      setNewPost({
+        caption: "",
+        location: "",
+        media: [],
+      });
+    } catch (error) {
+      console.error("Upload failed:", error);
+      toast.error(error?.message || "Upload failed");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <>
       <div className="min-h-screen w-screen overflow-x-hidden bg-[#f3edf1] px-0 py-0 pb-[74px]">
         <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-[28px] border border-[#e8e2e7] bg-[#f7f3f6] shadow-[0_12px_40px_rgba(15,23,42,0.10)]">
           <div className="bg-gradient-to-r from-[#5e9cff] via-[#2f6df0] to-[#6aa7ff] px-5 pb-8 pt-7">
-            <div className="min-w-0">
-              <h1 className="truncate text-[22px] font-semibold text-white">
-                Dating
-              </h1>
-            </div>
-          </div>
+  <div className="flex items-center justify-between gap-3">
+    <div className="min-w-0">
+      <h1 className="truncate text-[22px] font-semibold text-white">
+        Dating
+      </h1>
+    </div>
+
+    {!premiumActive && (
+      <Button
+        type="button"
+        onClick={() => setShowSubscriptionModal(true)}
+        className="h-10 rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600 px-5 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(168,85,247,0.28)] hover:from-purple-700 hover:to-pink-700"
+      >
+        Upgrade
+      </Button>
+    )}
+  </div>
+</div>
 
           <div className="-mt-7 space-y-4 px-4 pb-6 pt-1">
+
             <AnimatePresence>
               {showAdvice && dailyAdvice && (
                 <motion.div
@@ -1043,7 +1202,9 @@ export default function Dating() {
               )}
 
               <span className="mt-2 text-sm font-semibold text-slate-700">
-                {isUploading ? uploadProgressText || "Uploading media..." : "Add Photos & Videos"}
+                {isUploading
+                  ? uploadProgressText || "Uploading media..."
+                  : "Add Photos & Videos"}
               </span>
 
               <span className="mt-1 text-xs text-slate-500">
@@ -1081,6 +1242,103 @@ export default function Dating() {
             </>
           )}
         </Button>
+      </Modal>
+
+      <Modal
+        open={showSubscriptionModal}
+        onClose={() => {
+          if (processingPlan) return;
+          setShowSubscriptionModal(false);
+        }}
+        title="Date-Locked Plus"
+      >
+        <Card className="rounded-[18px] border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 shadow-[0_8px_22px_rgba(15,23,42,0.08)]">
+          <CardContent className="p-5">
+            <div className="mb-5 flex items-start gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600">
+                <Crown className="h-5 w-5 text-white" />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-black text-slate-900">
+                  Unlock unlimited Dating posts
+                </h3>
+                <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                  Free users can post {FREE_DAILY_POST_LIMIT} times per day.
+                  Upgrade to remove the daily public wall limit.
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-5 space-y-3">
+              {[
+                "Unlimited public wall posts",
+                "Premium couple profile",
+                "Date-Locked Plus access",
+                "One subscription per couple",
+              ].map((feature) => (
+                <div key={feature} className="flex items-start gap-2">
+                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-purple-600" />
+                  <span className="text-sm font-medium text-slate-700">
+                    {feature}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mb-4 rounded-[14px] bg-white/75 p-4">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-900">R39</span>
+                <span className="text-sm font-semibold text-slate-500">/month</span>
+
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                or R397.80/year • Save 15%
+              </p>
+            </div>
+          </div> 
+
+            <div className="space-y-2">
+              <Button
+                type="button"
+                onClick={() => handlePayPalPayment("monthly")}
+                disabled={!!processingPlan}
+                className="h-11 w-full rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
+              >
+                {processingPlan === "monthly" ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  "Subscribe Monthly - R39"
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                onClick={() => handlePayPalPayment("yearly")}
+                disabled={!!processingPlan}
+                variant="outline"
+                className="h-11 w-full rounded-[14px] border-purple-200 bg-white"
+              >
+                {processingPlan === "yearly" ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  "Subscribe Yearly - R397.80"
+                )}
+              </Button>
+
+              <p className="flex items-center justify-center gap-1 text-xs text-slate-500">
+                <Shield className="h-3 w-3" />
+                Secured by PayPal
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
       </Modal>
 
       <BottomNav />

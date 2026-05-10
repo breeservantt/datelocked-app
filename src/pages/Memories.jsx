@@ -19,14 +19,32 @@ import {
   Target,
   MessageCircle,
   Fingerprint,
+  Crown,
+  Check,
+  Shield,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { supabase } from "@/lib/supabase";
+import {
+  FEATURE_KEYS,
+  checkDailyLimit,
+  consumeDailyLimit,
+  awardCouplePoints,
+} from "@/lib/monetization";
+import { toast } from "sonner";
 import confetti from "canvas-confetti";
 
 const MEMORY_BUCKET = "memories-media";
+const FREE_DAILY_MEMORY_LIMIT = 2;
+
+/*
+  EXACT MATCH TO DATING LIMIT SYSTEM:
+  This intentionally uses DATING_WALL_POST because that is the known working limit key.
+  If your profile already exceeded Dating upload/post limit, Memories will also block now.
+*/
+const MEMORY_LIMIT_KEY = FEATURE_KEYS.DATING_WALL_POST;
 
 const categories = [
   { value: "date", label: "Date Night", icon: Heart },
@@ -57,6 +75,53 @@ const emptyMemory = {
   videos: [],
 };
 
+function isPremiumUser(user) {
+  if (!user) return false;
+
+  if (user.account_tier === "PREMIUM") {
+    if (!user.subscription_expires) return false;
+
+    const expiryDate = new Date(user.subscription_expires);
+
+    if (Number.isNaN(expiryDate.getTime())) return false;
+
+    return expiryDate.getTime() > Date.now();
+  }
+
+  return false;
+}
+
+async function getCurrentProfileUser() {
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError) throw authError;
+  if (!authUser) return null;
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", authUser.id)
+    .maybeSingle();
+
+  if (profileError) throw profileError;
+
+  return {
+    id: authUser.id,
+    email: authUser.email,
+    full_name:
+      profile?.full_name ||
+      authUser.user_metadata?.full_name ||
+      authUser.user_metadata?.name ||
+      authUser.email?.split("@")[0] ||
+      "User",
+    ...(profile || {}),
+    couple_profile_id: profile?.couple_profile_id || null,
+  };
+}
+
 function AppShell({ children }) {
   return (
     <div className="min-h-screen bg-[#f7f1f4] px-2 py-2 pb-24">
@@ -71,31 +136,25 @@ function AppHeader({ title, onAddMemory, canEdit = false }) {
   return (
     <div className="border-b border-slate-200 bg-[#f8f6f7] px-4 py-4">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <Link to={createPageUrl("Home")}>
+        <div className="min-w-0 flex-1">
+  <h1 className="truncate text-[24px] font-semibold tracking-[-0.02em] text-slate-800">
+    {title}
+  </h1>
+</div>
+
+        <div className="flex shrink-0 items-center gap-2">
+
+          {canEdit ? (
             <button
               type="button"
-              className="rounded-[10px] p-1.5 transition hover:bg-slate-100"
+              onClick={onAddMemory}
+              className="inline-flex h-[40px] shrink-0 items-center justify-center gap-2 rounded-[12px] bg-gradient-to-r from-[#ff4d6d] to-[#e84393] px-4 text-[12px] font-semibold text-white shadow-[0_5px_12px_rgba(255,77,109,0.20)] transition hover:opacity-95"
             >
-              <ArrowLeft className="h-5 w-5 text-slate-700" />
+              <Plus className="h-4 w-4" />
+              <span>Add Memories</span>
             </button>
-          </Link>
-
-          <h1 className="truncate text-[1.6rem] font-semibold tracking-[-0.02em] text-slate-800">
-            {title}
-          </h1>
+          ) : null}
         </div>
-
-        {canEdit ? (
-          <button
-            type="button"
-            onClick={onAddMemory}
-            className="inline-flex h-[40px] shrink-0 items-center justify-center gap-1.5 rounded-[11px] bg-gradient-to-r from-[#ff4d6d] to-[#e84393] px-3.5 text-[11px] font-semibold text-white shadow-[0_5px_12px_rgba(255,77,109,0.20)] transition hover:opacity-95"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Memory</span>
-          </button>
-        ) : null}
       </div>
     </div>
   );
@@ -224,10 +283,6 @@ function formatDate(dateString) {
   });
 }
 
-function formatCategoryLabel(value) {
-  return categories.find((c) => c.value === value)?.label || value;
-}
-
 function MemoryTile({ memory, onClick }) {
   const previewImage = memory.photos?.[0] || null;
   const previewVideo = memory.videos?.[0] || null;
@@ -294,40 +349,18 @@ function MemoryTile({ memory, onClick }) {
   );
 }
 
-async function getCurrentProfileUser() {
-  const {
-    data: { user: authUser },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError) throw authError;
-  if (!authUser) return null;
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", authUser.id)
-    .maybeSingle();
-
-  if (profileError) throw profileError;
-
-  return {
-    id: authUser.id,
-    email: authUser.email,
-    ...(profile || {}),
-    couple_profile_id: profile?.couple_profile_id || null,
-  };
-}
-
 export default function Memories() {
   const queryClient = useQueryClient();
 
   const [showAddModal, setShowAddModal] = React.useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = React.useState(false);
   const [selectedMemory, setSelectedMemory] = React.useState(null);
   const [filter, setFilter] = React.useState("all");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isUploadingMedia, setIsUploadingMedia] = React.useState(false);
   const [uploadingCount, setUploadingCount] = React.useState(0);
+  const [processingPlan, setProcessingPlan] = React.useState(null);
+  const [limitInfo, setLimitInfo] = React.useState(null);
   const [newMemory, setNewMemory] = React.useState(emptyMemory);
   const [locationSuggestions, setLocationSuggestions] = React.useState([]);
   const [isSearchingLocation, setIsSearchingLocation] = React.useState(false);
@@ -340,32 +373,113 @@ export default function Memories() {
     refetch: refetchUser,
   } = useQuery({
     queryKey: ["user"],
-    queryFn: async () => {
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser();
-
-      if (authError) throw authError;
-      if (!authUser) return null;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", authUser.id)
-        .maybeSingle();
-
-      return {
-        id: authUser.id,
-        email: authUser.email,
-        ...(profile || {}),
-      };
-    },
+    queryFn: getCurrentProfileUser,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
+  const premiumActive = isPremiumUser(user);
   const canEdit = !!user?.id;
+
+  React.useEffect(() => {
+    if (!user?.email || premiumActive) return;
+
+    let mounted = true;
+
+    (async () => {
+      try {
+        const result = await checkDailyLimit(MEMORY_LIMIT_KEY);
+        if (mounted) setLimitInfo(result);
+      } catch (error) {
+        console.error("Memory daily limit check failed:", error);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user?.email, premiumActive]);
+
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get("status");
+    const token = urlParams.get("token");
+    const plan = urlParams.get("plan");
+
+    if (status === "success" && token && plan) {
+      capturePayment(token, plan);
+    } else if (status === "cancelled") {
+      toast.error("Payment was cancelled.");
+      window.history.replaceState({}, "", createPageUrl("Memories"));
+    }
+  }, []);
+
+  const handlePayPalPayment = async (plan) => {
+    setProcessingPlan(plan);
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "createPayPalPayment",
+        {
+          body: {
+            plan,
+            returnPage: "Memories",
+          },
+        }
+      );
+
+      if (error) throw error;
+
+      if (data?.success && data?.approvalUrl) {
+        window.location.href = data.approvalUrl;
+        return;
+      }
+
+      toast.error("Payment initialization failed. Please try again.");
+      setProcessingPlan(null);
+    } catch (error) {
+      console.error("Payment error:", error);
+      toast.error(error?.message || "Payment failed. Please try again.");
+      setProcessingPlan(null);
+    }
+  };
+
+  const capturePayment = async (token, plan) => {
+    setProcessingPlan(plan);
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "capturePayPalPayment",
+        {
+          body: {
+            orderId: token,
+            plan,
+          },
+        }
+      );
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success("Subscription activated successfully");
+
+        const refreshedUser = await getCurrentProfileUser();
+        queryClient.setQueryData(["user"], refreshedUser);
+        await queryClient.invalidateQueries({ queryKey: ["user"] });
+
+        window.history.replaceState({}, "", createPageUrl("Memories"));
+        setShowSubscriptionModal(false);
+        return;
+      }
+
+      toast.error("Payment capture failed. Please contact support.");
+    } catch (error) {
+      console.error("Capture error:", error);
+      toast.error(error?.message || "Payment processing failed.");
+    } finally {
+      setProcessingPlan(null);
+    }
+  };
 
   const {
     data: memories = [],
@@ -453,7 +567,7 @@ export default function Memories() {
 
     onError: (e) => {
       console.error("Error creating memory:", e);
-      alert(e?.message || "Failed to save memory. Please try again.");
+      toast.error(e?.message || "Failed to save memory. Please try again.");
     },
 
     onSettled: () => setIsSubmitting(false),
@@ -478,9 +592,35 @@ export default function Memories() {
 
     onError: (e) => {
       console.error("Error deleting memory:", e);
-      alert(e?.message || "Failed to delete memory. Please try again.");
+      toast.error(e?.message || "Failed to delete memory. Please try again.");
     },
   });
+
+  const handleOpenAddMemory = async () => {
+    if (!user?.id) {
+      toast.error("Please log in first.");
+      return;
+    }
+
+    if (!premiumActive) {
+      try {
+        const limitResult = await checkDailyLimit(MEMORY_LIMIT_KEY);
+        setLimitInfo(limitResult);
+
+        if (!limitResult?.allowed) {
+          setShowSubscriptionModal(true);
+          toast.error(
+            `Daily free limit reached. Free users get ${FREE_DAILY_MEMORY_LIMIT} memory uploads per day.`
+          );
+          return;
+        }
+      } catch (error) {
+        console.error("Daily limit check failed:", error);
+      }
+    }
+
+    setShowAddModal(true);
+  };
 
   const handleDeleteMemory = (memoryId) => {
     if (!memoryId) return;
@@ -489,139 +629,148 @@ export default function Memories() {
   };
 
   const compressImage = async (file) => {
-  if (!file.type.startsWith("image/")) return file;
+    if (!file.type.startsWith("image/")) return file;
 
-  const imageBitmap = await createImageBitmap(file);
+    const imageBitmap = await createImageBitmap(file);
+    const maxWidth = 1600;
+    const scale = Math.min(1, maxWidth / imageBitmap.width);
 
-  const maxWidth = 1600;
-  const scale = Math.min(1, maxWidth / imageBitmap.width);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(imageBitmap.width * scale);
+    canvas.height = Math.round(imageBitmap.height * scale);
 
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(imageBitmap.width * scale);
-  canvas.height = Math.round(imageBitmap.height * scale);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
 
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
-
-  const blob = await new Promise((resolve) => {
-    canvas.toBlob(resolve, "image/jpeg", 0.78);
-  });
-
-  if (!blob) return file;
-
-  return new File(
-    [blob],
-    file.name.replace(/\.[^/.]+$/, ".jpg"),
-    { type: "image/jpeg" }
-  );
-};
-
-const uploadFile = React.useCallback(async (file, folder) => {
-  if (!file) throw new Error("No file selected");
-
-  const ext = file.name.split(".").pop()?.toLowerCase() || "file";
-  const cleanName = file.name
-    .replace(/\.[^/.]+$/, "")
-    .replace(/[^a-zA-Z0-9-_]/g, "-")
-    .slice(0, 40);
-
-  const fileName = `${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2)}-${cleanName}.${ext}`;
-
-  const filePath = `${folder}/${fileName}`;
-
-  const { data, error } = await supabase.storage
-    .from(MEMORY_BUCKET)
-    .upload(filePath, file, {
-      cacheControl: "31536000",
-      upsert: false,
-      contentType: file.type || undefined,
+    const blob = await new Promise((resolve) => {
+      canvas.toBlob(resolve, "image/jpeg", 0.78);
     });
 
-  if (error) throw error;
+    if (!blob) return file;
 
-  const { data: publicUrlData } = supabase.storage
-    .from(MEMORY_BUCKET)
-    .getPublicUrl(data.path);
+    return new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+      type: "image/jpeg",
+    });
+  };
 
-  if (!publicUrlData?.publicUrl) {
-    throw new Error("Upload succeeded but no public URL was returned");
-  }
+  const uploadFile = React.useCallback(async (file, folder) => {
+    if (!file) throw new Error("No file selected");
 
-  return publicUrlData.publicUrl;
-}, []);
+    const ext = file.name.split(".").pop()?.toLowerCase() || "file";
+    const cleanName = file.name
+      .replace(/\.[^/.]+$/, "")
+      .replace(/[^a-zA-Z0-9-_]/g, "-")
+      .slice(0, 40);
 
-const handleMediaUpload = async (e) => {
-  const files = Array.from(e.target.files || []);
-  e.target.value = "";
+    const fileName = `${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}-${cleanName}.${ext}`;
 
-  if (!files.length) return;
+    const filePath = `${folder}/${fileName}`;
 
-  const validFiles = files.filter((file) => {
-    const isImage = file.type.startsWith("image/");
-    const isVideo = file.type.startsWith("video/");
-
-    if (!isImage && !isVideo) {
-      alert(`${file.name} is not supported. Only photos and videos are allowed.`);
-      return false;
-    }
-
-    if (isVideo && file.size > 25 * 1024 * 1024) {
-      alert(`${file.name} is too large. Videos must be less than 25MB for fast upload.`);
-      return false;
-    }
-
-    return true;
-  });
-
-  if (!validFiles.length) return;
-
-  setIsUploadingMedia(true);
-  setUploadingCount(validFiles.length);
-
-  try {
-    const uploaded = [];
-
-    for (const originalFile of validFiles) {
-      const isImage = originalFile.type.startsWith("image/");
-      const preparedFile = isImage
-        ? await compressImage(originalFile)
-        : originalFile;
-
-      const folder = isImage ? "memories/photos" : "memories/videos";
-      const url = await uploadFile(preparedFile, folder);
-
-      uploaded.push({
-        type: isImage ? "photo" : "video",
-        url,
+    const { data, error } = await supabase.storage
+      .from(MEMORY_BUCKET)
+      .upload(filePath, file, {
+        cacheControl: "31536000",
+        upsert: false,
+        contentType: file.type || undefined,
       });
+
+    if (error) throw error;
+
+    const { data: publicUrlData } = supabase.storage
+      .from(MEMORY_BUCKET)
+      .getPublicUrl(data.path);
+
+    if (!publicUrlData?.publicUrl) {
+      throw new Error("Upload succeeded but no public URL was returned");
     }
 
-    setNewMemory((prev) => ({
-      ...prev,
-      photos: [
-        ...(prev.photos || []),
-        ...uploaded
-          .filter((item) => item.type === "photo")
-          .map((item) => item.url),
-      ],
-      videos: [
-        ...(prev.videos || []),
-        ...uploaded
-          .filter((item) => item.type === "video")
-          .map((item) => item.url),
-      ],
-    }));
-  } catch (err) {
-    console.error("Media upload failed:", err);
-    alert(err?.message || "Failed to upload media. Please try again.");
-  } finally {
-    setIsUploadingMedia(false);
-    setUploadingCount(0);
-  }
-};
+    return publicUrlData.publicUrl;
+  }, []);
 
+  const handleMediaUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+
+    if (!files.length) return;
+
+    if (!user?.id) {
+      toast.error("Please log in first.");
+      return;
+    }
+
+    if (!premiumActive) {
+      const limitResult = await checkDailyLimit(MEMORY_LIMIT_KEY);
+      setLimitInfo(limitResult);
+
+      if (!limitResult?.allowed) {
+        setShowSubscriptionModal(true);
+        toast.error(
+          `Daily free limit reached. Free users get ${FREE_DAILY_MEMORY_LIMIT} memory uploads per day.`
+        );
+        return;
+      }
+    }
+
+    const validFiles = files.filter((file) => {
+      const isImage = file.type.startsWith("image/");
+      const isVideo = file.type.startsWith("video/");
+
+      if (!isImage && !isVideo) {
+        toast.error(`${file.name} is not supported. Only photos and videos are allowed.`);
+        return false;
+      }
+
+      if (isVideo && file.size > 25 * 1024 * 1024) {
+        toast.error(`${file.name} is too large. Videos must be less than 25MB.`);
+        return false;
+      }
+
+      return true;
+    });
+
+    if (!validFiles.length) return;
+
+    setIsUploadingMedia(true);
+    setUploadingCount(validFiles.length);
+
+    try {
+      const uploaded = [];
+
+      for (const originalFile of validFiles) {
+        const isImage = originalFile.type.startsWith("image/");
+        const preparedFile = isImage ? await compressImage(originalFile) : originalFile;
+        const folder = isImage ? "memories/photos" : "memories/videos";
+        const url = await uploadFile(preparedFile, folder);
+
+        uploaded.push({
+          type: isImage ? "photo" : "video",
+          url,
+        });
+      }
+
+      setNewMemory((prev) => ({
+        ...prev,
+        photos: [
+          ...(prev.photos || []),
+          ...uploaded.filter((item) => item.type === "photo").map((item) => item.url),
+        ],
+        videos: [
+          ...(prev.videos || []),
+          ...uploaded.filter((item) => item.type === "video").map((item) => item.url),
+        ],
+      }));
+
+      toast.success("Media ready");
+    } catch (err) {
+      console.error("Media upload failed:", err);
+      toast.error(err?.message || "Failed to upload media. Please try again.");
+    } finally {
+      setIsUploadingMedia(false);
+      setUploadingCount(0);
+    }
+  };
 
   const removePhoto = (index) => {
     setNewMemory((prev) => ({
@@ -645,6 +794,7 @@ const handleMediaUpload = async (e) => {
     }
 
     setIsSearchingLocation(true);
+
     try {
       setLocationSuggestions([q]);
     } catch (err) {
@@ -704,22 +854,22 @@ const handleMediaUpload = async (e) => {
 
   const handleSubmit = async () => {
     if (!user?.id) {
-      alert("Please log in first.");
+      toast.error("Please log in first.");
       return;
     }
 
     if (!newMemory.title?.trim()) {
-      alert("Please enter a memory title.");
+      toast.error("Please enter a memory title.");
       return;
     }
 
     if (!newMemory.photos.length && !newMemory.videos.length) {
-      alert("Please upload at least one photo or video.");
+      toast.error("Please upload at least one photo or video.");
       return;
     }
 
     if (isUploadingMedia) {
-      alert("Please wait for media upload to finish.");
+      toast.error("Please wait for media upload to finish.");
       return;
     }
 
@@ -728,12 +878,34 @@ const handleMediaUpload = async (e) => {
     setIsSubmitting(true);
 
     try {
+      if (!premiumActive) {
+        const limitResult = await consumeDailyLimit(MEMORY_LIMIT_KEY);
+
+        if (!limitResult?.allowed) {
+          setShowSubscriptionModal(true);
+          toast.error(
+            `Daily free limit reached. Free users get ${FREE_DAILY_MEMORY_LIMIT} memory uploads per day.`
+          );
+          return;
+        }
+
+        setLimitInfo(limitResult);
+      }
+
       await createMemoryMutation.mutateAsync({
         ...newMemory,
         title: newMemory.title.trim(),
       });
+
+      try {
+        await awardCouplePoints?.("MEMORY_UPLOAD", 5);
+      } catch {
+        // Points must never block saving.
+      }
     } catch (err) {
       console.error("Save memory failed:", err);
+      toast.error(err?.message || "Failed to save memory.");
+      setIsSubmitting(false);
     }
   };
 
@@ -755,7 +927,7 @@ const handleMediaUpload = async (e) => {
     );
   }
 
-  if (userError) {
+  if (userError || memoriesError) {
     return (
       <>
         <AppShell>
@@ -764,43 +936,20 @@ const handleMediaUpload = async (e) => {
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
                 <X className="h-8 w-8 text-red-500" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-800">
-                Something went wrong
-              </h3>
-              <p className="mt-2 text-sm text-slate-500">
-                Failed to load your profile.
-              </p>
-              <Button
-                onClick={() => refetchUser()}
-                className="mt-5 h-11 w-full rounded-[14px] bg-[#ff4d6d] text-white hover:bg-[#f03d5f]"
-              >
-                Try Again
-              </Button>
-            </AppCard>
-          </div>
-        </AppShell>
-        <BottomNav />
-      </>
-    );
-  }
 
-  if (memoriesError) {
-    return (
-      <>
-        <AppShell>
-          <div className="px-4 py-4">
-            <AppCard className="px-4 py-8 text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-                <X className="h-8 w-8 text-red-500" />
-              </div>
               <h3 className="text-lg font-semibold text-slate-800">
                 Something went wrong
               </h3>
+
               <p className="mt-2 text-sm text-slate-500">
                 Failed to load memories.
               </p>
+
               <Button
-                onClick={() => refetchMemories()}
+                onClick={() => {
+                  refetchUser();
+                  refetchMemories();
+                }}
                 className="mt-5 h-11 w-full rounded-[14px] bg-[#ff4d6d] text-white hover:bg-[#f03d5f]"
               >
                 Try Again
@@ -808,6 +957,7 @@ const handleMediaUpload = async (e) => {
             </AppCard>
           </div>
         </AppShell>
+
         <BottomNav />
       </>
     );
@@ -817,10 +967,10 @@ const handleMediaUpload = async (e) => {
     <>
       <AppShell>
         <AppHeader
-          title="Our Memories"
-          canEdit={canEdit}
-          onAddMemory={() => setShowAddModal(true)}
-        />
+  title="Our Memories"
+  canEdit={canEdit}
+  onAddMemory={handleOpenAddMemory}
+/>
 
         <div className="space-y-4 px-4 py-4">
           <AppCard className="min-h-[118px] px-3 py-4">
@@ -839,6 +989,7 @@ const handleMediaUpload = async (e) => {
 
               {categories.map((cat) => {
                 const Icon = cat.icon;
+
                 return (
                   <button
                     key={cat.value}
@@ -883,9 +1034,11 @@ const handleMediaUpload = async (e) => {
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-50">
                   <ImageIcon className="h-8 w-8 text-slate-300" />
                 </div>
+
                 <h3 className="text-[1.35rem] font-semibold text-slate-700">
                   No memories yet
                 </h3>
+
                 <p className="mt-2 text-sm text-slate-500">
                   Start capturing your special moments
                 </p>
@@ -897,13 +1050,17 @@ const handleMediaUpload = async (e) => {
 
       <Modal
         open={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        onClose={() => {
+          if (isSubmitting || isUploadingMedia) return;
+          setShowAddModal(false);
+        }}
         title="Add a Memory"
       >
         <AppCard className="p-4">
           <label className="mb-2 block text-sm font-medium text-slate-700">
             Title
           </label>
+
           <input
             type="text"
             value={newMemory.title}
@@ -917,6 +1074,7 @@ const handleMediaUpload = async (e) => {
           <label className="mb-2 block text-sm font-medium text-slate-700">
             Description
           </label>
+
           <textarea
             value={newMemory.description}
             onChange={(e) =>
@@ -934,6 +1092,7 @@ const handleMediaUpload = async (e) => {
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Date
               </label>
+
               <input
                 type="date"
                 value={newMemory.date}
@@ -948,6 +1107,7 @@ const handleMediaUpload = async (e) => {
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Category
               </label>
+
               <select
                 value={newMemory.category}
                 onChange={(e) =>
@@ -967,8 +1127,10 @@ const handleMediaUpload = async (e) => {
           <label className="mb-2 block text-sm font-medium text-slate-700">
             Location
           </label>
+
           <div className="relative mb-4">
             <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
             <input
               type="text"
               value={newMemory.location}
@@ -976,6 +1138,7 @@ const handleMediaUpload = async (e) => {
               placeholder="Where was it?"
               className="h-11 w-full rounded-[12px] border border-slate-200 bg-white pl-9 pr-9 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#ff4d6d]"
             />
+
             {isSearchingLocation ? (
               <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
             ) : null}
@@ -1015,6 +1178,7 @@ const handleMediaUpload = async (e) => {
                   className="h-auto w-full object-contain"
                   loading="lazy"
                 />
+
                 <button
                   type="button"
                   onClick={() => removePhoto(index)}
@@ -1037,6 +1201,7 @@ const handleMediaUpload = async (e) => {
                   playsInline
                   className="h-auto w-full object-contain"
                 />
+
                 <button
                   type="button"
                   onClick={() => removeVideo(index)}
@@ -1048,24 +1213,26 @@ const handleMediaUpload = async (e) => {
             ))}
 
             <label
-              className={`flex min-h-[130px] w-full cursor-pointer flex-col items-center justify-center rounded-[14px] border border-dashed border-[#c7d7ff] bg-gradient-to-br from-[#f8fbff] to-[#eef4ff] text-slate-600 transition hover:border-[#8ec5ff] ${
+              className={`flex min-h-[132px] w-full cursor-pointer flex-col items-center justify-center rounded-[14px] border border-dashed border-[#ffc0cb] bg-gradient-to-br from-[#fff7f9] to-[#fff0f5] text-slate-600 transition hover:border-[#ff4d6d] ${
                 isUploadingMedia ? "pointer-events-none opacity-70" : ""
               }`}
             >
               {isUploadingMedia ? (
-                <Loader2 className="h-7 w-7 animate-spin text-[#5e9cff]" />
+                <Loader2 className="h-7 w-7 animate-spin text-[#ff4d6d]" />
               ) : (
-                <ImageIcon className="h-7 w-7 text-[#5e9cff]" />
+                <ImageIcon className="h-7 w-7 text-[#ff4d6d]" />
               )}
 
               <span className="mt-2 text-sm font-semibold text-slate-700">
                 {isUploadingMedia
-                  ? `Uploading ${uploadingCount} file${uploadingCount > 1 ? "s" : ""}...`
-                  : "Add Photos & Videos"}
+                  ? `Uploading ${uploadingCount} file${
+                      uploadingCount > 1 ? "s" : ""
+                    }...`
+                  : "Add photos & videos"}
               </span>
 
               <span className="mt-1 text-xs text-slate-500">
-                Select one or multiple media files
+                Photos and videos are saved to Supabase
               </span>
 
               <input
@@ -1084,12 +1251,13 @@ const handleMediaUpload = async (e) => {
           type="button"
           onClick={handleSubmit}
           disabled={
-            !newMemory.title.trim() ||
-            isUploadingMedia ||
             isSubmitting ||
-            createMemoryMutation.isPending
+            isUploadingMedia ||
+            createMemoryMutation.isPending ||
+            !newMemory.title.trim() ||
+            (!newMemory.photos.length && !newMemory.videos.length)
           }
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-[#ff4d6d] text-white hover:bg-[#f03d5f] disabled:opacity-60"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-[#ff4d6d] text-white hover:bg-[#f03d5f]"
         >
           {isSubmitting || createMemoryMutation.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -1103,123 +1271,172 @@ const handleMediaUpload = async (e) => {
       </Modal>
 
       <Modal
-        open={!!selectedMemory}
+        open={selectedMemory}
         onClose={() => setSelectedMemory(null)}
         title={selectedMemory?.title || "Memory"}
       >
         {selectedMemory ? (
           <>
-            {selectedMemory.photos?.[0] ? (
-              <AppCard className="p-3">
-                <MediaFrame>
+            <AppCard>
+              <div className="space-y-3 p-4">
+                {selectedMemory.photos?.map((photo, index) => (
                   <img
-                    src={selectedMemory.photos[0]}
+                    key={`${photo}-${index}`}
+                    src={photo}
                     alt=""
-                    loading="lazy"
-                    className="h-auto w-full object-contain"
+                    className="w-full rounded-[12px] object-contain"
                   />
-                </MediaFrame>
-              </AppCard>
-            ) : null}
+                ))}
+
+                {selectedMemory.videos?.map((video, index) => (
+                  <video
+                    key={`${video}-${index}`}
+                    src={video}
+                    controls
+                    playsInline
+                    className="w-full rounded-[12px] bg-black object-contain"
+                  />
+                ))}
+              </div>
+            </AppCard>
 
             <AppCard className="p-4">
-              {selectedMemory.description ? (
-                <p className="text-sm leading-6 text-slate-600">
-                  {selectedMemory.description}
-                </p>
-              ) : null}
+              <div className="space-y-3">
+                {selectedMemory.description ? (
+                  <p className="text-sm leading-6 text-slate-600">
+                    {selectedMemory.description}
+                  </p>
+                ) : null}
 
-              <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
                 {selectedMemory.date ? (
-                  <div className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1">
-                    <Calendar className="h-3 w-3" />
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <Calendar className="h-4 w-4" />
                     {formatDate(selectedMemory.date)}
                   </div>
                 ) : null}
 
                 {selectedMemory.location ? (
-                  <div className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1">
-                    <MapPin className="h-3 w-3" />
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <MapPin className="h-4 w-4" />
                     {selectedMemory.location}
                   </div>
                 ) : null}
 
-                {selectedMemory.category ? (
-                  <div className="inline-flex items-center gap-1 rounded-full bg-[#ffe4ea] px-2 py-1 text-[#ff4d6d]">
-                    {formatCategoryLabel(selectedMemory.category)}
-                  </div>
-                ) : null}
+                <Button
+                  type="button"
+                  onClick={() => handleDeleteMemory(selectedMemory.id)}
+                  disabled={deleteMemoryMutation.isPending}
+                  variant="outline"
+                  className="h-11 w-full rounded-[14px] border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  {deleteMemoryMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete Memory
+                    </>
+                  )}
+                </Button>
               </div>
             </AppCard>
-
-            {Array.isArray(selectedMemory.videos) &&
-            selectedMemory.videos.length > 0 ? (
-              <AppCard className="p-4">
-                <div className="space-y-3">
-                  <div className="text-base font-semibold text-slate-800">
-                    Videos
-                  </div>
-                  {selectedMemory.videos.map((video, index) => (
-                    <div
-                      key={`${video}-${index}`}
-                      className="overflow-hidden rounded-[12px] bg-black"
-                    >
-                      <video
-                        src={video}
-                        controls
-                        preload="metadata"
-                        playsInline
-                        className="h-auto w-full object-contain"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </AppCard>
-            ) : null}
-
-            {Array.isArray(selectedMemory.photos) &&
-            selectedMemory.photos.length > 1 ? (
-              <AppCard className="p-4">
-                <div className="space-y-3">
-                  <div className="text-base font-semibold text-slate-800">
-                    All Photos
-                  </div>
-                  {selectedMemory.photos.map((photo, index) => (
-                    <div
-                      key={index}
-                      className="w-full overflow-hidden rounded-[12px] border border-slate-200 bg-black"
-                    >
-                      <img
-                        src={photo}
-                        alt=""
-                        className="h-auto w-full object-contain"
-                        loading="lazy"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </AppCard>
-            ) : null}
-
-            {selectedMemory.owner_id === user?.id ? (
-              <Button
-                type="button"
-                onClick={() => handleDeleteMemory(selectedMemory.id)}
-                disabled={deleteMemoryMutation.isPending}
-                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[14px] border border-red-200 bg-white text-red-600 hover:bg-red-50"
-              >
-                {deleteMemoryMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <Trash2 className="h-4 w-4" />
-                    <span>Delete Memory</span>
-                  </>
-                )}
-              </Button>
-            ) : null}
           </>
         ) : null}
+      </Modal>
+
+      <Modal
+        open={showSubscriptionModal}
+        onClose={() => {
+          if (processingPlan) return;
+          setShowSubscriptionModal(false);
+        }}
+        title="Date-Locked Plus"
+      >
+        <AppCard className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 p-5">
+          <div className="mb-5 flex items-start gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600">
+              <Crown className="h-5 w-5 text-white" />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-black text-slate-900">
+                Unlock unlimited memories
+              </h3>
+
+              <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                Free users can upload {FREE_DAILY_MEMORY_LIMIT} memories per day.
+                Upgrade to remove the daily memory limit.
+              </p>
+            </div>
+          </div>
+
+          <div className="mb-5 space-y-3">
+            {[
+              "Unlimited memory uploads",
+              "Premium couple profile",
+              "Date-Locked Plus access",
+              "One subscription per couple",
+            ].map((feature) => (
+              <div key={feature} className="flex items-start gap-2">
+                <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-purple-600" />
+                <span className="text-sm font-medium text-slate-700">
+                  {feature}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="mb-4 rounded-[14px] bg-white/75 p-4">
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black text-slate-900">R39</span>
+              <span className="text-sm font-semibold text-slate-500">/month</span>
+            </div>
+
+            <p className="mt-1 text-xs font-medium text-slate-500">
+              or R397.80/year • Save 15%
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Button
+              type="button"
+              onClick={() => handlePayPalPayment("monthly")}
+              disabled={!!processingPlan}
+              className="h-11 w-full rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
+            >
+              {processingPlan === "monthly" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Subscribe Monthly - R39"
+              )}
+            </Button>
+
+            <Button
+              type="button"
+              onClick={() => handlePayPalPayment("yearly")}
+              disabled={!!processingPlan}
+              variant="outline"
+              className="h-11 w-full rounded-[14px] border-purple-200 bg-white"
+            >
+              {processingPlan === "yearly" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Subscribe Yearly - R397.80"
+              )}
+            </Button>
+
+            <p className="flex items-center justify-center gap-1 text-xs text-slate-500">
+              <Shield className="h-3 w-3" />
+              Secured by PayPal
+            </p>
+          </div>
+        </AppCard>
       </Modal>
 
       <BottomNav />

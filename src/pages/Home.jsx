@@ -2,7 +2,7 @@ import React from 'react';
 import { supabase } from '@/lib/supabase';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { calculateInteractionScore } from "@/components/utils/interactionScore";
+import { calculateInteractionScore } from '@/components/utils/interactionScore';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AvatarImage } from '@/components/ui/avatar';
@@ -30,7 +30,7 @@ import { parseSafeDate } from '@/components/utils/dateHelpers';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const NOTIFY_AUDIO_SRC =
-  'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt5p9NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSyBzvLZiTYIGmi77eafTRAMUKfj8LZjHAY4ktfzzXksBSR3yPDekEAKFF607OupVRQKRp/g8r5sIQUsgs/y2Ik2CBlou+3mn00QDFCn4/C2YxwGOJLX8s15LAUkd8nw3pBAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQqOPwtmMcBjiS1/LNeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyBzvLZiTYIGmi77eafTRAMUKfj8LZjHAY4ktfyzHksBSR3yO/fkEAKFGCz7OupVRQKRp/g8r5sIQUsgs/y2Yk2CBlou+3mn00QDFCo4/C2YxwGOJPX8sx5LAUld8rw35BAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQqOPwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIGWi77eafTRAMUKfj8LZjHAY4ktfyzHksBSR3ye/fkEAKFGC07OupVRQKRp/g8r5sIQUsgs/y2Ik2CBlouujln00QDFCn4/C2YxwGOJPX8sx5LAUkd8jv35BAChRgs+zrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQp+PwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIGWi77eafTRAMT6jj8LZjHAY4k9fyzHksBSR3yO/fkEAKFGCz7OupVRQKRp/g8r5sIQUsgs/y2Yk2CBlou+3mn00QDFCn4fC2YxwGOJPX8sx5LAUkd8nw35BAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQp+PwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIGWi77eafTRAMT6jj8LZjHAY4k9fyzHksBSR3yO/fkEAKFGCz7OupVRQKRp/g8r5sIQUsgs/y2Yk2CBlou+3mn00QDFCn4/C2YxwGOJPX8sx5LAUkd8nw35BAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQp+PwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIG=';
+  'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt5p9NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSyBzvLZiTYIGmi77eafTRAMUKfj8LZjHAY4ktfzzXksBSR3yPDekEAKFF607OupVRQKRp/g8r5sIQUsgs/y2Ik2CBlou+3mn00QDFCn4/C2YxwGOJLX8s15LAUkd8nw3pBAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQqOPwtmMcBjiS1/LNeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyBzvLZiTYIGmi77eafTRAMUKfj8LZjHAY4ktfyzHksBSR3yO/fkEAKFGCz7OupVRQKRp/g8r5sIQUsgs/y2Yk2CBlou+3mn00QDFCo4/C2YxwGOJPX8sx5LAUld8rw35BAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQqOPwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIGWi77eafTRAMUKfj8LZjHAY4ktfyzHksBSR3ye/fkEAKFGC07OupVRQKRp/g8r5sIQUsgs/y2Ik2CBlouujln00QDFCn4/C2YxwGOJPX8sx5LAUkd8jv35BAChRgs+zrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQp+PwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIGWi77eafTRAMT6jj8LZjHAY4k9fyzHksBSR3yO/fkEAKFGCz7OupVRQKRp/g8r5sIQUsgs/y2Yk2CBlou+3mn00QDFCn4fC2YxwGOJPX8sx5LAUkd8nw35BAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQp+PwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIG=';
 
 const navItems = [
   { label: 'Home', icon: HomeIcon, page: 'Home' },
@@ -52,6 +52,7 @@ async function tryProfileTablesById(userId) {
 
     if (!error && data) return data;
   }
+
   return null;
 }
 
@@ -99,9 +100,7 @@ function StatCard({ icon, value, label, iconColor, iconWrap }) {
   return (
     <div className="rounded-[20px] bg-white px-2.5 py-3 text-center shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
       <div className="flex flex-col items-center">
-        <div
-          className={`mb-2.5 flex h-10 w-10 items-center justify-center rounded-full ${iconWrap}`}
-        >
+        <div className={`mb-2.5 flex h-10 w-10 items-center justify-center rounded-full ${iconWrap}`}>
           {React.cloneElement(icon, { className: `h-4.5 w-4.5 ${iconColor}` })}
         </div>
 
@@ -144,6 +143,7 @@ function BottomNav() {
                 }`}
                 strokeWidth={2}
               />
+
               <span
                 className={`truncate text-[8px] leading-none tracking-[-0.01em] ${
                   active
@@ -167,16 +167,39 @@ function getGoalDisplayTitle(goal) {
     goal?.name ||
     goal?.goal_title ||
     goal?.event_title ||
-    'Award Celebrati...'
+    'No event'
   );
 }
 
-function InteractionGauge({
-  chats = 0,
-  goals = 0,
-  memories = 0,
-  dates = 0,
-}) {
+function getGoalDateMs(goal) {
+  const rawDate =
+    goal?.event_datetime ||
+    goal?.target_date ||
+    goal?.event_date ||
+    goal?.date ||
+    null;
+
+  const parsedDate = parseSafeDate(rawDate);
+
+  if (!parsedDate) return null;
+
+  const ms = parsedDate.getTime();
+
+  return Number.isNaN(ms) ? null : ms;
+}
+
+function formatCountdown(ms, nowTick) {
+  if (!ms) return '--';
+
+  const diffMs = Math.max(0, ms - nowTick);
+  const totalDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+  if (totalDays <= 0) return 'Today';
+
+  return `${totalDays} Days`;
+}
+
+function InteractionGauge({ chats = 0, goals = 0, memories = 0, dates = 0 }) {
   const navigate = useNavigate();
 
   const chatScore = Math.min(chats * 2, 25);
@@ -208,6 +231,7 @@ function InteractionGauge({
             <p className="text-[15px] font-semibold leading-none text-[#172033]">
               Interaction Gauge
             </p>
+
             <p className="mt-3 text-[12px] font-medium leading-none text-[#64748b]">
               Tap to view relationship insights
             </p>
@@ -266,6 +290,7 @@ export default function Home() {
     async (e) => {
       const file = e.target.files?.[0];
       e.target.value = '';
+
       if (!file) return;
 
       setIsUploadingPhoto(true);
@@ -339,14 +364,8 @@ export default function Home() {
         error: authError,
       } = await supabase.auth.getUser();
 
-      if (authError) {
-        console.error('HOME AUTH ERROR:', authError);
-        throw authError;
-      }
-
-      if (!authUser) {
-        return null;
-      }
+      if (authError) throw authError;
+      if (!authUser) return null;
 
       let profile = await tryProfileTablesById(authUser.id);
 
@@ -477,6 +496,7 @@ export default function Home() {
         .limit(1);
 
       if (error) throw error;
+
       return data?.[0] || null;
     },
   });
@@ -502,6 +522,7 @@ export default function Home() {
         .limit(1);
 
       if (error) throw error;
+
       return data?.[0] || null;
     },
   });
@@ -539,9 +560,7 @@ export default function Home() {
 
       if (error) throw error;
 
-      const events = (data || []).filter((item) => item?.type === 'event');
-
-      return events.length;
+      return (data || []).filter((item) => item?.type === 'event').length;
     },
   });
 
@@ -550,7 +569,8 @@ export default function Home() {
       queryKey: ['homeGoalsData', coupleId, user?.id],
       enabled: !!user?.id,
       retry: 1,
-      staleTime: 60 * 1000,
+      staleTime: 15 * 1000,
+      refetchInterval: 30 * 1000,
       queryFn: async () => {
         let query = supabase.from('couple_goals').select('*');
 
@@ -564,18 +584,33 @@ export default function Home() {
 
         if (error) throw error;
 
-        const goalItems = (data || []).filter((g) => g.type === 'goal');
-        const eventItems = (data || []).filter((g) => g.type === 'event');
+        const rows = Array.isArray(data) ? data : [];
+
+        const goalItems = rows.filter((g) => g.type === 'goal');
+        const eventItems = rows.filter((g) => g.type === 'event');
+
+        const now = Date.now();
 
         const countdownGoal =
-          goalItems
-            .filter((g) => g.target_date)
-            .map((g) => ({
-              ...g,
-              _dateMs: new Date(g.target_date).getTime(),
-            }))
-            .filter((g) => !Number.isNaN(g._dateMs))
-            .sort((a, b) => a._dateMs - b._dateMs)[0] || null;
+  rows
+    .filter((item) => item.target_date || item.event_datetime || item.event_date)
+    .filter((item) => {
+      if (item.type === "event" && item.invitation_status) {
+        return item.invitation_status === "accepted";
+      }
+
+      return true;
+    })
+    .map((item) => {
+      const rawDate = item.event_datetime || item.target_date || item.event_date;
+      const parsedDate = parseSafeDate(rawDate);
+      const dateMs = parsedDate ? parsedDate.getTime() : null;
+
+      return dateMs ? { ...item, _dateMs: dateMs } : null;
+    })
+    .filter(Boolean)
+    .filter((item) => item._dateMs >= Date.now())
+    .sort((a, b) => a._dateMs - b._dateMs)[0] || null;
 
         return {
           count: goalItems.length,
@@ -621,6 +656,7 @@ export default function Home() {
         .eq('couple_profile_id', coupleId);
 
       if (error) throw error;
+
       return Array.isArray(data) ? data.length : 0;
     },
   });
@@ -634,16 +670,10 @@ export default function Home() {
     });
 
   const countdownGoal = goalsData.countdownGoal;
-
-  const countdownText = React.useMemo(() => {
-    if (!countdownGoal?._dateMs) return '--';
-
-    const diffMs = countdownGoal._dateMs - nowTick;
-    if (diffMs <= 0) return 'Today';
-
-    const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-    return `${days} days`;
-  }, [countdownGoal?._dateMs, nowTick]);
+  const countdownText = React.useMemo(
+    () => formatCountdown(countdownGoal?._dateMs, nowTick),
+    [countdownGoal?._dateMs, nowTick]
+  );
 
   React.useEffect(() => {
     if (!countdownGoal?._dateMs || !countdownGoal?.id) return;
@@ -668,16 +698,25 @@ export default function Home() {
       navigate(createPageUrl('Goals'));
       return;
     }
+
     navigate(`${createPageUrl('Goals')}?goal=${countdownGoal.id}`);
   }, [countdownGoal?.id, navigate]);
 
   const daysTogether = React.useMemo(() => {
     const lockedAt = coupleProfile?.date_locked_at;
+
     if (!lockedAt) return 0;
 
     const lockedDate = new Date(lockedAt);
     const today = new Date();
-    return Math.max(0, Math.floor((today - lockedDate) / (1000 * 60 * 60 * 24)));
+
+    lockedDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+
+    return Math.max(
+      0,
+      Math.floor((today.getTime() - lockedDate.getTime()) / (1000 * 60 * 60 * 24))
+    );
   }, [coupleProfile?.date_locked_at]);
 
   const canEdit =
@@ -699,6 +738,7 @@ export default function Home() {
 
       await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       await queryClient.invalidateQueries({ queryKey: ['coupleProfile'] });
+
       navigate('/home', { replace: true });
     } catch (e) {
       console.error('Error accepting invitation:', e);
@@ -778,6 +818,7 @@ export default function Home() {
               onClick={() => setAvatarPreviewOpen(false)}
             >
               <button
+                type="button"
                 onClick={() => setAvatarPreviewOpen(false)}
                 className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
               >
@@ -834,7 +875,6 @@ export default function Home() {
                 </div>
 
                 <div className="min-w-0 pt-1">
-                  <p className="text-[14px] text-white/80">Welcome back</p>
                   <h2 className="truncate text-[18px] font-semibold text-white">
                     {user?.full_name}
                   </h2>
@@ -869,14 +909,12 @@ export default function Home() {
                   <StatusPill relationshipStatus={user?.relationship_status} />
                 </div>
 
-                {isDateLocked && daysTogether > 0 && (
-                  <div className="text-right">
-                    <p className="text-[11px] text-slate-500">Together for</p>
-                    <p className="text-[20px] font-bold leading-none text-rose-500">
-                      {daysTogether} days
-                    </p>
+                <div className="text-right">
+                  <p className="text-[11px] text-slate-500">Together for</p>
+                  <p className="text-[20px] font-bold leading-none text-rose-500">
+                  {isDateLocked ? daysTogether : 0} Days
+                  </p>
                   </div>
-                )}
               </div>
             </div>
           </div>
@@ -932,8 +970,12 @@ export default function Home() {
                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
                           <Heart className="h-5 w-5 text-amber-600" />
                         </div>
+
                         <div>
-                          <p className="font-semibold text-slate-800">Relationship Invitation</p>
+                          <p className="font-semibold text-slate-800">
+                            Relationship Invitation
+                          </p>
+
                           <p className="text-sm text-slate-500">
                             From {pendingInvitation.sender_name || pendingInvitation.sender_email}
                           </p>
@@ -997,6 +1039,7 @@ export default function Home() {
                       <p className="text-[15px] font-semibold leading-none text-[#172033]">
                         Add a Memory
                       </p>
+
                       <p className="mt-3 text-[12px] font-medium leading-none text-[#64748b]">
                         Capture your special moments
                       </p>
@@ -1018,6 +1061,7 @@ export default function Home() {
                       <p className="text-[15px] font-semibold leading-none text-[#172033]">
                         Set a Goal
                       </p>
+
                       <p className="mt-3 text-[12px] font-medium leading-none text-[#64748b]">
                         Plan your future together
                       </p>
@@ -1028,8 +1072,6 @@ export default function Home() {
                 </div>
               </Link>
             </div>
-
-            {isDateLocked && canEdit ? null : null}
           </div>
         </div>
       </div>

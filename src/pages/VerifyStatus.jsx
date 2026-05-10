@@ -17,12 +17,18 @@ import {
   Target,
   MessageCircle,
   Fingerprint,
+  Crown,
+  Check,
+  X,
 } from "lucide-react";
 import format from "date-fns/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createPageUrl } from "@/utils";
 import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
+
+const FREE_DAILY_VERIFY_LIMIT = 1;
 
 const navItems = [
   { label: "Home", icon: HomeIcon, page: "Home" },
@@ -34,76 +40,154 @@ const navItems = [
   { label: "Verify", icon: Fingerprint, page: "VerifyStatus" },
 ];
 
+function isPremiumUser(user) {
+  if (!user) return false;
+
+  if (user.account_tier === "PREMIUM") {
+    if (!user.subscription_expires) return false;
+
+    const expiryDate = new Date(user.subscription_expires);
+
+    if (Number.isNaN(expiryDate.getTime())) return false;
+
+    return expiryDate.getTime() > Date.now();
+  }
+
+  return false;
+}
+
+function getTodayStartIso() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today.toISOString();
+}
+
+async function getCurrentProfileUser() {
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError) throw authError;
+  if (!authUser) return null;
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", authUser.id)
+    .maybeSingle();
+
+  if (profileError) throw profileError;
+
+  return {
+    id: authUser.id,
+    email: authUser.email,
+    full_name:
+      profile?.full_name ||
+      authUser.user_metadata?.full_name ||
+      authUser.user_metadata?.name ||
+      "",
+    location: profile?.location || "",
+    profile_photo: profile?.profile_photo || "",
+    account_tier: profile?.account_tier || null,
+    subscription_expires: profile?.subscription_expires || null,
+    couple_profile_id: profile?.couple_profile_id || null,
+    verification_code: null,
+    verification_code_expires: null,
+  };
+}
+
+async function getCoupleVerifyCountToday(profile) {
+  if (!profile?.id) return 0;
+
+  const todayStart = getTodayStartIso();
+
+  if (!profile.couple_profile_id) {
+    const { count, error } = await supabase
+      .from("verification_history")
+      .select("id", { count: "exact", head: true })
+      .eq("verifier_id", profile.id)
+      .gte("verification_timestamp", todayStart);
+
+    if (error) throw error;
+
+    return count || 0;
+  }
+
+  const { data: coupleUsers, error: coupleUsersError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("couple_profile_id", profile.couple_profile_id);
+
+  if (coupleUsersError) throw coupleUsersError;
+
+  const coupleUserIds = (coupleUsers || []).map((item) => item.id);
+
+  if (!coupleUserIds.length) return 0;
+
+  const { count, error } = await supabase
+    .from("verification_history")
+    .select("id", { count: "exact", head: true })
+    .in("verifier_id", coupleUserIds)
+    .gte("verification_timestamp", todayStart);
+
+  if (error) throw error;
+
+  return count || 0;
+}
+
 const verifyApi = {
-  auth: {
-    async me() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      return {
-        id: user.id,
-        email: user.email,
-        full_name: profile?.full_name || "",
-        location: profile?.location || "",
-        profile_photo: profile?.profile_photo || "",
-        verification_code: null,
-        verification_code_expires: null,
-      };
-    },
-  },
-
   verification: {
     async getHistory() {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (!user) return [];
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("verification_history")
         .select("*")
         .eq("verifier_id", user.id)
         .order("verification_timestamp", { ascending: false });
 
+      if (error) throw error;
+
       return data || [];
     },
 
     async generateCode() {
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-  if (authError) throw authError;
-  if (!user) throw new Error("Not authenticated");
+      if (authError) throw authError;
+      if (!user) throw new Error("Not authenticated");
 
-  const code = String(Math.floor(100000 + Math.random() * 900000));
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-  const { error } = await supabase.from("verification_codes").insert({
-    user_id: user.id,
-    user_email: user.email,
-    code,
-    expires_at: expiresAt.toISOString(),
-  });
+      const { error } = await supabase.from("verification_codes").insert({
+        user_id: user.id,
+        user_email: user.email,
+        code,
+        expires_at: expiresAt.toISOString(),
+      });
 
-  if (error) {
-    console.error("GENERATE CODE ERROR:", error);
-    throw error;
-  }
+      if (error) throw error;
 
-  return {
-    code,
-    expiresAt: expiresAt.toISOString(),
-  };
-},
+      return {
+        code,
+        expiresAt: expiresAt.toISOString(),
+      };
+    },
 
     async validateCode(inputCode) {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (!user) throw new Error("Not authenticated");
 
       const { data, error } = await supabase
@@ -119,11 +203,13 @@ const verifyApi = {
         throw new Error("Code expired");
       }
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", data.user_id)
         .single();
+
+      if (profileError) throw profileError;
 
       const status = profile?.couple_profile_id ? "Date-Locked" : "No Data";
 
@@ -166,7 +252,7 @@ function AppShell({ children }) {
   );
 }
 
-function AppHeader({ title }) {
+function AppHeader() {
   return (
     <div className="border-b border-slate-200 bg-[#f8f6f7] px-4 py-4">
       <div className="flex items-center gap-3">
@@ -193,6 +279,33 @@ function AppCard({ children, className = "" }) {
       className={`overflow-hidden rounded-[12px] border border-slate-100 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.06)] ${className}`}
     >
       {children}
+    </div>
+  );
+}
+
+function Modal({ open, onClose, title, children }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-3">
+      <div className="w-full max-w-[375px] overflow-hidden rounded-[16px] border border-[#ece6ea] bg-[#f7f4f6] shadow-[0_12px_30px_rgba(15,23,42,0.14)]">
+        <div className="border-b border-slate-200 bg-[#f8f6f7] px-4 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-[10px] p-1.5 transition hover:bg-slate-100"
+            >
+              <X className="h-5 w-5 text-slate-600" />
+            </button>
+          </div>
+        </div>
+
+        <div className="max-h-[78vh] space-y-4 overflow-y-auto px-4 py-4">
+          {children}
+        </div>
+      </div>
     </div>
   );
 }
@@ -309,6 +422,7 @@ function BottomNav() {
 
 export default function VerifyStatus() {
   const [isLoading, setIsLoading] = React.useState(true);
+  const [user, setUser] = React.useState(null);
   const [myCode, setMyCode] = React.useState(null);
   const [codeExpiry, setCodeExpiry] = React.useState(null);
   const [inputCode, setInputCode] = React.useState("");
@@ -318,58 +432,139 @@ export default function VerifyStatus() {
   const [error, setError] = React.useState("");
   const [view, setView] = React.useState("my-code");
   const [verificationHistory, setVerificationHistory] = React.useState([]);
+  const [showSubscriptionModal, setShowSubscriptionModal] = React.useState(false);
+  const [processingPlan, setProcessingPlan] = React.useState(null);
+
+  const premiumActive = isPremiumUser(user);
 
   React.useEffect(() => {
     loadData();
+  }, []);
+
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get("status");
+    const token = urlParams.get("token");
+    const plan = urlParams.get("plan");
+
+    if (status === "success" && token && plan) {
+      capturePayment(token, plan);
+    } else if (status === "cancelled") {
+      toast.error("Payment was cancelled.");
+      window.history.replaceState({}, "", createPageUrl("VerifyStatus"));
+    }
   }, []);
 
   const loadData = async () => {
     setIsLoading(true);
 
     try {
-      const currentUser = await verifyApi.auth.me();
-      const history = await verifyApi.verification.getHistory(currentUser.email);
-      setVerificationHistory(history);
+      const currentUser = await getCurrentProfileUser();
 
-      if (
-        currentUser.verification_code &&
-        currentUser.verification_code_expires
-      ) {
-        const expiresAt = new Date(currentUser.verification_code_expires);
-        if (expiresAt > new Date()) {
-          setMyCode(currentUser.verification_code);
-          setCodeExpiry(expiresAt);
-        } else {
-          setMyCode(null);
-          setCodeExpiry(null);
-        }
-      } else {
+      setUser(currentUser);
+
+      if (!currentUser?.id) {
+        setVerificationHistory([]);
         setMyCode(null);
         setCodeExpiry(null);
+        return;
       }
+
+      const history = await verifyApi.verification.getHistory();
+      setVerificationHistory(history);
+
+      setMyCode(null);
+      setCodeExpiry(null);
     } catch (loadError) {
       console.error("Error loading verify status page:", loadError);
+      toast.error("Failed to load verification page.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const generateCode = async () => {
-  setIsGenerating(true);
-  setError("");
+  const handlePayPalPayment = async (plan) => {
+    setProcessingPlan(plan);
 
-  try {
-    const data = await verifyApi.verification.generateCode();
-    setMyCode(data.code);
-    setCodeExpiry(new Date(data.expiresAt));
-  } catch (generateError) {
-    console.error("Error generating code:", generateError);
-    setError(generateError?.message || "Failed to generate code");
-    alert(generateError?.message || "Failed to generate code");
-  } finally {
-    setIsGenerating(false);
-  }
-};
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "createPayPalPayment",
+        {
+          body: {
+            plan,
+            returnPage: "VerifyStatus",
+          },
+        }
+      );
+
+      if (error) throw error;
+
+      if (data?.success && data?.approvalUrl) {
+        window.location.href = data.approvalUrl;
+        return;
+      }
+
+      toast.error("Payment initialization failed. Please try again.");
+      setProcessingPlan(null);
+    } catch (paymentError) {
+      console.error("Payment error:", paymentError);
+      toast.error(paymentError?.message || "Payment failed. Please try again.");
+      setProcessingPlan(null);
+    }
+  };
+
+  const capturePayment = async (token, plan) => {
+    setProcessingPlan(plan);
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "capturePayPalPayment",
+        {
+          body: {
+            orderId: token,
+            plan,
+          },
+        }
+      );
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success("Subscription activated successfully");
+
+        const refreshedUser = await getCurrentProfileUser();
+        setUser(refreshedUser);
+
+        window.history.replaceState({}, "", createPageUrl("VerifyStatus"));
+        setShowSubscriptionModal(false);
+        return;
+      }
+
+      toast.error("Payment capture failed. Please contact support.");
+    } catch (captureError) {
+      console.error("Capture error:", captureError);
+      toast.error(captureError?.message || "Payment processing failed.");
+    } finally {
+      setProcessingPlan(null);
+    }
+  };
+
+  const generateCode = async () => {
+    setIsGenerating(true);
+    setError("");
+
+    try {
+      const data = await verifyApi.verification.generateCode();
+      setMyCode(data.code);
+      setCodeExpiry(new Date(data.expiresAt));
+    } catch (generateError) {
+      console.error("Error generating code:", generateError);
+      setError(generateError?.message || "Failed to generate code");
+      toast.error(generateError?.message || "Failed to generate code");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const validateCode = async () => {
     if (!inputCode || inputCode.length !== 6) {
@@ -377,10 +572,25 @@ export default function VerifyStatus() {
       return;
     }
 
+    if (!user?.id) {
+      setError("Please log in first.");
+      return;
+    }
+
     setIsValidating(true);
     setError("");
 
     try {
+      if (!premiumActive) {
+        const verifyCountToday = await getCoupleVerifyCountToday(user);
+
+        if (verifyCountToday >= FREE_DAILY_VERIFY_LIMIT) {
+          setShowSubscriptionModal(true);
+          toast.error("Daily verify limit reached. Free couples get 1 verification per day.");
+          return;
+        }
+      }
+
       const data = await verifyApi.verification.validateCode(inputCode);
       setVerificationResult(data);
       await loadData();
@@ -396,6 +606,7 @@ export default function VerifyStatus() {
 
     try {
       await navigator.clipboard.writeText(myCode);
+      toast.success("Code copied");
     } catch (copyError) {
       console.error("Copy failed:", copyError);
     }
@@ -417,7 +628,7 @@ export default function VerifyStatus() {
   return (
     <>
       <AppShell>
-        <AppHeader title="Date Status" />
+        <AppHeader />
 
         <div className="space-y-4 px-3 py-3">
           {!verificationResult ? (
@@ -717,29 +928,6 @@ export default function VerifyStatus() {
                       </div>
                     ) : null}
                   </div>
-
-                  {verificationResult.status === "Date-Locked" &&
-                  verificationResult.partner ? (
-                    <div className="mt-6 border-t border-slate-100 pt-6">
-                      <p className="mb-3 text-center text-sm text-slate-500">
-                        Date-Locked with
-                      </p>
-
-                      <div className="flex items-center justify-center gap-3">
-                        <AvatarCircle
-                          src={verificationResult.partner.profile_photo}
-                          fallback={verificationResult.partner.full_name?.[0] || "P"}
-                          className="h-12 w-12"
-                        />
-
-                        <div>
-                          <p className="font-semibold text-slate-800">
-                            {verificationResult.partner.full_name}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
               </AppCard>
 
@@ -781,6 +969,101 @@ export default function VerifyStatus() {
           )}
         </div>
       </AppShell>
+
+      <Modal
+        open={showSubscriptionModal}
+        onClose={() => {
+          if (processingPlan) return;
+          setShowSubscriptionModal(false);
+        }}
+        title="Date-Locked Plus"
+      >
+        <AppCard className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 p-5">
+          <div className="mb-5 flex items-start gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600">
+              <Crown className="h-5 w-5 text-white" />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-black text-slate-900">
+                Unlock unlimited verification
+              </h3>
+
+              <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                Free couples can verify once per day. Upgrade to remove the daily
+                verification limit.
+              </p>
+            </div>
+          </div>
+
+          <div className="mb-5 space-y-3">
+            {[
+              "Unlimited verification checks",
+              "Premium couple profile",
+              "Date-Locked Plus access",
+              "One subscription per couple",
+            ].map((feature) => (
+              <div key={feature} className="flex items-start gap-2">
+                <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-purple-600" />
+                <span className="text-sm font-medium text-slate-700">
+                  {feature}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="mb-4 rounded-[14px] bg-white/75 p-4">
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black text-slate-900">R39</span>
+              <span className="text-sm font-semibold text-slate-500">/month</span>
+            </div>
+
+            <p className="mt-1 text-xs font-medium text-slate-500">
+              or R397.80/year • Save 15%
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Button
+              type="button"
+              onClick={() => handlePayPalPayment("monthly")}
+              disabled={!!processingPlan}
+              className="h-11 w-full rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
+            >
+              {processingPlan === "monthly" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Subscribe Monthly - R39"
+              )}
+            </Button>
+
+            <Button
+              type="button"
+              onClick={() => handlePayPalPayment("yearly")}
+              disabled={!!processingPlan}
+              variant="outline"
+              className="h-11 w-full rounded-[14px] border-purple-200 bg-white"
+            >
+              {processingPlan === "yearly" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Subscribe Yearly - R397.80"
+              )}
+            </Button>
+
+            <p className="flex items-center justify-center gap-1 text-xs text-slate-500">
+              <Shield className="h-3 w-3" />
+              Secured by PayPal
+            </p>
+          </div>
+        </AppCard>
+      </Modal>
 
       <BottomNav />
     </>
