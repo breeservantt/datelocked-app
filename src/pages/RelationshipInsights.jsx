@@ -23,7 +23,7 @@ import {
   CalendarDays,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { format } from 'date-fns';
+import format from "date-fns/format";
 
 async function tryProfileTablesById(userId) {
   for (const table of ['profiles', 'users']) {

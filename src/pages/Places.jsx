@@ -12,7 +12,7 @@ import {
   Plus, MapPin, Star, Utensils, Coffee, TreePine, 
   Waves, Hotel, Landmark, Loader2, ArrowLeft, Camera, X
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from "framer-motion";
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { isTrialActive } from '@/components/utils/trial';

@@ -18,7 +18,7 @@ import {
   MessageCircle,
   Fingerprint,
 } from "lucide-react";
-import { format } from "date-fns";
+import format from "date-fns/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createPageUrl } from "@/utils";

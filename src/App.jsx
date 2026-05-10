@@ -2,7 +2,7 @@ import React, { Suspense, lazy } from "react";
 import { Loader2 } from "lucide-react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
-import Splash from "@/pages/Splash";
+const Splash = lazy(() => import("./pages/Splash"));
 import PinLock from "./components/PinLock";
 
 const Home = lazy(() => import("./pages/Home"));

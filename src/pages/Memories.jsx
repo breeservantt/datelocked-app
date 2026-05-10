@@ -20,7 +20,7 @@ import {
   MessageCircle,
   Fingerprint,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { supabase } from "@/lib/supabase";

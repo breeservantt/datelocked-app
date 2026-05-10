@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Mail, Lock, CheckCircle, Loader2, Search, MapPin } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from "framer-motion";
 
 const LOCATION_OPTIONS = [
   'Gauteng, South Africa',

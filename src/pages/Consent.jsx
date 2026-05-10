@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Shield, KeyRound, User, Mail, Lock, ArrowRight, RefreshCw, Heart } from "lucide-react";
 
 /**

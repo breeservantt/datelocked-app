@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import StatusBadge from "@/components/ui/StatusBadge";
-import { format } from "date-fns";
+import format from "date-fns/format";
 import { parseSafeDate } from "@/components/utils/dateHelpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

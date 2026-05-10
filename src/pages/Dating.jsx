@@ -24,7 +24,7 @@ import {
   Fingerprint,
 } from "lucide-react";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 

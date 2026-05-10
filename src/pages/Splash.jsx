@@ -30,7 +30,7 @@ export default function Splash() {
         </div>
 
         <h1 className="text-[30px] font-black tracking-[-0.04em] text-white">
-          Locked in Love
+          DATE-LOCKED
         </h1>
 
         <p className="mt-1 text-[14px] text-white/70">Where love stays</p>

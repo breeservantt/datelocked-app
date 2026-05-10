@@ -8,7 +8,7 @@ import {
   CheckCheck,
   Image as ImageIcon,
 } from "lucide-react";
-import { format } from "date-fns";
+import format from "date-fns/format";
 import { supabase } from "@/lib/supabase";
 import { parseSafeDate } from "@/components/utils/dateHelpers";
 
