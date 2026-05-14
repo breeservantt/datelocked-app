@@ -401,7 +401,6 @@ export default function Chat() {
   const [isChatLocked, setIsChatLocked] = React.useState(false);
   const [activeCoupleId, setActiveCoupleId] = React.useState(null);
 
-  const messagesEndRef = React.useRef(null);
   const fileInputRef = React.useRef(null);
   const inputRef = React.useRef(null);
   const messageListRef = React.useRef(null);
@@ -412,6 +411,13 @@ export default function Chat() {
 
   const setMessagesIfChanged = React.useCallback((next) => {
     setMessages((prev) => (areMessagesEqual(prev, next) ? prev : next));
+  }, []);
+
+  const scrollToLatest = React.useCallback(() => {
+    const container = messageListRef.current;
+    if (!container) return;
+
+    container.scrollTop = 0;
   }, []);
 
   const loadMessages = React.useCallback(
@@ -552,91 +558,69 @@ export default function Chat() {
   }, [loadPage]);
 
   React.useEffect(() => {
-  if (isLoading) return;
-  if (!activeCoupleId) return;
+    if (isLoading) return;
+    if (!activeCoupleId) return;
 
-  const channel = supabase
-    .channel(`messages-${activeCoupleId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "messages",
-        filter: `couple_profile_id=eq.${activeCoupleId}`,
-      },
-      (payload) => {
-        const eventType = payload.eventType;
-        const row = payload.new || payload.old;
+    const channel = supabase
+      .channel(`messages-${activeCoupleId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+          filter: `couple_profile_id=eq.${activeCoupleId}`,
+        },
+        (payload) => {
+          const eventType = payload.eventType;
+          const row = payload.new || payload.old;
 
-        if (!row?.id) return;
+          if (!row?.id) return;
 
-        setMessages((prev) => {
-          let next = prev;
+          setMessages((prev) => {
+            let next = prev;
 
-          if (eventType === "INSERT") {
-            if (prev.some((item) => item.id === row.id)) return prev;
-            next = sortMessages([...prev, row]);
-          } else if (eventType === "UPDATE") {
-            next = prev.map((item) =>
-              item.id === row.id ? { ...item, ...row } : item
-            );
-          } else if (eventType === "DELETE") {
-            next = prev.filter((item) => item.id !== row.id);
-          }
+            if (eventType === "INSERT") {
+              if (prev.some((item) => item.id === row.id)) return prev;
+              next = sortMessages([...prev, row]);
+            } else if (eventType === "UPDATE") {
+              next = prev.map((item) =>
+                item.id === row.id ? { ...item, ...row } : item
+              );
+            } else if (eventType === "DELETE") {
+              next = prev.filter((item) => item.id !== row.id);
+            }
 
-          return areMessagesEqual(prev, next) ? prev : next;
-        });
+            return areMessagesEqual(prev, next) ? prev : next;
+          });
 
-        requestAnimationFrame(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-        });
+          requestAnimationFrame(scrollToLatest);
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+
+      if (channelRef.current === channel) {
+        channelRef.current = null;
       }
-    )
-    .subscribe();
-
-  channelRef.current = channel;
-
-  return () => {
-    supabase.removeChannel(channel);
-
-    if (channelRef.current === channel) {
-      channelRef.current = null;
-    }
-  };
-}, [isLoading, activeCoupleId]);
+    };
+  }, [isLoading, activeCoupleId, scrollToLatest]);
 
   React.useEffect(() => {
     const container = messageListRef.current;
     if (!container) return;
 
-    if (messages.length === 0) {
-      prevMessageCountRef.current = 0;
-      return;
-    }
-
-    const isInitialOpen = prevMessageCountRef.current === 0;
-    const hasNewMessage = messages.length > prevMessageCountRef.current;
-
-    if (isInitialOpen) {
-      setTimeout(() => {
-        container.scrollTop = container.scrollHeight;
-        prevMessageCountRef.current = messages.length;
-      }, 0);
-      return;
-    }
-
-    if (hasNewMessage) {
-      const isNearBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-
-      if (isNearBottom) {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      }
-    }
-
+    container.scrollTop = 0;
     prevMessageCountRef.current = messages.length;
   }, [messages.length]);
+
+  const visibleMessages = React.useMemo(() => {
+    return [...messages].reverse();
+  }, [messages]);
 
   const handleSend = async () => {
     if (!user || !activeCoupleId) return;
@@ -667,12 +651,7 @@ export default function Chat() {
       });
 
       setNewMessage("");
-
-      requestAnimationFrame(() => {
-        messagesEndRef.current?.scrollIntoView({
-          behavior: "smooth",
-        });
-      });
+      requestAnimationFrame(scrollToLatest);
     } catch (error) {
       console.error("Send failed:", error);
       alert("Failed to send message.");
@@ -730,11 +709,7 @@ export default function Chat() {
         return sortMessages([...prev, insertedMessage]);
       });
 
-      requestAnimationFrame(() => {
-        messagesEndRef.current?.scrollIntoView({
-          behavior: "smooth",
-        });
-      });
+      requestAnimationFrame(scrollToLatest);
     } catch (error) {
       console.error("Upload failed:", error);
       alert("Failed to upload file.");
@@ -792,20 +767,17 @@ export default function Chat() {
 
           <div
             ref={messageListRef}
-            className="absolute inset-0 z-0 overflow-y-auto px-3 pt-[64px] pb-[88px]"
+            className="absolute inset-0 z-0 overflow-y-auto px-4 pt-[72px] pb-[55px]"
           >
-            <div className="space-y-3">
-              {messages.length > 0 ? (
-                <>
-                  {messages.map((msg) => (
-                    <ChatBubble
-                      key={msg.id}
-                      msg={msg}
-                      isMe={msg.sender_email === user.email}
-                    />
-                  ))}
-                  <div ref={messagesEndRef} />
-                </>
+            <div className="flex min-h-full flex-col-reverse justify-start gap-3">
+              {visibleMessages.length > 0 ? (
+                visibleMessages.map((msg) => (
+                  <ChatBubble
+                    key={msg.id}
+                    msg={msg}
+                    isMe={msg.sender_email === user.email}
+                  />
+                ))
               ) : (
                 <EmptyState />
               )}

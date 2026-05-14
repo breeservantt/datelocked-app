@@ -560,7 +560,11 @@ React.useEffect(() => {
 
       if (error) throw error;
 
-      return (data || []).filter((item) => item?.type === 'event').length;
+      return (data || []).filter(
+      (item) =>
+      item?.type === 'event' &&
+      item?.invitation_status === 'accepted'
+      ).length;
     },
   });
 
@@ -587,7 +591,9 @@ React.useEffect(() => {
         const rows = Array.isArray(data) ? data : [];
 
         const goalItems = rows.filter((g) => g.type === 'goal');
-        const eventItems = rows.filter((g) => g.type === 'event');
+        const eventItems = rows.filter(
+        (g) => g.type === 'event' && g.invitation_status === 'accepted'
+        );
 
         const now = Date.now();
 

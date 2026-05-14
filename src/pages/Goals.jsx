@@ -1,7 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowLeft,
   Target,
   Send,
   Calendar,
@@ -16,6 +15,7 @@ import {
   Fingerprint,
   Pencil,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -59,15 +59,47 @@ function normalizeItem(item) {
     ...item,
     targetDate: item.target_date ?? item.targetDate ?? "",
     invitationStatus: item.invitation_status ?? item.invitationStatus ?? "",
+    placeName: item.place_name ?? item.placeName ?? "",
+    placePhotoUrl: item.place_photo_url ?? item.placePhotoUrl ?? "",
+    placeId: item.place_id ?? item.placeId ?? "",
     status: item.status || "planned",
     type: item.type || "goal",
   };
 }
 
+async function getPlacePhoto({ locationText, titleText, selectedPlace }) {
+  const query = [
+    selectedPlace?.name || locationText,
+    titleText,
+    selectedPlace?.address,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  if (!query && !selectedPlace?.placeId) return null;
+
+  try {
+    const { data, error } = await supabase.functions.invoke("fetch-place-photo", {
+      body: {
+        query,
+        placeId: selectedPlace?.placeId || null,
+      },
+    });
+
+    if (error) throw error;
+
+    return data || null;
+  } catch (error) {
+    console.warn("PLACE PHOTO LOOKUP FAILED:", error);
+    return null;
+  }
+}
+
 function AppShell({ children }) {
   return (
-    <div className="min-h-screen bg-[#f7f1f4] px-2 py-2 pb-24">
-      <div className="mx-auto w-full max-w-[375px] overflow-hidden rounded-[16px] border border-[#ece6ea] bg-[#f7f4f6] shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+    <div className="min-h-screen bg-[#f3edf1] px-2 py-2 pb-24">
+      <div className="mx-auto w-full max-w-[410px] overflow-hidden rounded-[28px] border border-[#e8e2e7] bg-[#f7f3f6] shadow-[0_12px_40px_rgba(15,23,42,0.10)]">
         {children}
       </div>
     </div>
@@ -76,20 +108,14 @@ function AppShell({ children }) {
 
 function AppHeader({ title }) {
   return (
-    <div className="border-b border-slate-200 bg-[#f8f6f7] px-4 py-4">
-      <div className="flex items-center gap-3">
-        <Link to={createPageUrl("Home")}>
-          <button
-            type="button"
-            className="rounded-[10px] p-1.5 transition hover:bg-slate-100"
-          >
-            <ArrowLeft className="h-5 w-5 text-slate-700" />
-          </button>
-        </Link>
-
-        <h1 className="text-[1.6rem] font-semibold tracking-[-0.02em] text-slate-800">
+    <div className="bg-gradient-to-r from-[#5e9cff] via-[#2f6df0] to-[#6aa7ff] px-5 pb-6 pt-7">
+      <div>
+        <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-white">
           {title}
         </h1>
+        <p className="mt-1 text-[11px] font-medium text-white/75">
+          Goals, event invites, and shared plans
+        </p>
       </div>
     </div>
   );
@@ -98,7 +124,7 @@ function AppHeader({ title }) {
 function AppCard({ children, className = "" }) {
   return (
     <div
-      className={`overflow-hidden rounded-[12px] border border-slate-100 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.06)] ${className}`}
+      className={`overflow-hidden rounded-[22px] border border-white/70 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)] ${className}`}
     >
       {children}
     </div>
@@ -106,37 +132,43 @@ function AppCard({ children, className = "" }) {
 }
 
 function SectionTitle({ children }) {
-  return <h2 className="text-base font-semibold text-slate-800">{children}</h2>;
+  return <h2 className="text-[15px] font-semibold text-[#172033]">{children}</h2>;
 }
 
 function StatCard({ value, label, tone = "slate" }) {
   const tones = {
-    slate: "bg-slate-100 text-slate-800",
-    blue: "bg-[#eaf3ff] text-[#77aef7]",
-    green: "bg-green-100 text-green-600",
-    amber: "bg-amber-100 text-amber-600",
+    slate: "from-slate-50 to-white text-slate-800",
+    blue: "from-[#eaf3ff] to-white text-[#2f6df0]",
+    green: "from-green-50 to-white text-green-600",
+    amber: "from-amber-50 to-white text-amber-600",
   };
 
   return (
     <div
-      className={`rounded-[12px] px-2 py-3 text-center shadow-[0_4px_12px_rgba(15,23,42,0.06)] ${tones[tone]}`}
+      className={`rounded-[18px] bg-gradient-to-br px-2 py-3 text-center shadow-[0_8px_18px_rgba(15,23,42,0.06)] ${tones[tone]}`}
     >
-      <p className="text-2xl font-bold">{value}</p>
-      <p className="mt-1.5 text-xs font-medium text-slate-500">{label}</p>
+      <p className="text-[20px] font-bold leading-none">{value}</p>
+      <p className="mt-2 truncate text-[10px] font-medium text-slate-500">
+        {label}
+      </p>
     </div>
   );
 }
 
-function SmallActionButton({ onClick, icon, text }) {
+function SmallActionButton({ onClick, icon, text, primary = false }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex h-[52px] flex-1 items-center justify-center rounded-[14px] border border-slate-200 bg-white px-2 shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition hover:bg-slate-50"
+      className={`flex h-[48px] flex-1 items-center justify-center rounded-[16px] px-3 shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition active:scale-[0.98] ${
+        primary
+          ? "bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-[#172033]"
+          : "bg-white text-slate-700"
+      }`}
     >
-      <div className="flex items-center justify-center gap-1.5">
+      <div className="flex items-center justify-center gap-2">
         {icon}
-        <span className="text-[13px] font-medium text-slate-800">{text}</span>
+        <span className="text-[13px] font-semibold">{text}</span>
       </div>
     </button>
   );
@@ -147,9 +179,9 @@ function TabButton({ active, children, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`flex-1 rounded-[10px] py-2 text-xs font-medium transition ${
+      className={`flex-1 rounded-[14px] py-2 text-[11px] font-semibold transition ${
         active
-          ? "bg-white text-slate-800 shadow-[0_2px_8px_rgba(15,23,42,0.06)]"
+          ? "bg-white text-[#2f6df0] shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
           : "text-slate-500"
       }`}
     >
@@ -162,14 +194,12 @@ function EmptyState({ icon, title, text }) {
   return (
     <AppCard className="px-4 py-8">
       <div className="flex min-h-[190px] flex-col items-center justify-center text-center">
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 shadow-[0_3px_10px_rgba(15,23,42,0.08)]">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#eaf3ff] shadow-[0_8px_18px_rgba(15,23,42,0.08)]">
           {icon}
         </div>
-
-        <h3 className="text-[1.5rem] font-semibold leading-none text-slate-700">
+        <h3 className="text-[20px] font-semibold leading-none text-slate-700">
           {title}
         </h3>
-
         <p className="mt-3 text-center text-sm text-slate-500">{text}</p>
       </div>
     </AppCard>
@@ -181,20 +211,19 @@ function Modal({ open, onClose, title, children }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3">
-      <div className="w-full max-w-[375px] overflow-hidden rounded-[16px] border border-[#ece6ea] bg-[#f7f4f6] shadow-[0_12px_30px_rgba(15,23,42,0.14)]">
-        <div className="border-b border-slate-200 bg-[#f8f6f7] px-4 py-4">
+      <div className="w-full max-w-[390px] overflow-hidden rounded-[24px] border border-[#ece6ea] bg-[#f7f4f6] shadow-[0_12px_30px_rgba(15,23,42,0.14)]">
+        <div className="bg-gradient-to-r from-[#5e9cff] via-[#2f6df0] to-[#6aa7ff] px-4 py-4">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
+            <h3 className="text-lg font-semibold text-white">{title}</h3>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-[10px] p-1.5 transition hover:bg-slate-100"
+              className="rounded-full bg-white/90 p-1.5 text-slate-700 transition active:scale-95"
             >
-              <X className="h-5 w-5 text-slate-600" />
+              <X className="h-5 w-5" />
             </button>
           </div>
         </div>
-
         <div className="space-y-4 px-4 py-4">{children}</div>
       </div>
     </div>
@@ -205,7 +234,7 @@ function StatusBadge({ item }) {
   if (item.type === "event") {
     if (item.invitationStatus === "pending") {
       return (
-        <div className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-700">
+        <div className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-700">
           <Clock3 className="h-3 w-3" />
           Pending
         </div>
@@ -214,17 +243,9 @@ function StatusBadge({ item }) {
 
     if (item.invitationStatus === "accepted") {
       return (
-        <div className="inline-flex items-center gap-1 rounded-full bg-[#eaf3ff] px-2 py-1 text-[11px] font-medium text-[#77aef7]">
+        <div className="inline-flex items-center gap-1 rounded-full bg-[#eaf3ff] px-2 py-1 text-[11px] font-semibold text-[#2f6df0]">
           <CheckCircle2 className="h-3 w-3" />
           Active
-        </div>
-      );
-    }
-
-    if (item.invitationStatus === "declined") {
-      return (
-        <div className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600">
-          Declined
         </div>
       );
     }
@@ -232,7 +253,7 @@ function StatusBadge({ item }) {
 
   if (item.status === "completed") {
     return (
-      <div className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-[11px] font-medium text-green-700">
+      <div className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-[11px] font-semibold text-green-700">
         <CheckCircle2 className="h-3 w-3" />
         Done
       </div>
@@ -241,14 +262,14 @@ function StatusBadge({ item }) {
 
   if (item.status === "in_progress") {
     return (
-      <div className="inline-flex items-center gap-1 rounded-full bg-[#eaf3ff] px-2 py-1 text-[11px] font-medium text-[#77aef7]">
+      <div className="inline-flex items-center gap-1 rounded-full bg-[#eaf3ff] px-2 py-1 text-[11px] font-semibold text-[#2f6df0]">
         Active
       </div>
     );
   }
 
   return (
-    <div className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600">
+    <div className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">
       Planned
     </div>
   );
@@ -309,11 +330,32 @@ function formatDate(dateString) {
   });
 }
 
+function EventImage({ item }) {
+  if (item.type !== "event") return null;
+
+  if (item.placePhotoUrl) {
+    return (
+      <div className="mb-3 overflow-hidden rounded-[18px] bg-slate-100">
+        <img
+          src={item.placePhotoUrl}
+          alt={item.placeName || item.title || "Event location"}
+          className="h-[130px] w-full object-cover"
+          loading="lazy"
+        />
+      </div>
+    );
+  }
+
+  return null;
+}
+
+  
+
 export default function Goals() {
   const [items, setItems] = React.useState([]);
   const [statusFilter, setStatusFilter] = React.useState("all");
-
   const [openActionsId, setOpenActionsId] = React.useState(null);
+  const [currentUserId, setCurrentUserId] = React.useState(null);
 
   const [showGoalModal, setShowGoalModal] = React.useState(false);
   const [showEventModal, setShowEventModal] = React.useState(false);
@@ -325,6 +367,11 @@ export default function Goals() {
   const [eventTitle, setEventTitle] = React.useState("");
   const [eventLocation, setEventLocation] = React.useState("");
   const [eventDate, setEventDate] = React.useState("");
+  const [isFetchingPlace, setIsFetchingPlace] = React.useState(false);
+
+  const [placeSuggestions, setPlaceSuggestions] = React.useState([]);
+  const [selectedPlace, setSelectedPlace] = React.useState(null);
+  const [isSearchingPlaces, setIsSearchingPlaces] = React.useState(false);
 
   const [editingItem, setEditingItem] = React.useState(null);
   const [editTitle, setEditTitle] = React.useState("");
@@ -332,9 +379,45 @@ export default function Goals() {
   const [editDate, setEditDate] = React.useState("");
   const [editStatus, setEditStatus] = React.useState("planned");
 
+  React.useEffect(() => {
+    const query = eventLocation.trim();
+
+    if (query.length < 3) {
+      setPlaceSuggestions([]);
+      setIsSearchingPlaces(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingPlaces(true);
+
+      try {
+        const { data, error } = await supabase.functions.invoke(
+          "search-place-suggestions",
+          {
+            body: { query },
+          }
+        );
+
+        if (error) throw error;
+
+        setPlaceSuggestions(data?.suggestions || []);
+      } catch (error) {
+        console.warn("PLACE SEARCH FAILED:", error);
+        setPlaceSuggestions([]);
+      } finally {
+        setIsSearchingPlaces(false);
+      }
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [eventLocation]);
+
   const loadGoals = React.useCallback(async () => {
     const currentUser = await getCurrentProfileUser();
     if (!currentUser) return;
+
+    setCurrentUserId(currentUser.id);
 
     const coupleId = currentUser.couple_profile_id;
 
@@ -356,72 +439,105 @@ export default function Goals() {
       return;
     }
 
-    setItems((data || []).map(normalizeItem));
+    const cleanItems = (data || [])
+      .map(normalizeItem)
+      .filter(
+        (item) =>
+          !(item.type === "event" && item.invitationStatus === "declined")
+      );
+
+    setItems(cleanItems);
   }, []);
 
+  const realtimeChannelsRef = React.useRef([]);
+
   React.useEffect(() => {
-    let goalsChannel;
-    let profileChannel;
+  let isMounted = true;
 
-    const setup = async () => {
-      const currentUser = await getCurrentProfileUser();
-
-      await loadGoals();
-
-      if (!currentUser?.id) return;
-
-      profileChannel = supabase
-        .channel(`profile-watch-${currentUser.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "UPDATE",
-            schema: "public",
-            table: "profiles",
-            filter: `id=eq.${currentUser.id}`,
-          },
-          loadGoals
-        )
-        .subscribe();
-
-      if (currentUser.couple_profile_id) {
-        goalsChannel = supabase
-          .channel(`goals-realtime-${currentUser.couple_profile_id}`)
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table: "couple_goals",
-              filter: `couple_profile_id=eq.${currentUser.couple_profile_id}`,
-            },
-            loadGoals
-          )
-          .subscribe();
-      } else {
-        goalsChannel = supabase
-          .channel(`goals-realtime-user-${currentUser.id}`)
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table: "couple_goals",
-              filter: `owner_id=eq.${currentUser.id}`,
-            },
-            loadGoals
-          )
-          .subscribe();
+  const cleanupChannels = async () => {
+    for (const channel of realtimeChannelsRef.current) {
+      try {
+        await supabase.removeChannel(channel);
+      } catch (error) {
+        console.warn("REMOVE CHANNEL FAILED:", error);
       }
-    };
+    }
 
-    setup();
+    realtimeChannelsRef.current = [];
+  };
 
-    return () => {
-      if (goalsChannel) supabase.removeChannel(goalsChannel);
-      if (profileChannel) supabase.removeChannel(profileChannel);
-    };
-  }, [loadGoals]);
+  const setup = async () => {
+    await cleanupChannels();
+
+    const currentUser = await getCurrentProfileUser();
+
+    if (!isMounted || !currentUser?.id) return;
+
+    setCurrentUserId(currentUser.id);
+    await loadGoals();
+
+    const uniqueId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`;
+
+    const profileChannel = supabase
+      .channel(`profile-watch-${currentUser.id}-${uniqueId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${currentUser.id}`,
+        },
+        () => {
+          loadGoals();
+        }
+      );
+
+    realtimeChannelsRef.current.push(profileChannel);
+    profileChannel.subscribe();
+
+    const goalsChannelName = currentUser.couple_profile_id
+      ? `goals-realtime-${currentUser.couple_profile_id}-${uniqueId}`
+      : `goals-realtime-user-${currentUser.id}-${uniqueId}`;
+
+    const goalsFilter = currentUser.couple_profile_id
+      ? `couple_profile_id=eq.${currentUser.couple_profile_id}`
+      : `owner_id=eq.${currentUser.id}`;
+
+    const goalsChannel = supabase
+      .channel(goalsChannelName)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "couple_goals",
+          filter: goalsFilter,
+        },
+        () => {
+          loadGoals();
+        }
+      );
+
+    realtimeChannelsRef.current.push(goalsChannel);
+    goalsChannel.subscribe();
+  };
+
+  setup();
+
+  return () => {
+    isMounted = false;
+
+    for (const channel of realtimeChannelsRef.current) {
+      supabase.removeChannel(channel);
+    }
+
+    realtimeChannelsRef.current = [];
+  };
+}, [loadGoals]);
 
   const filteredItems = React.useMemo(() => {
     if (statusFilter === "all") return items;
@@ -477,6 +593,9 @@ export default function Goals() {
     setEventTitle("");
     setEventLocation("");
     setEventDate("");
+    setSelectedPlace(null);
+    setPlaceSuggestions([]);
+    setIsSearchingPlaces(false);
   };
 
   const handleAddGoal = async () => {
@@ -539,17 +658,24 @@ export default function Goals() {
       return;
     }
 
+    setIsFetchingPlace(true);
+
     const locationText = eventLocation.trim();
+    const description = locationText
+      ? `Location: ${locationText}`
+      : "Waiting for partner response";
 
     const newEvent = {
       owner_id: currentUser.id,
       couple_profile_id: coupleId,
       title: eventTitle.trim(),
-      description: locationText ? `Location: ${locationText}` : "Waiting for partner response",
+      description,
       target_date: eventDate || null,
       status: "pending",
       invitation_status: "pending",
       type: "event",
+      place_name: selectedPlace?.name || null,
+      place_id: selectedPlace?.placeId || null,
     };
 
     const { data, error } = await supabase
@@ -561,11 +687,51 @@ export default function Goals() {
     if (error) {
       console.error("CREATE EVENT ERROR:", error);
       alert(error.message || "Failed to create invitation.");
+      setIsFetchingPlace(false);
       return;
     }
 
-    setItems((prev) => [normalizeItem(data), ...prev]);
+    let finalEvent = normalizeItem(data);
+
+    const placeData = await getPlacePhoto({
+      locationText,
+      titleText: eventTitle.trim(),
+      selectedPlace,
+    });
+
+    if (placeData?.photoUrl || placeData?.placePhotoUrl || selectedPlace?.placeId) {
+      const placePayload = {
+        place_name:
+          placeData?.placeName ||
+          placeData?.name ||
+          selectedPlace?.name ||
+          locationText ||
+          null,
+        place_photo_url: placeData?.photoUrl || placeData?.placePhotoUrl || null,
+        place_id:
+          placeData?.placeId ||
+          placeData?.id ||
+          selectedPlace?.placeId ||
+          null,
+      };
+
+      const { data: updatedEvent, error: updateError } = await supabase
+        .from("couple_goals")
+        .update(placePayload)
+        .eq("id", data.id)
+        .select()
+        .single();
+
+      if (!updateError && updatedEvent) {
+        finalEvent = normalizeItem(updatedEvent);
+      } else if (updateError) {
+        console.warn("PLACE PHOTO SAVE FAILED:", updateError);
+      }
+    }
+
+    setItems((prev) => [finalEvent, ...prev]);
     resetEventForm();
+    setIsFetchingPlace(false);
     setShowEventModal(false);
   };
 
@@ -592,16 +758,10 @@ export default function Goals() {
   };
 
   const declineInvitation = async (id) => {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("couple_goals")
-      .update({
-        invitation_status: "declined",
-        status: "declined",
-        description: "Invitation declined",
-      })
-      .eq("id", id)
-      .select()
-      .single();
+      .delete()
+      .eq("id", id);
 
     if (error) {
       console.error("DECLINE ERROR:", error);
@@ -609,9 +769,7 @@ export default function Goals() {
       return;
     }
 
-    setItems((prev) =>
-      prev.map((item) => (item.id === id ? normalizeItem(data) : item))
-    );
+    setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
   const openEditModal = (item) => {
@@ -619,7 +777,9 @@ export default function Goals() {
     setEditTitle(item.title || "");
     setEditDescription(item.description || "");
     setEditDate(item.targetDate || item.target_date || "");
-    setEditStatus(item.type === "event" ? item.status || "pending" : item.status || "planned");
+    setEditStatus(
+      item.type === "event" ? item.status || "pending" : item.status || "planned"
+    );
   };
 
   const handleUpdateItem = async () => {
@@ -634,21 +794,14 @@ export default function Goals() {
       title: editTitle.trim(),
       description: editDescription.trim(),
       status: editStatus,
+      target_date: editDate || null,
     };
 
-    if (editingItem.type === "goal") {
-      payload.target_date = editDate || null;
-    }
-
     if (editingItem.type === "event") {
-      payload.target_date = editDate || null;
-
       if (editStatus === "in_progress") {
         payload.invitation_status = "accepted";
       } else if (editStatus === "pending") {
         payload.invitation_status = "pending";
-      } else if (editStatus === "declined") {
-        payload.invitation_status = "declined";
       }
     }
 
@@ -666,7 +819,9 @@ export default function Goals() {
     }
 
     setItems((prev) =>
-      prev.map((item) => (item.id === editingItem.id ? normalizeItem(data) : item))
+      prev.map((item) =>
+        item.id === editingItem.id ? normalizeItem(data) : item
+      )
     );
 
     setEditingItem(null);
@@ -678,7 +833,10 @@ export default function Goals() {
     const confirmed = window.confirm("Delete this item? This cannot be undone.");
     if (!confirmed) return;
 
-    const { error } = await supabase.from("couple_goals").delete().eq("id", item.id);
+    const { error } = await supabase
+      .from("couple_goals")
+      .delete()
+      .eq("id", item.id);
 
     if (error) {
       console.error("DELETE ERROR:", error);
@@ -694,18 +852,19 @@ export default function Goals() {
       <AppShell>
         <AppHeader title="Our Goals" />
 
-        <div className="space-y-4 px-3 py-3">
-          <div className="grid grid-cols-2 gap-2">
+        <div className="-mt-2 space-y-4 px-4 pb-6 pt-4">
+          <div className="grid grid-cols-2 gap-3">
             <SmallActionButton
               onClick={() => setShowGoalModal(true)}
-              icon={<Target className="h-4 w-4 text-slate-700" />}
+              icon={<Target className="h-4 w-4" />}
               text="Add a Goal"
             />
 
             <SmallActionButton
               onClick={() => setShowEventModal(true)}
-              icon={<Send className="h-4 w-4 text-slate-700" />}
+              icon={<Send className="h-4 w-4" />}
               text="Events"
+              primary
             />
           </div>
 
@@ -716,7 +875,7 @@ export default function Goals() {
             <StatCard value={stats.completed} label="Done" tone="green" />
           </div>
 
-          <AppCard className="bg-slate-100 p-1">
+          <AppCard className="bg-slate-100/80 p-1">
             <div className="flex gap-1">
               {[
                 { key: "all", label: "All" },
@@ -748,104 +907,131 @@ export default function Goals() {
 
             {filteredItems.length > 0 ? (
               <div className="space-y-3">
-                {filteredItems.map((item) => (
-                  <AppCard key={item.id} className="p-3">
-  <button
-    type="button"
-    onClick={() =>
-  setOpenActionsId((current) => (current === item.id ? null : item.id))
-  }
-    className="block w-full text-left"
-  >
-    <div className="flex items-start gap-3">
-      <div
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${
-          item.type === "event"
-            ? "bg-[#eaf3ff] text-[#77aef7]"
-            : "bg-slate-100 text-slate-700"
-        }`}
-      >
-        {item.type === "event" ? (
-          <Calendar className="h-4 w-4" />
-        ) : (
-          <Target className="h-4 w-4" />
-        )}
-      </div>
+                {filteredItems.map((item) => {
+                  const isInviteSender =
+                    item.type === "event" && item.owner_id === currentUserId;
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-slate-800">
-              {item.title}
-            </div>
+                  const canRespondToInvite =
+                    item.type === "event" &&
+                    item.invitationStatus === "pending" &&
+                    !isInviteSender;
 
-            {item.description ? (
-              <p className="mt-1 text-xs text-slate-500">
-                {item.description}
-              </p>
-            ) : null}
+                  return (
+                    <AppCard key={item.id} className="p-3">
+                      <EventImage item={item} />
 
-            {item.targetDate ? (
-              <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] text-slate-600">
-                <Calendar className="h-3 w-3" />
-                {formatDate(item.targetDate)}
-              </div>
-            ) : null}
-          </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenActionsId((current) =>
+                            current === item.id ? null : item.id
+                          )
+                        }
+                        className="block w-full text-left"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] ${
+                              item.type === "event"
+                                ? "bg-[#eaf3ff] text-[#2f6df0]"
+                                : "bg-slate-100 text-slate-700"
+                            }`}
+                          >
+                            {item.type === "event" ? (
+                              <Calendar className="h-4 w-4" />
+                            ) : (
+                              <Target className="h-4 w-4" />
+                            )}
+                          </div>
 
-          <StatusBadge item={item} />
-        </div>
-      </div>
-    </div>
-  </button>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="text-[14px] font-semibold text-[#172033]">
+                                  {item.title}
+                                </div>
 
-  {openActionsId === item.id ? (
-  <div className="mt-3 grid grid-cols-2 gap-2">
-    <button
-      type="button"
-      onClick={() => openEditModal(item)}
-      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[10px] bg-slate-100 px-3 text-xs font-medium text-slate-700 hover:bg-slate-200"
-    >
-      <Pencil className="h-3.5 w-3.5" />
-      Edit
-    </button>
+                                {item.description ? (
+                                  <p className="mt-1 text-[12px] text-slate-500">
+                                    {item.description}
+                                  </p>
+                                ) : null}
 
-    <button
-      type="button"
-      onClick={() => handleDeleteItem(item)}
-      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[10px] bg-red-50 px-3 text-xs font-medium text-red-500 hover:bg-red-100"
-    >
-      <Trash2 className="h-3.5 w-3.5" />
-      Delete
-    </button>
-  </div>
-) : null}
+                                {item.placeName ? (
+                                  <p className="mt-1 text-[11px] font-medium text-[#2f6df0]">
+                                    {item.placeName}
+                                  </p>
+                                ) : null}
 
-{item.type === "event" && item.invitationStatus === "pending" ? (
-    <div className="mt-3 flex gap-2">
-      <button
-        type="button"
-        onClick={() => acceptInvitation(item.id)}
-        className="inline-flex h-8 items-center justify-center rounded-[9px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] px-3 text-xs font-medium text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
-      >
-        Accept
-      </button>
+                                {item.targetDate ? (
+                                  <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] text-slate-600">
+                                    <Calendar className="h-3 w-3" />
+                                    {formatDate(item.targetDate)}
+                                  </div>
+                                ) : null}
 
-      <button
-        type="button"
-        onClick={() => declineInvitation(item.id)}
-        className="inline-flex h-8 items-center justify-center rounded-[9px] border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
-      >
-        Decline
-      </button>
-    </div>
-  ) : null}
-</AppCard>
-                ))}
+                                {isInviteSender &&
+                                item.invitationStatus === "pending" ? (
+                                  <div className="mt-2 inline-flex rounded-full bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-600">
+                                    Waiting for partner
+                                  </div>
+                                ) : null}
+                              </div>
+
+                              <StatusBadge item={item} />
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+
+                      {openActionsId === item.id ? (
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(item)}
+                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[12px] bg-slate-100 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteItem(item)}
+                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[12px] bg-red-50 px-3 text-xs font-semibold text-red-500 hover:bg-red-100"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
+                          </button>
+                        </div>
+                      ) : null}
+
+                      {canRespondToInvite ? (
+                        <div className="mt-3 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => acceptInvitation(item.id)}
+                            className="inline-flex h-9 items-center justify-center rounded-[12px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] px-4 text-xs font-semibold text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
+                          >
+                            Accept
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => declineInvitation(item.id)}
+                            className="inline-flex h-9 items-center justify-center rounded-[12px] border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      ) : null}
+                    </AppCard>
+                  );
+                })}
               </div>
             ) : (
               <EmptyState
-                icon={<Target className="h-8 w-8 text-slate-300" />}
+                icon={<Target className="h-8 w-8 text-[#2f6df0]" />}
                 title="No goals yet"
                 text="Start building your future together"
               />
@@ -854,7 +1040,11 @@ export default function Goals() {
         </div>
       </AppShell>
 
-      <Modal open={showGoalModal} onClose={() => setShowGoalModal(false)} title="Add a Goal">
+      <Modal
+        open={showGoalModal}
+        onClose={() => setShowGoalModal(false)}
+        title="Add a Goal"
+      >
         <AppCard className="p-4">
           <label className="mb-2 block text-sm font-medium text-slate-700">
             Goal Title
@@ -864,7 +1054,7 @@ export default function Goals() {
             value={goalTitle}
             onChange={(e) => setGoalTitle(e.target.value)}
             placeholder="Enter your goal..."
-            className="mb-4 h-10 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#8ec5ff]"
+            className="mb-4 h-10 w-full rounded-[14px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#8ec5ff]"
           />
 
           <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -874,7 +1064,7 @@ export default function Goals() {
             value={goalDescription}
             onChange={(e) => setGoalDescription(e.target.value)}
             placeholder="Add more detail..."
-            className="mb-4 min-h-[90px] w-full rounded-[10px] border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#8ec5ff]"
+            className="mb-4 min-h-[90px] w-full rounded-[14px] border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#8ec5ff]"
           />
 
           <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -884,21 +1074,25 @@ export default function Goals() {
             type="date"
             value={goalDate}
             onChange={(e) => setGoalDate(e.target.value)}
-            className="h-10 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#8ec5ff]"
+            className="h-10 w-full rounded-[14px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#8ec5ff]"
           />
         </AppCard>
 
         <Button
           type="button"
           onClick={handleAddGoal}
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
         >
           <Target className="h-4 w-4" />
           <span>Save Goal</span>
         </Button>
       </Modal>
 
-      <Modal open={showEventModal} onClose={() => setShowEventModal(false)} title="Event Invitation">
+      <Modal
+        open={showEventModal}
+        onClose={() => setShowEventModal(false)}
+        title="Event Invitation"
+      >
         <AppCard className="p-4">
           <label className="mb-2 block text-sm font-medium text-slate-700">
             Event Title
@@ -907,8 +1101,8 @@ export default function Goals() {
             type="text"
             value={eventTitle}
             onChange={(e) => setEventTitle(e.target.value)}
-            placeholder="Enter event title..."
-            className="mb-4 h-10 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#8ec5ff]"
+            placeholder="Gold Reef City, Dinner, Picnic..."
+            className="mb-4 h-10 w-full rounded-[14px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#8ec5ff]"
           />
 
           <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -918,31 +1112,81 @@ export default function Goals() {
             type="date"
             value={eventDate}
             onChange={(e) => setEventDate(e.target.value)}
-            className="mb-4 h-10 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#8ec5ff]"
+            className="mb-4 h-10 w-full rounded-[14px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#8ec5ff]"
           />
 
           <label className="mb-2 block text-sm font-medium text-slate-700">
             Location
           </label>
+
           <div className="relative">
             <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={eventLocation}
-              onChange={(e) => setEventLocation(e.target.value)}
-              placeholder="Add location..."
-              className="h-10 w-full rounded-[10px] border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#8ec5ff]"
+              onChange={(e) => {
+                setEventLocation(e.target.value);
+                setSelectedPlace(null);
+              }}
+              placeholder="Example: Gold Reef City Johannesburg"
+              className="h-10 w-full rounded-[14px] border border-slate-200 bg-white pl-9 pr-9 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#8ec5ff]"
             />
+
+            {isSearchingPlaces ? (
+              <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
+            ) : null}
           </div>
+
+          {placeSuggestions.length > 0 ? (
+            <div className="mt-2 overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-[0_8px_18px_rgba(15,23,42,0.08)]">
+              {placeSuggestions.map((place) => (
+                <button
+                  key={place.placeId || `${place.name}-${place.address}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedPlace(place);
+                    setEventLocation(place.address || place.name || "");
+                    setPlaceSuggestions([]);
+                  }}
+                  className="block w-full border-b border-slate-100 px-3 py-2 text-left last:border-b-0"
+                >
+                  <p className="text-[13px] font-semibold text-slate-800">
+                    {place.name}
+                  </p>
+                  {place.address ? (
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      {place.address}
+                    </p>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {selectedPlace ? (
+            <div className="mt-2 rounded-[14px] bg-[#eaf3ff] px-3 py-2 text-[11px] font-semibold text-[#2f6df0]">
+              Selected: {selectedPlace.name}
+            </div>
+          ) : null}
+
+          <p className="mt-3 text-[11px] leading-5 text-slate-500">
+            Start typing a location to search Google Places. Select a place to
+            attach its image to the event.
+          </p>
         </AppCard>
 
         <Button
           type="button"
           onClick={handleCreateInvitation}
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
+          disabled={isFetchingPlace}
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff] disabled:opacity-70"
         >
-          <Send className="h-4 w-4" />
-          <span>Create Invitation</span>
+          {isFetchingPlace ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
+          <span>{isFetchingPlace ? "Creating..." : "Create Invitation"}</span>
         </Button>
       </Modal>
 
@@ -959,7 +1203,7 @@ export default function Goals() {
             type="text"
             value={editTitle}
             onChange={(e) => setEditTitle(e.target.value)}
-            className="mb-4 h-10 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#8ec5ff]"
+            className="mb-4 h-10 w-full rounded-[14px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#8ec5ff]"
           />
 
           <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -968,7 +1212,7 @@ export default function Goals() {
           <textarea
             value={editDescription}
             onChange={(e) => setEditDescription(e.target.value)}
-            className="mb-4 min-h-[90px] w-full rounded-[10px] border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 outline-none focus:border-[#8ec5ff]"
+            className="mb-4 min-h-[90px] w-full rounded-[14px] border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 outline-none focus:border-[#8ec5ff]"
           />
 
           <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -978,7 +1222,7 @@ export default function Goals() {
             type="date"
             value={editDate || ""}
             onChange={(e) => setEditDate(e.target.value)}
-            className="mb-4 h-10 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#8ec5ff]"
+            className="mb-4 h-10 w-full rounded-[14px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#8ec5ff]"
           />
 
           <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -987,13 +1231,12 @@ export default function Goals() {
           <select
             value={editStatus}
             onChange={(e) => setEditStatus(e.target.value)}
-            className="h-10 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#8ec5ff]"
+            className="h-10 w-full rounded-[14px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#8ec5ff]"
           >
             {editingItem?.type === "event" ? (
               <>
                 <option value="pending">Pending</option>
                 <option value="in_progress">Active</option>
-                <option value="declined">Declined</option>
               </>
             ) : (
               <>
@@ -1008,7 +1251,7 @@ export default function Goals() {
         <Button
           type="button"
           onClick={handleUpdateItem}
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)]"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)]"
         >
           Save Changes
         </Button>
