@@ -382,6 +382,14 @@ function areMessagesEqual(a, b) {
   return true;
 }
 
+function sortMessages(list) {
+  return [...list].sort((a, b) =>
+    String(a.created_date || a.created_at || "").localeCompare(
+      String(b.created_date || b.created_at || "")
+    )
+  );
+}
+
 export default function Chat() {
   const [user, setUser] = React.useState(null);
   const [partner, setPartner] = React.useState(null);
@@ -391,6 +399,7 @@ export default function Chat() {
   const [isSending, setIsSending] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
   const [isChatLocked, setIsChatLocked] = React.useState(false);
+  const [activeCoupleId, setActiveCoupleId] = React.useState(null);
 
   const messagesEndRef = React.useRef(null);
   const fileInputRef = React.useRef(null);
@@ -439,6 +448,8 @@ export default function Chat() {
         setUser(null);
         setPartner(null);
         setMessages([]);
+        setActiveCoupleId(null);
+        coupleIdRef.current = null;
         return;
       }
 
@@ -468,10 +479,10 @@ export default function Chat() {
 
       setUser(mergedUser);
 
-      let activeCoupleId =
+      let resolvedCoupleId =
         mergedUser?.couple_profile_id || mergedUser?.user_metadata?.couple_profile_id || null;
 
-      if (!activeCoupleId) {
+      if (!resolvedCoupleId) {
         const { data: foundProfile, error: profileError } = await supabase
           .from("profiles")
           .select("couple_profile_id")
@@ -480,12 +491,13 @@ export default function Chat() {
 
         if (profileError) throw profileError;
 
-        activeCoupleId = foundProfile?.couple_profile_id || null;
+        resolvedCoupleId = foundProfile?.couple_profile_id || null;
       }
 
-      coupleIdRef.current = activeCoupleId || null;
+      coupleIdRef.current = resolvedCoupleId || null;
+      setActiveCoupleId(resolvedCoupleId || null);
 
-      if (!activeCoupleId) {
+      if (!resolvedCoupleId) {
         setPartner(null);
         setMessages([]);
         setIsChatLocked(true);
@@ -495,7 +507,7 @@ export default function Chat() {
       const { data: coupleProfile, error: coupleError } = await supabase
         .from("couple_profiles")
         .select("*")
-        .eq("id", activeCoupleId)
+        .eq("id", resolvedCoupleId)
         .maybeSingle();
 
       if (coupleError) throw coupleError;
@@ -515,20 +527,21 @@ export default function Chat() {
       const partnerProfile = await tryProfileTablesByEmail(partnerEmail);
       setPartner(partnerProfile || { email: partnerEmail, full_name: "Partner" });
 
-      await loadMessages(activeCoupleId);
+      await loadMessages(resolvedCoupleId);
 
-await supabase
-  .from("messages")
-  .update({ read: true })
-  .eq("couple_profile_id", activeCoupleId)
-  .neq("sender_email", mergedUser.email)
-  .eq("read", false);
-
+      await supabase
+        .from("messages")
+        .update({ read: true })
+        .eq("couple_profile_id", resolvedCoupleId)
+        .neq("sender_email", mergedUser.email)
+        .eq("read", false);
     } catch (error) {
       console.error("Error loading chat:", error);
       setUser(null);
       setPartner(null);
       setMessages([]);
+      setActiveCoupleId(null);
+      coupleIdRef.current = null;
     } finally {
       setIsLoading(false);
     }
@@ -540,9 +553,7 @@ await supabase
 
   React.useEffect(() => {
     if (isLoading) return;
-
-    const coupleId = coupleIdRef.current;
-    if (!coupleId) return;
+    if (!activeCoupleId) return;
 
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
@@ -550,14 +561,14 @@ await supabase
     }
 
     const channel = supabase
-      .channel(`messages-${coupleId}`)
+      .channel(`messages-${activeCoupleId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "messages",
-          filter: `couple_profile_id=eq.${coupleId}`,
+          filter: `couple_profile_id=eq.${activeCoupleId}`,
         },
         (payload) => {
           const eventType = payload.eventType;
@@ -569,11 +580,7 @@ await supabase
 
             if (eventType === "INSERT") {
               if (prev.some((item) => item.id === row.id)) return prev;
-              next = [...prev, row].sort((a, b) =>
-                String(a.created_date || a.created_at).localeCompare(
-                  String(b.created_date || b.created_at)
-                )
-              );
+              next = sortMessages([...prev, row]);
             } else if (eventType === "UPDATE") {
               next = prev.map((item) => (item.id === row.id ? { ...item, ...row } : item));
             } else if (eventType === "DELETE") {
@@ -584,7 +591,7 @@ await supabase
           });
         }
       )
-        .subscribe((status, err) => {
+      .subscribe((status, err) => {
         console.log("CHAT REALTIME STATUS:", status);
         console.log("CHAT REALTIME ERROR:", err);
       });
@@ -597,7 +604,7 @@ await supabase
         channelRef.current = null;
       }
     };
-  }, [isLoading, user?.id]);
+  }, [isLoading, user?.id, activeCoupleId]);
 
   React.useEffect(() => {
     const container = messageListRef.current;
@@ -620,22 +627,19 @@ await supabase
     }
 
     if (hasNewMessage) {
-  const container = messageListRef.current;
-  if (!container) return;
+      const isNearBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight < 100;
 
-  const isNearBottom =
-    container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-
-  if (isNearBottom) {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }
-}
+      if (isNearBottom) {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    }
 
     prevMessageCountRef.current = messages.length;
   }, [messages.length]);
 
   const handleSend = async () => {
-    if (!user || !coupleIdRef.current) return;
+    if (!user || !activeCoupleId) return;
 
     const content = newMessage.trim();
     if (!content) return;
@@ -643,42 +647,32 @@ await supabase
     setIsSending(true);
 
     try {
-     const { data, error } = await supabase
-  .from("messages")
-  .insert({
-    couple_profile_id: coupleIdRef.current,
-    sender_email: user.email,
-    sender_name: user.full_name || user.name || "You",
-    content,
-    read: false,
-  })
-  .select()
-  .single();
-
-if (error) {
-  console.error("SEND MESSAGE ERROR:", error);
-  return;
-}
-
-setMessages((prev) => {
-  if (prev.some((msg) => msg.id === data.id)) return prev;
-
-  return [...prev, data].sort((a, b) =>
-    String(a.created_date || a.created_at).localeCompare(
-      String(b.created_date || b.created_at)
-    )
-  );
-});
-
-requestAnimationFrame(() => {
-  messagesEndRef.current?.scrollIntoView({
-    behavior: "smooth",
-  });
-});
+      const { data, error } = await supabase
+        .from("messages")
+        .insert({
+          couple_profile_id: activeCoupleId,
+          sender_email: user.email,
+          sender_name: user.full_name || user.name || "You",
+          content,
+          read: false,
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
+      setMessages((prev) => {
+        if (prev.some((msg) => msg.id === data.id)) return prev;
+        return sortMessages([...prev, data]);
+      });
+
       setNewMessage("");
+
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({
+          behavior: "smooth",
+        });
+      });
     } catch (error) {
       console.error("Send failed:", error);
       alert("Failed to send message.");
@@ -691,7 +685,7 @@ requestAnimationFrame(() => {
     const file = e.target.files?.[0];
     e.target.value = "";
 
-    if (!file || !user || !coupleIdRef.current) return;
+    if (!file || !user || !activeCoupleId) return;
 
     const isImage = file.type.startsWith("image/");
     const isVideo = file.type.startsWith("video/");
@@ -706,7 +700,7 @@ requestAnimationFrame(() => {
     try {
       const prefix = isImage ? "📷 " : "🎥 ";
       const fileExt = file.name.split(".").pop();
-      const filePath = `${coupleIdRef.current}/${user.id}/${Date.now()}.${fileExt}`;
+      const filePath = `${activeCoupleId}/${user.id}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("chat-media")
@@ -717,17 +711,30 @@ requestAnimationFrame(() => {
       const { data } = supabase.storage.from("chat-media").getPublicUrl(filePath);
       const content = `${prefix}${data.publicUrl}`;
 
-      const { error: insertError } = await supabase.from("messages").insert({
-        couple_profile_id: coupleIdRef.current,
-        sender_email: user.email,
-        sender_name: user.full_name || user.name || "You",
-        content,
-        read: false,
-      });
+      const { data: insertedMessage, error: insertError } = await supabase
+        .from("messages")
+        .insert({
+          couple_profile_id: activeCoupleId,
+          sender_email: user.email,
+          sender_name: user.full_name || user.name || "You",
+          content,
+          read: false,
+        })
+        .select()
+        .single();
 
       if (insertError) throw insertError;
 
-      await loadMessages(coupleIdRef.current);
+      setMessages((prev) => {
+        if (prev.some((msg) => msg.id === insertedMessage.id)) return prev;
+        return sortMessages([...prev, insertedMessage]);
+      });
+
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({
+          behavior: "smooth",
+        });
+      });
     } catch (error) {
       console.error("Upload failed:", error);
       alert("Failed to upload file.");
@@ -762,7 +769,7 @@ requestAnimationFrame(() => {
     );
   }
 
-  if (isChatLocked || !coupleIdRef.current) {
+  if (isChatLocked || !activeCoupleId) {
     return (
       <>
         <ChatHeader partner={partner} onBack={() => window.history.back()} />
