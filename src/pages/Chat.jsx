@@ -584,7 +584,10 @@ await supabase
           });
         }
       )
-      .subscribe();
+        .subscribe((status, err) => {
+        console.log("CHAT REALTIME STATUS:", status);
+        console.log("CHAT REALTIME ERROR:", err);
+      });
 
     channelRef.current = channel;
 
@@ -640,13 +643,38 @@ await supabase
     setIsSending(true);
 
     try {
-      const { error } = await supabase.from("messages").insert({
-        couple_profile_id: coupleIdRef.current,
-        sender_email: user.email,
-        sender_name: user.full_name || user.name || "You",
-        content,
-        read: false,
-      });
+     const { data, error } = await supabase
+  .from("messages")
+  .insert({
+    couple_profile_id: coupleIdRef.current,
+    sender_email: user.email,
+    sender_name: user.full_name || user.name || "You",
+    content,
+    read: false,
+  })
+  .select()
+  .single();
+
+if (error) {
+  console.error("SEND MESSAGE ERROR:", error);
+  return;
+}
+
+setMessages((prev) => {
+  if (prev.some((msg) => msg.id === data.id)) return prev;
+
+  return [...prev, data].sort((a, b) =>
+    String(a.created_date || a.created_at).localeCompare(
+      String(b.created_date || b.created_at)
+    )
+  );
+});
+
+requestAnimationFrame(() => {
+  messagesEndRef.current?.scrollIntoView({
+    behavior: "smooth",
+  });
+});
 
       if (error) throw error;
 
