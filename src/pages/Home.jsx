@@ -202,18 +202,18 @@ function formatCountdown(ms, nowTick) {
 function InteractionGauge({ chats = 0, goals = 0, memories = 0, dates = 0 }) {
   const navigate = useNavigate();
 
-  const chatScore = Math.min(chats * 2, 25);
-  const goalScore = Math.min(goals * 8, 25);
-  const memoryScore = Math.min(memories * 6, 25);
-  const dateScore = Math.min(dates * 10, 25);
+  const chatScore = Math.min(chats * 0.5, 20);
+  const goalScore = Math.min(goals * 3, 25);
+  const memoryScore = Math.min(memories * 2, 25);
+  const dateScore = Math.min(dates * 5, 30);
 
   const totalScore = Math.max(
-    0,
-    Math.min(100, Math.round(chatScore + goalScore + memoryScore + dateScore))
-  );
+  0,
+  Math.min(100, Math.round(chatScore + goalScore + memoryScore + dateScore))
+);
 
   const levelLabel =
-    totalScore >= 75 ? 'Strong' : totalScore >= 40 ? 'Growing' : 'Low';
+  totalScore >= 80 ? "Strong" : totalScore >= 55 ? "Growing" : "Low";
 
   return (
     <button
@@ -323,11 +323,7 @@ export default function Home() {
           id: user.id,
           email: user.email,
           profile_photo: publicUrl,
-          full_name:
-            user.user_metadata?.full_name ||
-            user.user_metadata?.name ||
-            user.email?.split('@')[0] ||
-            'User',
+          updated_at: new Date().toISOString(),
         };
 
         await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
@@ -371,15 +367,13 @@ export default function Home() {
 
       if (!profile) {
         const fallbackProfile = {
-          id: authUser.id,
-          email: authUser.email,
-          full_name:
-            authUser.user_metadata?.full_name ||
-            authUser.user_metadata?.name ||
-            authUser.email?.split('@')[0] ||
-            'User',
-          relationship_status: 'single',
-        };
+      id: authUser.id,
+      email: authUser.email,
+      full_name: '',
+      relationship_status: 'single',
+      onboarding_completed: false,
+      profile_completed: false,
+    };
 
         await supabase.from('profiles').upsert(fallbackProfile, { onConflict: 'id' });
         await supabase.from('users').upsert(fallbackProfile, { onConflict: 'id' });
@@ -403,18 +397,24 @@ export default function Home() {
     }
   }, [location.pathname, refetchUser]);
 
-  React.useEffect(() => {
-    if (!user) return;
+  const profileComplete =
+  user?.full_name?.trim() &&
+  user?.date_of_birth &&
+  user?.gender &&
+  user?.location;
 
-    if (user.legalAccepted === false) {
-      navigate(createPageUrl('Consent'), { replace: true });
-      return;
-    }
+React.useEffect(() => {
+  if (!user) return;
 
-    if (user.onboarding_completed === false) {
-      navigate(createPageUrl('Onboarding'), { replace: true });
-    }
-  }, [user, navigate]);
+  if (!profileComplete) {
+    navigate(createPageUrl('Onboarding'), { replace: true });
+    return;
+  }
+
+  if (user.legalAccepted === false) {
+    navigate(createPageUrl('Consent'), { replace: true });
+  }
+}, [user, profileComplete, navigate]);
 
   const coupleId = user?.couple_profile_id || null;
   const myEmail = user?.email || null;
@@ -754,6 +754,16 @@ export default function Home() {
     );
   }
 
+  if (user && !profileComplete) {
+  navigate("/onboarding", { replace: true });
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#f3edf1]">
+      <Loader2 className="h-8 w-8 animate-spin text-[#5e9cff]" />
+    </div>
+  );
+}
+
   if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f3edf1] px-4">
@@ -797,6 +807,14 @@ export default function Home() {
       </>
     );
   }
+
+  if (user && !profileComplete) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#f3edf1]">
+      <Loader2 className="h-8 w-8 animate-spin text-[#5e9cff]" />
+    </div>
+  );
+}
 
   const hasProfilePhoto = Boolean(user?.profile_photo);
 
@@ -1021,11 +1039,11 @@ export default function Home() {
             )}
 
             <InteractionGauge
-              chats={chatsCount}
-              goals={goalsData.count}
-              memories={memoriesCount}
-              dates={eventsCount}
-            />
+  chats={isDateLocked ? chatsCount : 0}
+  goals={isDateLocked ? goalsData.count : 0}
+  memories={isDateLocked ? memoriesCount : 0}
+  dates={isDateLocked ? eventsCount : 0}
+/>
 
             <div className="mt-3 space-y-3">
               <Link to={createPageUrl('Memories')} className="block">

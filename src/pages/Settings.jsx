@@ -546,7 +546,7 @@ export default function Settings() {
       await loadUserProfile();
 
       queryClient.invalidateQueries();
-      navigate(createPageUrl("Home"), { replace: true });
+      navigate("/login", { replace: true });
     } catch (e) {
       console.error("Unlock failed:", e);
       alert(e?.message || "Could not unlock relationship.");

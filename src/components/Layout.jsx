@@ -4,7 +4,12 @@ import BottomNav from "./BottomNav";
 export default function Layout({ children }) {
   const location = useLocation();
 
-  const hideBottomNavRoutes = ["/", "/splash", "/login"];
+  const hideBottomNavRoutes = [
+  "/",
+  "/splash",
+  "/login",
+  "/onboarding",
+];
 
   const shouldHideBottomNav = hideBottomNavRoutes.includes(location.pathname);
 

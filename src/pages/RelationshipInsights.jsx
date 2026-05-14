@@ -186,12 +186,20 @@ const goalsCompleted = goalItems.filter((g) => g?.status === 'completed').length
 const memoriesCount = memories.length;
 const eventsCount = eventItems.length;
 
-    const { total, level } = calculateInteractionScore({
-      chats: chatsCount,
-      goals: goalsCount,
-      memories: memoriesCount,
-      dates: eventsCount,
-    });
+    const isDateLocked = Boolean(currentUser.couple_profile_id);
+
+const safeChatsCount = isDateLocked ? chatsCount : 0;
+const safeGoalsCount = isDateLocked ? goalsCount : 0;
+const safeGoalsCompleted = isDateLocked ? goalsCompleted : 0;
+const safeMemoriesCount = isDateLocked ? memoriesCount : 0;
+const safeEventsCount = isDateLocked ? eventsCount : 0;
+
+const { total, level } = calculateInteractionScore({
+  chats: safeChatsCount,
+  goals: safeGoalsCount,
+  memories: safeMemoriesCount,
+  dates: safeEventsCount,
+});
 
     const summary =
       total >= 75
@@ -218,11 +226,11 @@ const eventsCount = eventItems.length;
         memoriesCount,
         eventsCount,
       }),
-      memories_count: memoriesCount,
-      goals_completed: goalsCompleted,
-      goals_count: goalsCount,
-      chats_count: chatsCount,
-      dates_count: eventsCount,
+      memories_count: safeMemoriesCount,
+      goals_completed: safeGoalsCompleted,
+      goals_count: safeGoalsCount,
+      chats_count: safeChatsCount,
+      dates_count: safeEventsCount,
       interaction_level: level,
       week_start_date: new Date(),
       week_end_date: new Date(),
@@ -318,70 +326,93 @@ const eventsCount = eventItems.length;
       : 'text-red-500';
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-rose-50 via-white to-pink-50">
-        <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
-      </div>
-    );
-  }
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#f3edf1]">
+      <Loader2 className="h-8 w-8 animate-spin text-[#5e9cff]" />
+    </div>
+  );
+}
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-rose-50 via-white to-pink-50 pb-24">
-        <div className="bg-white border-b sticky top-0 z-10">
-          <div className="max-w-md mx-auto px-4 py-4 flex items-center gap-3">
+if (error) {
+  return (
+    <div className="min-h-screen bg-[#f3edf1] px-2 py-2 pb-[74px]">
+      <div className="mx-auto w-full max-w-[410px] overflow-hidden rounded-[28px] border border-[#e8e2e7] bg-[#f7f3f6] shadow-[0_12px_40px_rgba(15,23,42,0.10)]">
+        <div className="bg-gradient-to-r from-[#5e9cff] via-[#2f6df0] to-[#6aa7ff] px-5 pb-7 pt-6">
+          <div className="flex items-center gap-3">
             <Link to={createPageUrl('Home')}>
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="w-5 h-5" />
+              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full text-white hover:bg-white/15">
+                <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
-            <h1 className="text-xl font-semibold text-slate-800">Relationship Insights</h1>
+
+            <div>
+              <h1 className="text-[22px] font-black tracking-[-0.04em] text-white">
+                Relationship Insights
+              </h1>
+              <p className="mt-1 text-[12px] font-medium text-white/80">
+                Couple engagement overview
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="max-w-md mx-auto px-4 py-10">
-          <Card className="p-8 border-0 shadow-lg text-center">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <XIcon className="w-8 h-8 text-red-500" />
+        <div className="-mt-4 px-4 pb-6">
+          <Card className="rounded-[24px] border border-white/70 bg-white px-5 py-6 text-center shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[18px] bg-red-50">
+              <XIcon className="h-7 w-7 text-red-500" />
             </div>
-            <h2 className="text-lg font-semibold text-slate-800 mb-2">Something went wrong</h2>
-            <p className="text-slate-600 mb-6">{error}</p>
+
+            <h2 className="text-[17px] font-bold text-slate-800">
+              Something went wrong
+            </h2>
+
+            <p className="mt-2 text-sm text-slate-500">{error}</p>
+
             <Button
               onClick={loadData}
-              className="bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600"
+              className="mt-5 h-11 rounded-[15px] bg-gradient-to-r from-[#5e9cff] to-[#2f6df0] px-5 text-sm font-bold text-white shadow-[0_8px_18px_rgba(47,109,240,0.22)]"
             >
               Try Again
             </Button>
           </Card>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-rose-50 via-white to-pink-50 pb-24">
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+return (
+  <div className="min-h-screen bg-[#f3edf1] px-2 py-2 pb-[74px]">
+    <div className="mx-auto w-full max-w-[410px] overflow-hidden rounded-[28px] border border-[#e8e2e7] bg-[#f7f3f6] shadow-[0_12px_40px_rgba(15,23,42,0.10)]">
+      <div className="bg-gradient-to-r from-[#5e9cff] via-[#2f6df0] to-[#6aa7ff] px-5 pb-9 pt-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <Link to={createPageUrl('Home')}>
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="w-5 h-5" />
+              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full text-white hover:bg-white/15">
+                <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
-            <h1 className="text-xl font-semibold text-slate-800">Relationship Insights</h1>
+
+            <div className="min-w-0">
+              <h1 className="truncate text-[22px] font-black tracking-[-0.04em] text-white">
+                Relationship Insights
+              </h1>
+              <p className="mt-1 text-[12px] font-medium text-white/80">
+                Live couple interaction score
+              </p>
+            </div>
           </div>
+
           <Button
             onClick={generateInsights}
             disabled={isGenerating}
-            size="sm"
-            className="bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600"
+            className="h-10 rounded-[14px] bg-white/18 px-3 text-xs font-bold text-white shadow-[0_8px_18px_rgba(15,23,42,0.12)] hover:bg-white/20"
           >
             {isGenerating ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <>
-                <Sparkles className="w-4 h-4 mr-2" />
+                <Sparkles className="mr-1.5 h-4 w-4" />
                 Refresh
               </>
             )}
@@ -389,132 +420,141 @@ const eventsCount = eventItems.length;
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+      <div className="-mt-6 px-4 pb-6">
         {latestInsight ? (
-          <>
-            <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}>
-              <Card className="p-6 border-0 shadow-lg bg-gradient-to-br from-white to-rose-50">
-                <div className="text-center mb-6">
-                  <div className={`text-6xl font-bold ${healthScoreColor} mb-2`}>
+          <div className="space-y-4">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className="rounded-[26px] border border-white/70 bg-white px-5 py-5 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
+                <div className="text-center">
+                  <div className={`text-[54px] font-black leading-none ${healthScoreColor}`}>
                     {latestInsight.health_score}
                   </div>
-                  <p className="text-slate-600 font-medium">Relationship Health Score</p>
-                  <p className="text-xs text-slate-400 mt-1">
+
+                  <p className="mt-2 text-[14px] font-bold text-slate-800">
+                    Relationship Health Score
+                  </p>
+
+                  <p className="mt-1 text-[11px] font-medium text-slate-400">
                     {format(new Date(latestInsight.week_start_date), 'MMM d')} -{' '}
                     {format(new Date(latestInsight.week_end_date), 'MMM d, yyyy')}
                   </p>
                 </div>
 
-                <Progress value={latestInsight.health_score} className="h-3 mb-4" />
+                <div className="mt-5">
+                  <Progress value={latestInsight.health_score} className="h-3 rounded-full" />
+                </div>
 
                 {latestInsight.summary ? (
-                  <div className="bg-white/50 rounded-lg p-4 mb-4">
-                    <p className="text-sm text-slate-700 leading-relaxed">{latestInsight.summary}</p>
+                  <div className="mt-4 rounded-[18px] bg-[#f5f7ff] px-4 py-3">
+                    <p className="text-sm leading-relaxed text-slate-600">
+                      {latestInsight.summary}
+                    </p>
                   </div>
                 ) : null}
-
               </Card>
             </motion.div>
 
-            {Array.isArray(latestInsight.strengths) && latestInsight.strengths.length > 0 && (
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-                <Card className="p-6 border-0 shadow-md">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Award className="w-5 h-5 text-green-500" />
-                    <h2 className="text-lg font-semibold text-slate-800">Strengths</h2>
-                  </div>
-                  <div className="space-y-3">
-                    {latestInsight.strengths.map((strength, index) => (
-                      <div key={index} className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
-                        <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                        <p className="text-sm text-slate-700">{strength}</p>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              </motion.div>
-            )}
-
-            {Array.isArray(latestInsight.improvements) && latestInsight.improvements.length > 0 && (
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-                <Card className="p-6 border-0 shadow-md">
-                  <div className="flex items-center gap-2 mb-4">
-                    <TrendingUp className="w-5 h-5 text-blue-500" />
-                    <h2 className="text-lg font-semibold text-slate-800">Areas to Grow</h2>
-                  </div>
-                  <div className="space-y-3">
-                    {latestInsight.improvements.map((improvement, index) => (
-                      <div key={index} className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
-                        <AlertCircle className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                        <p className="text-sm text-slate-700">{improvement}</p>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              </motion.div>
-            )}
-
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-              <Card className="p-6 border-0 shadow-md">
-                <div className="flex items-center gap-2 mb-4">
-                  <BarChart3 className="w-5 h-5 text-slate-500" />
-                  <h2 className="text-lg font-semibold text-slate-800">Activity Breakdown</h2>
+              <Card className="rounded-[26px] border border-white/70 bg-white px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-green-50">
+                    <Award className="h-5 w-5 text-green-500" />
+                  </div>
+                  <h2 className="text-[16px] font-bold text-slate-800">Strengths</h2>
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <MessageCircle className="w-5 h-5 text-blue-500" />
-                      <p className="text-sm font-medium text-slate-800">Messages</p>
+                  {latestInsight.strengths.map((strength, index) => (
+                    <div key={index} className="flex items-start gap-3 rounded-[16px] bg-green-50 px-3 py-3">
+                      <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
+                      <p className="text-sm text-slate-700">{strength}</p>
                     </div>
-                    <div className="text-lg font-bold text-slate-800">{latestInsight.chats_count}</div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Target className="w-5 h-5 text-green-500" />
-                      <p className="text-sm font-medium text-slate-800">Goals</p>
-                    </div>
-                    <div className="text-lg font-bold text-slate-800">{latestInsight.goals_count}</div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Heart className="w-5 h-5 text-rose-500" />
-                      <p className="text-sm font-medium text-slate-800">Memories</p>
-                    </div>
-                    <div className="text-lg font-bold text-slate-800">{latestInsight.memories_count}</div>
-                  </div>
-
-      
+                  ))}
                 </div>
               </Card>
             </motion.div>
-          </>
+
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className="rounded-[26px] border border-white/70 bg-white px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-blue-50">
+                    <TrendingUp className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <h2 className="text-[16px] font-bold text-slate-800">Areas to Grow</h2>
+                </div>
+
+                <div className="space-y-3">
+                  {latestInsight.improvements.map((improvement, index) => (
+                    <div key={index} className="flex items-start gap-3 rounded-[16px] bg-blue-50 px-3 py-3">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
+                      <p className="text-sm text-slate-700">{improvement}</p>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className="rounded-[26px] border border-white/70 bg-white px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-slate-100">
+                    <BarChart3 className="h-5 w-5 text-slate-600" />
+                  </div>
+                  <h2 className="text-[16px] font-bold text-slate-800">Activity Breakdown</h2>
+                </div>
+
+                <div className="space-y-3">
+                  {[
+                    { label: 'Messages', value: latestInsight.chats_count, icon: MessageCircle, color: 'text-blue-500', bg: 'bg-blue-50' },
+                    { label: 'Goals', value: latestInsight.goals_count, icon: Target, color: 'text-green-500', bg: 'bg-green-50' },
+                    { label: 'Memories', value: latestInsight.memories_count, icon: Heart, color: 'text-rose-500', bg: 'bg-rose-50' },
+                    { label: 'Events', value: latestInsight.dates_count, icon: CalendarDays, color: 'text-amber-500', bg: 'bg-amber-50' },
+                  ].map((item) => {
+                    const Icon = item.icon;
+
+                    return (
+                      <div key={item.label} className="flex items-center justify-between rounded-[18px] bg-[#f8fafc] px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`flex h-9 w-9 items-center justify-center rounded-[13px] ${item.bg}`}>
+                            <Icon className={`h-4 w-4 ${item.color}`} />
+                          </div>
+                          <p className="text-sm font-bold text-slate-700">{item.label}</p>
+                        </div>
+
+                        <div className="text-[18px] font-black text-slate-900">{item.value}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            </motion.div>
+          </div>
         ) : (
-          <div className="text-center py-12">
-            <BarChart3 className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-slate-800 mb-2">No Insights Yet</h2>
-            <p className="text-slate-500 mb-6">
+          <Card className="rounded-[26px] border border-white/70 bg-white px-5 py-8 text-center shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+            <BarChart3 className="mx-auto mb-4 h-14 w-14 text-slate-300" />
+            <h2 className="text-[18px] font-bold text-slate-800">No Insights Yet</h2>
+            <p className="mt-2 text-sm text-slate-500">
               Your live relationship insights will appear here after activity is detected.
             </p>
+
             <Button
               onClick={generateInsights}
               disabled={isGenerating}
-              className="bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600"
+              className="mt-5 h-11 rounded-[15px] bg-gradient-to-r from-[#5e9cff] to-[#2f6df0] px-5 text-sm font-bold text-white shadow-[0_8px_18px_rgba(47,109,240,0.22)]"
             >
               {isGenerating ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4 mr-2" />
+                  <Sparkles className="mr-2 h-4 w-4" />
                   Refresh Insights
                 </>
               )}
             </Button>
-          </div>
+          </Card>
         )}
       </div>
     </div>
-  );
+  </div>
+);
 }
