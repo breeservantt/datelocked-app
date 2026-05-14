@@ -552,65 +552,59 @@ export default function Chat() {
   }, [loadPage]);
 
   React.useEffect(() => {
-    if (isLoading) return;
-    if (!activeCoupleId) return;
+  if (isLoading) return;
+  if (!activeCoupleId) return;
 
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
+  const channel = supabase
+    .channel(`messages-${activeCoupleId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "messages",
+        filter: `couple_profile_id=eq.${activeCoupleId}`,
+      },
+      (payload) => {
+        const eventType = payload.eventType;
+        const row = payload.new || payload.old;
+
+        if (!row?.id) return;
+
+        setMessages((prev) => {
+          let next = prev;
+
+          if (eventType === "INSERT") {
+            if (prev.some((item) => item.id === row.id)) return prev;
+            next = sortMessages([...prev, row]);
+          } else if (eventType === "UPDATE") {
+            next = prev.map((item) =>
+              item.id === row.id ? { ...item, ...row } : item
+            );
+          } else if (eventType === "DELETE") {
+            next = prev.filter((item) => item.id !== row.id);
+          }
+
+          return areMessagesEqual(prev, next) ? prev : next;
+        });
+
+        requestAnimationFrame(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        });
+      }
+    )
+    .subscribe();
+
+  channelRef.current = channel;
+
+  return () => {
+    supabase.removeChannel(channel);
+
+    if (channelRef.current === channel) {
       channelRef.current = null;
     }
-
-    const channel = supabase
-  .channel(`messages-${activeCoupleId}`)
-  .on(
-    "postgres_changes",
-    {
-      event: "*",
-      schema: "public",
-      table: "messages",
-    },
-    (payload) => {
-      console.log("CHAT REALTIME PAYLOAD:", payload);
-
-      const eventType = payload.eventType;
-      const row = payload.new || payload.old;
-
-      if (!row?.id) return;
-      if (row.couple_profile_id !== activeCoupleId) return;
-
-      setMessages((prev) => {
-        let next = prev;
-
-        if (eventType === "INSERT") {
-          if (prev.some((item) => item.id === row.id)) return prev;
-          next = sortMessages([...prev, row]);
-        } else if (eventType === "UPDATE") {
-          next = prev.map((item) =>
-            item.id === row.id ? { ...item, ...row } : item
-          );
-        } else if (eventType === "DELETE") {
-          next = prev.filter((item) => item.id !== row.id);
-        }
-
-        return areMessagesEqual(prev, next) ? prev : next;
-      });
-    }
-  )
-    .subscribe((status, err) => {
-    console.log("CHAT REALTIME STATUS:", status);
-    console.log("CHAT REALTIME ERROR:", err);
-    console.log("CHAT ACTIVE COUPLE ID:", activeCoupleId);
-  });
-
-    channelRef.current = channel;
-
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
-  }, [isLoading, user?.id, activeCoupleId]);
+  };
+}, [isLoading, activeCoupleId]);
 
   React.useEffect(() => {
     const container = messageListRef.current;
