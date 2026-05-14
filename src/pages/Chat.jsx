@@ -561,40 +561,46 @@ export default function Chat() {
     }
 
     const channel = supabase
-      .channel(`messages-${activeCoupleId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "messages",
-          filter: `couple_profile_id=eq.${activeCoupleId}`,
-        },
-        (payload) => {
-          const eventType = payload.eventType;
-          const row = payload.new || payload.old;
-          if (!row?.id) return;
+  .channel(`messages-${activeCoupleId}`)
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "messages",
+    },
+    (payload) => {
+      console.log("CHAT REALTIME PAYLOAD:", payload);
 
-          setMessages((prev) => {
-            let next = prev;
+      const eventType = payload.eventType;
+      const row = payload.new || payload.old;
 
-            if (eventType === "INSERT") {
-              if (prev.some((item) => item.id === row.id)) return prev;
-              next = sortMessages([...prev, row]);
-            } else if (eventType === "UPDATE") {
-              next = prev.map((item) => (item.id === row.id ? { ...item, ...row } : item));
-            } else if (eventType === "DELETE") {
-              next = prev.filter((item) => item.id !== row.id);
-            }
+      if (!row?.id) return;
+      if (row.couple_profile_id !== activeCoupleId) return;
 
-            return areMessagesEqual(prev, next) ? prev : next;
-          });
+      setMessages((prev) => {
+        let next = prev;
+
+        if (eventType === "INSERT") {
+          if (prev.some((item) => item.id === row.id)) return prev;
+          next = sortMessages([...prev, row]);
+        } else if (eventType === "UPDATE") {
+          next = prev.map((item) =>
+            item.id === row.id ? { ...item, ...row } : item
+          );
+        } else if (eventType === "DELETE") {
+          next = prev.filter((item) => item.id !== row.id);
         }
-      )
-      .subscribe((status, err) => {
-        console.log("CHAT REALTIME STATUS:", status);
-        console.log("CHAT REALTIME ERROR:", err);
+
+        return areMessagesEqual(prev, next) ? prev : next;
       });
+    }
+  )
+    .subscribe((status, err) => {
+    console.log("CHAT REALTIME STATUS:", status);
+    console.log("CHAT REALTIME ERROR:", err);
+    console.log("CHAT ACTIVE COUPLE ID:", activeCoupleId);
+  });
 
     channelRef.current = channel;
 
