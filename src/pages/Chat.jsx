@@ -14,8 +14,8 @@ import { parseSafeDate } from "@/components/utils/dateHelpers";
 
 function AppShell({ children }) {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0ea85f] via-[#25d366] to-[#128c7e] px-0 py-0 pb-0">
-      <div className="mx-auto w-full max-w-[550px] overflow-hidden">
+    <div className="fixed inset-0 bg-gradient-to-b from-[#0ea85f] via-[#25d366] to-[#128c7e]">
+      <div className="mx-auto h-[100dvh] w-full max-w-[550px] overflow-hidden">
         {children}
       </div>
     </div>
@@ -69,8 +69,9 @@ function ChatHeader({ partner, onBack }) {
 
 const ChatBubble = React.memo(function ChatBubble({ msg, isMe }) {
   const createdDate = parseSafeDate(msg.created_date || msg.created_at);
-  const isImage = msg.content?.startsWith("📷 ");
-  const isVideo = msg.content?.startsWith("🎥 ");
+  const text = msg.content || msg.body || "";
+  const isImage = text.startsWith("📷 ");
+  const isVideo = text.startsWith("🎥 ");
 
   return (
     <div className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
@@ -82,7 +83,7 @@ const ChatBubble = React.memo(function ChatBubble({ msg, isMe }) {
         ) : null}
 
         <div
-          className={`border shadow-[0_8px_22px_rgba(15,23,42,0.08)] ${
+          className={`max-w-[82%] border shadow-[0_8px_22px_rgba(15,23,42,0.08)] ${
             isImage || isVideo
               ? isMe
                 ? "overflow-hidden rounded-[20px] rounded-br-[7px] border-[#a7efbf] bg-[#d9fdd3]"
@@ -94,61 +95,33 @@ const ChatBubble = React.memo(function ChatBubble({ msg, isMe }) {
         >
           {isImage ? (
             <>
-              <img
-                src={msg.content.slice(3)}
-                alt="Shared"
-                className="block w-full rounded-[18px] object-cover"
-                style={{ maxHeight: "60vh" }}
-              />
-              <div className="flex items-center justify-end gap-1 px-2.5 py-2 text-[10px] text-slate-500">
-                {createdDate ? <span>{format(createdDate, "h:mm a")}</span> : null}
-                {isMe ? (
-                  msg.read ? (
-                    <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
-                  ) : (
-                    <Check className="h-3.5 w-3.5" />
-                  )
-                ) : null}
+              <div className="w-[260px] max-w-full overflow-hidden rounded-[18px] bg-slate-100">
+                <img
+                  src={text.slice(3)}
+                  alt="Shared"
+                  className="block aspect-[4/5] w-full object-cover"
+                  loading="lazy"
+                />
               </div>
+              <BubbleMeta isMe={isMe} read={msg.read} createdDate={createdDate} />
             </>
           ) : isVideo ? (
             <>
-              <video
-                src={msg.content.slice(3)}
-                controls
-                preload="metadata"
-                playsInline
-                className="block w-full bg-black"
-                style={{ maxHeight: "220px" }}
-              />
-              <div className="flex items-center justify-end gap-1 px-2.5 py-2 text-[10px] text-slate-500">
-                {createdDate ? <span>{format(createdDate, "h:mm a")}</span> : null}
-                {isMe ? (
-                  msg.read ? (
-                    <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
-                  ) : (
-                    <Check className="h-3.5 w-3.5" />
-                  )
-                ) : null}
+              <div className="w-[280px] max-w-full overflow-hidden rounded-[18px] bg-black">
+                <video
+                  src={text.slice(3)}
+                  controls
+                  preload="metadata"
+                  playsInline
+                  className="block aspect-video w-full bg-black object-contain"
+                />
               </div>
+              <BubbleMeta isMe={isMe} read={msg.read} createdDate={createdDate} />
             </>
           ) : (
             <>
-              <p className="break-words text-[14px] leading-6">{msg.content}</p>
-              <div
-                className={`mt-1.5 flex items-center gap-1 text-[10px] ${
-                  isMe ? "justify-end text-slate-500" : "justify-end text-slate-400"
-                }`}
-              >
-                {createdDate ? <span>{format(createdDate, "h:mm a")}</span> : null}
-                {isMe ? (
-                  msg.read ? (
-                    <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
-                  ) : (
-                    <Check className="h-3.5 w-3.5" />
-                  )
-                ) : null}
-              </div>
+              <p className="break-words text-[14px] leading-6">{text}</p>
+              <BubbleMeta isMe={isMe} read={msg.read} createdDate={createdDate} compact />
             </>
           )}
         </div>
@@ -157,11 +130,31 @@ const ChatBubble = React.memo(function ChatBubble({ msg, isMe }) {
   );
 }, areBubblePropsEqual);
 
+function BubbleMeta({ isMe, read, createdDate, compact = false }) {
+  return (
+    <div
+      className={`flex items-center justify-end gap-1 text-[10px] ${
+        compact ? "mt-1.5" : "px-2.5 py-2"
+      } ${isMe ? "text-slate-500" : "text-slate-400"}`}
+    >
+      {createdDate ? <span>{format(createdDate, "h:mm a")}</span> : null}
+      {isMe ? (
+        read ? (
+          <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
+        ) : (
+          <Check className="h-3.5 w-3.5" />
+        )
+      ) : null}
+    </div>
+  );
+}
+
 function areBubblePropsEqual(prev, next) {
   return (
     prev.isMe === next.isMe &&
     prev.msg?.id === next.msg?.id &&
     prev.msg?.content === next.msg?.content &&
+    prev.msg?.body === next.msg?.body &&
     prev.msg?.read === next.msg?.read &&
     prev.msg?.created_date === next.msg?.created_date &&
     prev.msg?.created_at === next.msg?.created_at &&
@@ -186,7 +179,7 @@ function EmptyState() {
 function LockedChatState() {
   return (
     <AppShell>
-      <div className="flex min-h-[640px] items-center justify-center px-6 text-center">
+      <div className="flex h-full items-center justify-center px-6 text-center">
         <div>
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur">
             <MessageCircle className="h-8 w-8 text-white/85" />
@@ -235,7 +228,7 @@ function ChatComposer({
   ];
 
   return (
-    <div className="fixed bottom-[8px] left-0 right-0 z-50 w-full px-2">
+    <div className="fixed bottom-[8px] left-1/2 right-auto z-50 w-full max-w-[550px] -translate-x-1/2 px-2">
       <input
         ref={fileInputRef}
         type="file"
@@ -255,9 +248,7 @@ function ChatComposer({
                 onTouchStart={(e) => e.preventDefault()}
                 onClick={() => {
                   setNewMessage((prev) => prev + emoji);
-                  requestAnimationFrame(() => {
-                    inputRef.current?.focus();
-                  });
+                  requestAnimationFrame(() => inputRef.current?.focus());
                 }}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-white/18 text-[16px]"
               >
@@ -361,6 +352,14 @@ async function tryProfileTablesByEmail(email) {
   return null;
 }
 
+function normalizeMessage(row) {
+  return {
+    ...row,
+    content: row.content ?? row.body ?? "",
+    created_date: row.created_date ?? row.created_at,
+  };
+}
+
 function areMessagesEqual(a, b) {
   if (a === b) return true;
   if (!Array.isArray(a) || !Array.isArray(b)) return false;
@@ -370,6 +369,7 @@ function areMessagesEqual(a, b) {
     if (
       a[i]?.id !== b[i]?.id ||
       a[i]?.content !== b[i]?.content ||
+      a[i]?.body !== b[i]?.body ||
       a[i]?.read !== b[i]?.read ||
       a[i]?.created_date !== b[i]?.created_date ||
       a[i]?.created_at !== b[i]?.created_at ||
@@ -404,20 +404,34 @@ export default function Chat() {
   const fileInputRef = React.useRef(null);
   const inputRef = React.useRef(null);
   const messageListRef = React.useRef(null);
-
-  const coupleIdRef = React.useRef(null);
   const channelRef = React.useRef(null);
-  const prevMessageCountRef = React.useRef(0);
+  const isNearBottomRef = React.useRef(true);
 
   const setMessagesIfChanged = React.useCallback((next) => {
-    setMessages((prev) => (areMessagesEqual(prev, next) ? prev : next));
+    const normalized = sortMessages((next || []).map(normalizeMessage));
+    setMessages((prev) => (areMessagesEqual(prev, normalized) ? prev : normalized));
   }, []);
 
-  const scrollToLatest = React.useCallback(() => {
+  const scrollToLatest = React.useCallback((behavior = "auto") => {
     const container = messageListRef.current;
     if (!container) return;
 
-    container.scrollTop = 0;
+    requestAnimationFrame(() => {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior,
+      });
+    });
+  }, []);
+
+  const handleMessageScroll = React.useCallback(() => {
+    const container = messageListRef.current;
+    if (!container) return;
+
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+
+    isNearBottomRef.current = distanceFromBottom < 120;
   }, []);
 
   const loadMessages = React.useCallback(
@@ -436,8 +450,9 @@ export default function Chat() {
       if (error) throw error;
 
       setMessagesIfChanged(data || []);
+      setTimeout(() => scrollToLatest("auto"), 40);
     },
-    [setMessagesIfChanged]
+    [setMessagesIfChanged, scrollToLatest]
   );
 
   const loadPage = React.useCallback(async () => {
@@ -455,7 +470,6 @@ export default function Chat() {
         setPartner(null);
         setMessages([]);
         setActiveCoupleId(null);
-        coupleIdRef.current = null;
         return;
       }
 
@@ -486,7 +500,9 @@ export default function Chat() {
       setUser(mergedUser);
 
       let resolvedCoupleId =
-        mergedUser?.couple_profile_id || mergedUser?.user_metadata?.couple_profile_id || null;
+        mergedUser?.couple_profile_id ||
+        mergedUser?.user_metadata?.couple_profile_id ||
+        null;
 
       if (!resolvedCoupleId) {
         const { data: foundProfile, error: profileError } = await supabase
@@ -500,7 +516,6 @@ export default function Chat() {
         resolvedCoupleId = foundProfile?.couple_profile_id || null;
       }
 
-      coupleIdRef.current = resolvedCoupleId || null;
       setActiveCoupleId(resolvedCoupleId || null);
 
       if (!resolvedCoupleId) {
@@ -547,7 +562,6 @@ export default function Chat() {
       setPartner(null);
       setMessages([]);
       setActiveCoupleId(null);
-      coupleIdRef.current = null;
     } finally {
       setIsLoading(false);
     }
@@ -558,11 +572,21 @@ export default function Chat() {
   }, [loadPage]);
 
   React.useEffect(() => {
-    if (isLoading) return;
-    if (!activeCoupleId) return;
+    if (isLoading || !activeCoupleId) return;
+
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    const channelName = `messages-${activeCoupleId}-${
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : Date.now()
+    }`;
 
     const channel = supabase
-      .channel(`messages-${activeCoupleId}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         {
@@ -573,7 +597,7 @@ export default function Chat() {
         },
         (payload) => {
           const eventType = payload.eventType;
-          const row = payload.new || payload.old;
+          const row = normalizeMessage(payload.new || payload.old || {});
 
           if (!row?.id) return;
 
@@ -585,7 +609,7 @@ export default function Chat() {
               next = sortMessages([...prev, row]);
             } else if (eventType === "UPDATE") {
               next = prev.map((item) =>
-                item.id === row.id ? { ...item, ...row } : item
+                item.id === row.id ? normalizeMessage({ ...item, ...row }) : item
               );
             } else if (eventType === "DELETE") {
               next = prev.filter((item) => item.id !== row.id);
@@ -594,7 +618,9 @@ export default function Chat() {
             return areMessagesEqual(prev, next) ? prev : next;
           });
 
-          requestAnimationFrame(scrollToLatest);
+          if (eventType === "INSERT" && isNearBottomRef.current) {
+            setTimeout(() => scrollToLatest("smooth"), 30);
+          }
         }
       )
       .subscribe();
@@ -603,32 +629,33 @@ export default function Chat() {
 
     return () => {
       supabase.removeChannel(channel);
-
-      if (channelRef.current === channel) {
-        channelRef.current = null;
-      }
+      if (channelRef.current === channel) channelRef.current = null;
     };
   }, [isLoading, activeCoupleId, scrollToLatest]);
-
-  React.useEffect(() => {
-    const container = messageListRef.current;
-    if (!container) return;
-
-    container.scrollTop = 0;
-    prevMessageCountRef.current = messages.length;
-  }, [messages.length]);
-
-  const visibleMessages = React.useMemo(() => {
-    return [...messages].reverse();
-  }, [messages]);
 
   const handleSend = async () => {
     if (!user || !activeCoupleId) return;
 
     const content = newMessage.trim();
-    if (!content) return;
+    if (!content || isSending || isUploading) return;
 
     setIsSending(true);
+    setNewMessage("");
+
+    const tempId = `temp-${Date.now()}`;
+
+    const optimisticMessage = normalizeMessage({
+      id: tempId,
+      couple_profile_id: activeCoupleId,
+      sender_email: user.email,
+      sender_name: user.full_name || user.name || "You",
+      content,
+      read: false,
+      created_date: new Date().toISOString(),
+    });
+
+    setMessages((prev) => sortMessages([...prev, optimisticMessage]));
+    setTimeout(() => scrollToLatest("smooth"), 30);
 
     try {
       const { data, error } = await supabase
@@ -645,15 +672,17 @@ export default function Chat() {
 
       if (error) throw error;
 
-      setMessages((prev) => {
-        if (prev.some((msg) => msg.id === data.id)) return prev;
-        return sortMessages([...prev, data]);
-      });
+      const cleanData = normalizeMessage(data);
 
-      setNewMessage("");
-      requestAnimationFrame(scrollToLatest);
+      setMessages((prev) =>
+        sortMessages(prev.map((msg) => (msg.id === tempId ? cleanData : msg)))
+      );
+
+      requestAnimationFrame(() => scrollToLatest("smooth"));
     } catch (error) {
       console.error("Send failed:", error);
+      setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
+      setNewMessage(content);
       alert("Failed to send message.");
     } finally {
       setIsSending(false);
@@ -683,7 +712,7 @@ export default function Chat() {
 
       const { error: uploadError } = await supabase.storage
         .from("chat-media")
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, file, { upsert: true, contentType: file.type });
 
       if (uploadError) throw uploadError;
 
@@ -704,12 +733,14 @@ export default function Chat() {
 
       if (insertError) throw insertError;
 
+      const cleanInserted = normalizeMessage(insertedMessage);
+
       setMessages((prev) => {
-        if (prev.some((msg) => msg.id === insertedMessage.id)) return prev;
-        return sortMessages([...prev, insertedMessage]);
+        if (prev.some((msg) => msg.id === cleanInserted.id)) return prev;
+        return sortMessages([...prev, cleanInserted]);
       });
 
-      requestAnimationFrame(scrollToLatest);
+      requestAnimationFrame(() => scrollToLatest("smooth"));
     } catch (error) {
       console.error("Upload failed:", error);
       alert("Failed to upload file.");
@@ -721,8 +752,8 @@ export default function Chat() {
   if (isLoading) {
     return (
       <AppShell>
-        <div className="flex min-h-[640px] items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-[#25d366]" />
+        <div className="flex h-full items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-white" />
         </div>
       </AppShell>
     );
@@ -731,13 +762,15 @@ export default function Chat() {
   if (!user) {
     return (
       <AppShell>
-        <div className="flex min-h-[640px] items-center justify-center px-6 text-center">
+        <div className="flex h-full items-center justify-center px-6 text-center">
           <div>
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-              <MessageCircle className="h-8 w-8 text-slate-300" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/20">
+              <MessageCircle className="h-8 w-8 text-white/85" />
             </div>
-            <h3 className="text-[18px] font-semibold text-slate-800">Couldn’t load chat</h3>
-            <p className="mt-2 text-[14px] text-slate-500">Please sign in and try again.</p>
+            <h3 className="text-[18px] font-semibold text-white">Couldn’t load chat</h3>
+            <p className="mt-2 text-[14px] text-white/80">
+              Please sign in and try again.
+            </p>
           </div>
         </div>
       </AppShell>
@@ -758,8 +791,8 @@ export default function Chat() {
       <ChatHeader partner={partner} onBack={() => window.history.back()} />
 
       <AppShell>
-        <div className="relative z-0 h-[100dvh] overflow-hidden bg-gradient-to-b from-[#0ea85f] via-[#25d366] to-[#128c7e]">
-          <div className="absolute inset-0 opacity-[0.12]">
+        <div className="relative h-full overflow-hidden bg-gradient-to-b from-[#0ea85f] via-[#25d366] to-[#128c7e]">
+          <div className="absolute inset-0 opacity-[0.12] pointer-events-none">
             <div className="absolute -left-10 top-10 h-40 w-40 rounded-full bg-white blur-3xl" />
             <div className="absolute right-0 top-28 h-48 w-48 rounded-full bg-[#dcfce7] blur-3xl" />
             <div className="absolute bottom-16 left-8 h-44 w-44 rounded-full bg-[#bbf7d0] blur-3xl" />
@@ -767,11 +800,12 @@ export default function Chat() {
 
           <div
             ref={messageListRef}
-            className="absolute inset-0 z-0 overflow-y-auto px-4 pt-[72px] pb-[55px]"
+            onScroll={handleMessageScroll}
+            className="absolute left-0 right-0 top-[64px] bottom-[64px] z-0 overflow-y-auto overscroll-contain px-4 py-3"
           >
-            <div className="flex min-h-full flex-col-reverse justify-start gap-3">
-              {visibleMessages.length > 0 ? (
-                visibleMessages.map((msg) => (
+            <div className="flex min-h-full flex-col justify-end gap-3">
+              {messages.length > 0 ? (
+                messages.map((msg) => (
                   <ChatBubble
                     key={msg.id}
                     msg={msg}

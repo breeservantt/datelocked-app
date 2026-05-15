@@ -4,7 +4,6 @@ import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Home as HomeIcon,
@@ -25,11 +24,13 @@ import {
   Dumbbell,
   CheckCircle,
   Loader2,
+  Lightbulb,
+  Timer,
 } from "lucide-react";
 
 const GAME_TWO_TRUTHS = "TWO_TRUTHS";
 const GAME_TWENTY_QUESTIONS = "TWENTY_QUESTIONS";
-const GAME_LOVE_ISLAND = "LOVE_ISLAND_REMOTE";
+const GAME_CLUE_DATE = "CLUE_DATE";
 const GAME_DATE_FIT = "DATE_FIT";
 
 const navItems = [
@@ -41,72 +42,6 @@ const navItems = [
   { label: "Chat", icon: MessageCircle, page: "Chat" },
   { label: "Verify", icon: Fingerprint, page: "VerifyStatus" },
 ];
-
-const LOVE_STAGES = Array.from({ length: 100 }, (_, i) => {
-  const n = i + 1;
-  const type =
-    n % 12 === 0
-      ? "MISSION_REQUIRED"
-      : n % 6 === 0
-      ? "MISSION_OPTIONAL"
-      : n % 3 === 0
-      ? "DEEP"
-      : "FUN";
-
-  const requiresMission = type === "MISSION_REQUIRED";
-
-  const title =
-    type === "MISSION_REQUIRED"
-      ? `Stage ${n}: Island Mission`
-      : type === "MISSION_OPTIONAL"
-      ? `Stage ${n}: Bonus Mission`
-      : type === "DEEP"
-      ? `Stage ${n}: Deep Talk`
-      : `Stage ${n}: Fun & Flirty`;
-
-  const prompts =
-    type === "DEEP"
-      ? [
-          "What’s one fear you rarely say out loud?",
-          "What do you need more of from me this week?",
-          "What boundary protects our love?",
-        ]
-      : type === "MISSION_REQUIRED"
-      ? [
-          "Send a photo of something that represents “us”.",
-          "Record a voice note: “I’m proud of you because…”",
-          "Choose a mini-date idea and schedule it.",
-        ]
-      : type === "MISSION_OPTIONAL"
-      ? [
-          "Share your current mood in 1 word + why.",
-          "What’s one thing I do that makes you feel safe?",
-          "Choose a love song for this week and tell me why.",
-        ]
-      : [
-          "If we had an island villa, what would our rules be?",
-          "What’s your favorite feature about me?",
-          "Describe our next date in 1 sentence.",
-        ];
-
-  const mission =
-    type === "MISSION_REQUIRED"
-      ? "Required mission: do a 10-minute walk and capture 1 photo of your view + 1 gratitude sentence."
-      : type === "MISSION_OPTIONAL"
-      ? "Bonus mission: do 10 pushups or 20 squats and send “done”."
-      : null;
-
-  const tag =
-    type === "MISSION_REQUIRED"
-      ? "Mission"
-      : type === "MISSION_OPTIONAL"
-      ? "Bonus"
-      : type === "DEEP"
-      ? "Deep"
-      : "Fun";
-
-  return { n, title, prompts, mission, requiresMission, tag };
-});
 
 function defaultPayloadFor(gameType) {
   if (gameType === GAME_TWO_TRUTHS) {
@@ -135,15 +70,25 @@ function defaultPayloadFor(gameType) {
     };
   }
 
-  if (gameType === GAME_LOVE_ISLAND) {
+  if (gameType === GAME_CLUE_DATE) {
     return {
-      stage: 1,
-      stages: {},
+      phase: "SETUP",
+      round: 1,
+      category: "Movies",
+      answer: "",
+      cluePack: [],
+      selectedClues: [],
+      clueMasterId: "",
+      guesserId: "",
+      guessText: "",
+      score: {},
+      startedAt: null,
+      timerSeconds: 30,
+      result: null,
     };
   }
 
   return {
-    program: "Balanced",
     weekDay: 1,
     status: {},
     score: {},
@@ -156,7 +101,7 @@ function getDefaultGameState() {
   return {
     [GAME_TWO_TRUTHS]: defaultPayloadFor(GAME_TWO_TRUTHS),
     [GAME_TWENTY_QUESTIONS]: defaultPayloadFor(GAME_TWENTY_QUESTIONS),
-    [GAME_LOVE_ISLAND]: defaultPayloadFor(GAME_LOVE_ISLAND),
+    [GAME_CLUE_DATE]: defaultPayloadFor(GAME_CLUE_DATE),
     [GAME_DATE_FIT]: defaultPayloadFor(GAME_DATE_FIT),
   };
 }
@@ -210,24 +155,6 @@ function BottomNav() {
   );
 }
 
-function StatCard({ icon, value, label, iconColor, iconWrap }) {
-  return (
-    <div className="rounded-[16px] bg-white px-1.5 py-2 text-center shadow-[0_6px_14px_rgba(15,23,42,0.05)]">
-      <div className="flex flex-col items-center">
-        <div className={`mb-1.5 flex h-7 w-7 items-center justify-center rounded-full ${iconWrap}`}>
-          {React.cloneElement(icon, { className: `h-3.5 w-3.5 ${iconColor}` })}
-        </div>
-        <p className="text-[12px] font-bold leading-none text-slate-900">
-          {value}
-        </p>
-        <p className="mt-1 truncate text-[9px] font-medium text-slate-500">
-          {label}
-        </p>
-      </div>
-    </div>
-  );
-}
-
 function SafeInput({ className = "", onKeyDown, onKeyUp, onKeyPress, ...rest }) {
   return (
     <Input
@@ -259,7 +186,9 @@ function GamePill({ active, onClick, children, icon: Icon = null }) {
       type="button"
       onClick={onClick}
       className={`flex h-[42px] w-full items-center justify-center gap-2 rounded-[14px] px-3 text-[13px] font-medium shadow-[0_6px_14px_rgba(15,23,42,0.08)] transition active:scale-[0.98] ${
-        active ? "bg-rose-500 text-white" : "bg-white text-rose-500 hover:bg-rose-50"
+        active
+          ? "bg-rose-500 text-white"
+          : "bg-white text-rose-500 hover:bg-rose-50"
       }`}
     >
       {Icon ? <Icon className="h-3.5 w-3.5 shrink-0" /> : null}
@@ -268,21 +197,36 @@ function GamePill({ active, onClick, children, icon: Icon = null }) {
   );
 }
 
+function StatCard({ icon, value, label, iconColor, iconWrap }) {
+  return (
+    <div className="rounded-[16px] bg-white px-1.5 py-2 text-center shadow-[0_6px_14px_rgba(15,23,42,0.05)]">
+      <div className="flex flex-col items-center">
+        <div className={`mb-1.5 flex h-7 w-7 items-center justify-center rounded-full ${iconWrap}`}>
+          {React.cloneElement(icon, { className: `h-3.5 w-3.5 ${iconColor}` })}
+        </div>
+        <p className="text-[12px] font-bold leading-none text-slate-900">
+          {value}
+        </p>
+        <p className="mt-1 truncate text-[9px] font-medium text-slate-500">
+          {label}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function NightIn() {
   const [user, setUser] = React.useState(null);
-  const [profile, setProfile] = React.useState(null);
   const [sessionId, setSessionId] = React.useState(null);
   const [coupleId, setCoupleId] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [errorText, setErrorText] = React.useState("");
-  const [activeGame, setActiveGame] = React.useState(GAME_TWO_TRUTHS);
+  const [activeGame, setActiveGame] = React.useState(GAME_CLUE_DATE);
   const [gameState, setGameState] = React.useState(getDefaultGameState());
 
   const channelRef = React.useRef(null);
-
-  const isDateLocked = Boolean(coupleId);
-  const isPreviewLocked = !isDateLocked;
+  const isPreviewLocked = !coupleId;
 
   const saveSession = React.useCallback(
     async (nextActiveGame, nextGameState) => {
@@ -310,7 +254,7 @@ export default function NightIn() {
         if (error) throw error;
 
         setSessionId(data.id);
-        setActiveGame(data.active_game || GAME_TWO_TRUTHS);
+        setActiveGame(data.active_game || GAME_CLUE_DATE);
         setGameState(mergeGameState(data.game_state));
       } catch (error) {
         console.error("NightIn saveSession error:", error);
@@ -340,7 +284,6 @@ export default function NightIn() {
         if (!authUser) {
           if (!mounted) return;
           setUser(null);
-          setProfile(null);
           setCoupleId(null);
           setLoading(false);
           return;
@@ -359,12 +302,11 @@ export default function NightIn() {
         if (!mounted) return;
 
         setUser(authUser);
-        setProfile(profileData || null);
         setCoupleId(activeCoupleId);
 
         if (!activeCoupleId) {
           setSessionId(null);
-          setActiveGame(GAME_TWO_TRUTHS);
+          setActiveGame(GAME_CLUE_DATE);
           setGameState(getDefaultGameState());
           setLoading(false);
           return;
@@ -380,7 +322,7 @@ export default function NightIn() {
 
         if (existingSession) {
           setSessionId(existingSession.id);
-          setActiveGame(existingSession.active_game || GAME_TWO_TRUTHS);
+          setActiveGame(existingSession.active_game || GAME_CLUE_DATE);
           setGameState(mergeGameState(existingSession.game_state));
         } else {
           const defaultState = getDefaultGameState();
@@ -389,7 +331,7 @@ export default function NightIn() {
             .from("nightin_sessions")
             .insert({
               couple_profile_id: activeCoupleId,
-              active_game: GAME_TWO_TRUTHS,
+              active_game: GAME_CLUE_DATE,
               game_state: defaultState,
               created_by: authUser.id,
               updated_by: authUser.id,
@@ -400,7 +342,7 @@ export default function NightIn() {
           if (createError) throw createError;
 
           setSessionId(createdSession.id);
-          setActiveGame(createdSession.active_game || GAME_TWO_TRUTHS);
+          setActiveGame(createdSession.active_game || GAME_CLUE_DATE);
           setGameState(mergeGameState(createdSession.game_state));
         }
       } catch (error) {
@@ -427,7 +369,7 @@ export default function NightIn() {
     }
 
     const channel = supabase
-      .channel(`nightin-session-${coupleId}`)
+      .channel(`nightin-session-${coupleId}-${Date.now()}`)
       .on(
         "postgres_changes",
         {
@@ -441,7 +383,7 @@ export default function NightIn() {
           if (!row) return;
 
           setSessionId(row.id);
-          setActiveGame(row.active_game || GAME_TWO_TRUTHS);
+          setActiveGame(row.active_game || GAME_CLUE_DATE);
           setGameState(mergeGameState(row.game_state));
         }
       )
@@ -463,7 +405,9 @@ export default function NightIn() {
 
       setGameState((prev) => {
         const currentState = mergeGameState(prev);
-        const currentPayload = currentState[activeGame] || defaultPayloadFor(activeGame);
+        const currentPayload =
+          currentState[activeGame] || defaultPayloadFor(activeGame);
+
         const nextPayload =
           typeof updater === "function" ? updater(currentPayload) : updater;
 
@@ -482,9 +426,7 @@ export default function NightIn() {
   const changeActiveGame = React.useCallback(
     async (gameType) => {
       setActiveGame(gameType);
-
       if (!coupleId || !user?.id) return;
-
       await saveSession(gameType, gameState);
     },
     [coupleId, gameState, saveSession, user?.id]
@@ -509,13 +451,13 @@ export default function NightIn() {
   const stats = React.useMemo(() => {
     const twoTruths = gameState[GAME_TWO_TRUTHS];
     const twenty = gameState[GAME_TWENTY_QUESTIONS];
-    const island = gameState[GAME_LOVE_ISLAND];
+    const clueDate = gameState[GAME_CLUE_DATE];
     const fit = gameState[GAME_DATE_FIT];
 
     return {
       rounds: twoTruths?.phase === "REVEAL" ? 1 : 0,
       questions: twenty?.qCount || 0,
-      islandStage: island?.stage || 1,
+      clueRound: clueDate?.round || 1,
       fitScore: Object.values(fit?.score || {}).reduce(
         (sum, n) => sum + Number(n || 0),
         0
@@ -536,7 +478,9 @@ export default function NightIn() {
       <>
         <div className="min-h-screen bg-[#f3edf1] p-4 pb-[74px]">
           <Card className="mx-auto mt-8 w-full max-w-md p-6 text-center">
-            <p className="mb-4 text-slate-600">Please sign in to access NightIn</p>
+            <p className="mb-4 text-slate-600">
+              Please sign in to access NightIn
+            </p>
           </Card>
         </div>
         <BottomNav />
@@ -549,16 +493,16 @@ export default function NightIn() {
       <div className="min-h-screen bg-[#f3edf1] px-3 py-3 pb-[96px]">
         <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-[28px] border border-[#e8e2e7] bg-[#f7f3f6] shadow-[0_12px_40px_rgba(15,23,42,0.10)]">
           <div className="bg-gradient-to-r from-[#5e9cff] via-[#2f6df0] to-[#6aa7ff] px-5 pb-6 pt-7">
-            <div className="min-w-0">
-              <h2 className="truncate text-[22px] font-semibold text-white">NightIn</h2>
-              {saving ? (
-                <p className="mt-1 text-[11px] text-white/75">Syncing…</p>
-              ) : isPreviewLocked ? (
-                <p className="mt-1 text-[11px] text-white/75">Preview mode</p>
-              ) : (
-                <p className="mt-1 text-[11px] text-white/75">Synced for both partners</p>
-              )}
-            </div>
+            <h2 className="truncate text-[22px] font-semibold text-white">
+              NightIn
+            </h2>
+            <p className="mt-1 text-[11px] text-white/75">
+              {saving
+                ? "Syncing…"
+                : isPreviewLocked
+                ? "Preview mode"
+                : "Synced for both partners"}
+            </p>
           </div>
 
           <div className="-mt-2 px-4 pt-4 pb-6">
@@ -572,12 +516,14 @@ export default function NightIn() {
               <div className="mb-4 rounded-[18px] bg-white p-3 text-[12px] font-medium text-slate-600 shadow-[0_6px_14px_rgba(15,23,42,0.05)]">
                 <div className="flex items-center gap-2">
                   <Lock className="h-4 w-4 text-rose-500" />
-                  <span>Preview visible. Become Date-Locked to play and save progress.</span>
+                  <span>
+                    Preview visible. Become Date-Locked to play and save progress.
+                  </span>
                 </div>
               </div>
             ) : null}
 
-            <div className="mb-4 flex gap-3">
+            <div className="mb-4 grid grid-cols-2 gap-3">
               <GamePill
                 active={activeGame === GAME_TWO_TRUTHS}
                 onClick={() => changeActiveGame(GAME_TWO_TRUTHS)}
@@ -592,14 +538,13 @@ export default function NightIn() {
               >
                 20 Questions
               </GamePill>
-            </div>
 
-            <div className="mb-5 flex gap-3">
               <GamePill
-                active={activeGame === GAME_LOVE_ISLAND}
-                onClick={() => changeActiveGame(GAME_LOVE_ISLAND)}
+                active={activeGame === GAME_CLUE_DATE}
+                onClick={() => changeActiveGame(GAME_CLUE_DATE)}
+                icon={Lightbulb}
               >
-                Love Island
+                Clue-Date
               </GamePill>
 
               <GamePill
@@ -626,9 +571,9 @@ export default function NightIn() {
                 iconWrap="bg-blue-50"
               />
               <StatCard
-                icon={<MapPin />}
-                value={stats.islandStage}
-                label="Stage"
+                icon={<Lightbulb />}
+                value={stats.clueRound}
+                label="Clue Round"
                 iconColor="text-fuchsia-500"
                 iconWrap="bg-fuchsia-50"
               />
@@ -657,8 +602,8 @@ export default function NightIn() {
                         ? "Two Truths and a Lie"
                         : activeGame === GAME_TWENTY_QUESTIONS
                         ? "20 Questions"
-                        : activeGame === GAME_LOVE_ISLAND
-                        ? "Love Island Remote"
+                        : activeGame === GAME_CLUE_DATE
+                        ? "Clue-Date"
                         : "Date-Fit"}
                     </p>
                   </div>
@@ -690,8 +635,8 @@ export default function NightIn() {
                     setPayload={updatePayload}
                     disabled={isPreviewLocked}
                   />
-                ) : activeGame === GAME_LOVE_ISLAND ? (
-                  <LoveIslandGame
+                ) : activeGame === GAME_CLUE_DATE ? (
+                  <ClueDateGame
                     payload={currentPayload}
                     currentUserId={user.id}
                     setPayload={updatePayload}
@@ -716,137 +661,1260 @@ export default function NightIn() {
   );
 }
 
-function TwoTruthsGame({ payload, currentUserId, setPayload, disabled = false }) {
-  const phase = payload?.phase || "ENTER";
-  const isAuthor = payload?.authorId === currentUserId;
+function ClueDateGame({ payload, currentUserId, setPayload, disabled = false }) {
+  const myId = String(currentUserId);
+  const phase = payload?.phase || "SETUP";
+  const isClueMaster = String(payload?.clueMasterId || "") === myId;
+  const isGuesser = phase === "GUESSING" && !isClueMaster;
 
-  const [localStatements, setLocalStatements] = React.useState([
-    { id: "s1", text: "" },
-    { id: "s2", text: "" },
-    { id: "s3", text: "" },
-  ]);
-  const [localLieIndex, setLocalLieIndex] = React.useState(null);
-  const [isTyping, setIsTyping] = React.useState(false);
+  const [category, setCategory] = React.useState(payload?.category || "Movies");
+  const [answer, setAnswer] = React.useState(payload?.answer || "");
+  const [guess, setGuess] = React.useState(payload?.guessText || "");
+  const [timeLeft, setTimeLeft] = React.useState(payload?.timerSeconds || 30);
+
+  const clueBank = React.useMemo(
+  () => ({
+    Movies: {
+      Titanic: [
+        "A famous love story on a ship.",
+        "The ending happens in freezing water.",
+        "A necklace plays an important role.",
+        "The main couple meets during a voyage.",
+        "One character says he is king of the world.",
+        "The movie is based on a real disaster.",
+        "The ship was called unsinkable.",
+        "The love story crosses social classes.",
+        "It has one of the most famous movie songs.",
+        "The lead characters are Jack and Rose.",
+      ],
+      "Black Panther": [
+        "A superhero movie linked to Wakanda.",
+        "The hero wears a dark suit.",
+        "It has a powerful hidden kingdom.",
+        "Vibranium is very important.",
+        "The main character becomes king.",
+        "The movie is part of Marvel.",
+        "The villain has royal blood.",
+        "The salute became globally famous.",
+        "Technology and tradition are mixed.",
+        "The hero protects his nation.",
+      ],
+      "The Lion King": [
+        "A young prince must claim his place.",
+        "Animals are the main characters.",
+        "The setting is the Pride Lands.",
+        "The uncle is the villain.",
+        "A famous song says no worries.",
+        "The hero’s father dies.",
+        "The story includes a wise monkey.",
+        "The main character runs away then returns.",
+        "The movie has a circle-of-life theme.",
+        "The hero is Simba.",
+      ],
+      "Fast and Furious": [
+        "Cars are central to the story.",
+        "Family is repeated many times.",
+        "Street racing started the franchise.",
+        "Dominic is one of the main characters.",
+        "Explosions and stunts are common.",
+        "Loyalty is a major theme.",
+        "There are many sequels.",
+        "The characters often break the law.",
+        "The franchise became global.",
+        "High-speed action is everywhere.",
+      ],
+      "Avengers": [
+        "A team of superheroes fights together.",
+        "It belongs to Marvel.",
+        "Several heroes appear in one movie.",
+        "The team faces major world-level threats.",
+        "Iron Man is part of the group.",
+        "Captain America is part of the group.",
+        "The enemy can be extremely powerful.",
+        "The story connects to other Marvel films.",
+        "Teamwork is a major theme.",
+        "It became a huge cinema event.",
+      ],
+      "Spider-Man": [
+        "The hero is linked to a spider bite.",
+        "He swings between buildings.",
+        "His identity is usually hidden.",
+        "New York is strongly linked to the story.",
+        "He is often young compared to other heroes.",
+        "His suit is red and blue.",
+        "He uses webs.",
+        "Responsibility is a major theme.",
+        "He has appeared in many versions.",
+        "Peter Parker is the famous name.",
+      ],
+      "John Wick": [
+        "The main character is a feared assassin.",
+        "A dog is important to the story.",
+        "Action scenes are very intense.",
+        "The underworld has strict rules.",
+        "The character wears suits often.",
+        "Revenge drives the plot.",
+        "Keanu Reeves plays the lead.",
+        "The fighting style is very polished.",
+        "A hotel is linked to assassins.",
+        "The lead character is difficult to kill.",
+      ],
+      "The Matrix": [
+        "Reality is not what it seems.",
+        "The main character is Neo.",
+        "People are plugged into a system.",
+        "Black coats and sunglasses are iconic.",
+        "Bullet-time became famous.",
+        "Machines control much of the world.",
+        "Choosing a pill is important.",
+        "It mixes action and philosophy.",
+        "Keanu Reeves stars in it.",
+        "The question is about escaping illusion.",
+      ],
+      "Shrek": [
+        "The main character is an ogre.",
+        "A donkey is his close companion.",
+        "It makes fun of fairy tales.",
+        "A princess has a secret.",
+        "The swamp is important.",
+        "It is animated.",
+        "The humor works for adults and kids.",
+        "The main character does not want visitors.",
+        "A dragon appears.",
+        "The story is about accepting yourself.",
+      ],
+      "Frozen": [
+        "Two sisters are central to the story.",
+        "Ice powers are important.",
+        "A snowman is a funny character.",
+        "A famous song became global.",
+        "The kingdom is affected by winter.",
+        "One sister runs away.",
+        "It is animated.",
+        "Love between sisters matters most.",
+        "The main character wears a blue dress.",
+        "The phrase 'let it go' is linked to it.",
+      ],
+      "Harry Potter": [
+        "A young wizard goes to a magical school.",
+        "A lightning scar is important.",
+        "Wands are used often.",
+        "Hogwarts is the school.",
+        "A dark wizard is the main enemy.",
+        "The hero has two close friends.",
+        "Magic houses divide students.",
+        "A train takes students to school.",
+        "Spells and potions are common.",
+        "The main character survived as a baby.",
+      ],
+    },
+
+    Sports: {
+      Soccer: [
+        "It is played with a round ball.",
+        "There are usually 11 players per side.",
+        "Goals decide the score.",
+        "A goalkeeper protects the net.",
+        "It is the world’s most popular sport.",
+        "The World Cup is its biggest event.",
+        "Players cannot use hands except the keeper.",
+        "A red card removes a player.",
+        "Penalty kicks can decide games.",
+        "Fans are extremely passionate.",
+      ],
+      Rugby: [
+        "Players carry an oval ball.",
+        "Tackling is central to the game.",
+        "South Africa is very strong in this sport.",
+        "A try scores points.",
+        "The Springboks are famous for it.",
+        "Scrums happen during play.",
+        "The ball can be kicked for territory.",
+        "It is physical and tactical.",
+        "The World Cup is a major event.",
+        "Fifteen players usually start per side.",
+      ],
+      Cricket: [
+        "It uses a bat and ball.",
+        "Runs are scored between wickets.",
+        "Overs structure the game.",
+        "A bowler tries to dismiss the batter.",
+        "It can last hours or days.",
+        "T20 made it faster.",
+        "South Africa has the Proteas.",
+        "A six means the ball clears the boundary.",
+        "Wickets are important.",
+        "It is popular in Commonwealth countries.",
+      ],
+      Basketball: [
+        "The target is a hoop.",
+        "Players dribble the ball.",
+        "Three-pointers are important.",
+        "Five players are usually on court.",
+        "The NBA is the most famous league.",
+        "Dunks are highlight moments.",
+        "The court has a free-throw line.",
+        "It is fast-paced.",
+        "Tall players often dominate near the rim.",
+        "Michael Jordan is strongly linked to it.",
+      ],
+      Tennis: [
+        "Players use rackets.",
+        "The ball goes over a net.",
+        "It can be singles or doubles.",
+        "Wimbledon is a major tournament.",
+        "A serve starts the point.",
+        "The scoring includes love, deuce, and advantage.",
+        "It can be played on grass, clay, or hard court.",
+        "Grand Slam titles are very important.",
+        "Players change sides during matches.",
+        "The ball must land inside lines.",
+      ],
+      Boxing: [
+        "Fighters use gloves.",
+        "Rounds structure the contest.",
+        "A knockout can end the fight.",
+        "Punching is the main action.",
+        "Weight divisions are important.",
+        "The referee controls the ring.",
+        "Defence and footwork matter.",
+        "A belt often represents a title.",
+        "Fighters have corners.",
+        "The sport is physically intense.",
+      ],
+      Formula1: [
+        "Fast cars race on circuits.",
+        "Drivers compete for a championship.",
+        "Pit stops can change the result.",
+        "Teams build and manage the cars.",
+        "Tyres are very important.",
+        "The race has laps.",
+        "Speed and strategy both matter.",
+        "A safety car can appear.",
+        "Qualifying decides starting positions.",
+        "The cars are open-wheel.",
+      ],
+      Golf: [
+        "Players hit a small ball with clubs.",
+        "The goal is to finish holes in few shots.",
+        "Courses have greens and fairways.",
+        "A hole-in-one is rare.",
+        "The Masters is a famous tournament.",
+        "Players carry different clubs.",
+        "Putting happens on the green.",
+        "Bunkers and water are hazards.",
+        "Lower score is better.",
+        "It is known for patience and precision.",
+      ],
+    },
+
+    Music: {
+      "Beyoncé": [
+        "A global pop and R&B superstar.",
+        "She was part of Destiny’s Child.",
+        "Her performances are highly polished.",
+        "Her fanbase is called the BeyHive.",
+        "She is linked to powerful vocals.",
+        "She has many iconic visual albums.",
+        "She is married to a famous rapper.",
+        "She is known for stage presence.",
+        "Her music often celebrates confidence.",
+        "She is one of the biggest artists in the world.",
+      ],
+      "Drake": [
+        "A Canadian rapper and singer.",
+        "He started as an actor.",
+        "He mixes rap and melody.",
+        "Toronto is strongly linked to him.",
+        "He has many chart hits.",
+        "His lyrics often discuss relationships.",
+        "OVO is linked to his brand.",
+        "He often uses emotional themes.",
+        "He has collaborated with many major artists.",
+        "He is one of the most streamed artists.",
+      ],
+      "Rihanna": [
+        "A singer from Barbados.",
+        "She became famous with pop and R&B hits.",
+        "She also built a major beauty brand.",
+        "Her voice is very recognizable.",
+        "She has hits about umbrellas and diamonds.",
+        "Fashion is strongly linked to her image.",
+        "She performed at the Super Bowl halftime show.",
+        "She became a billionaire entrepreneur.",
+        "She is known for confidence and style.",
+        "Fans waited years for new music.",
+      ],
+      "Michael Jackson": [
+        "Known as the King of Pop.",
+        "Moonwalking is linked to him.",
+        "Thriller is one of his biggest works.",
+        "He was famous as a child performer.",
+        "His music videos changed pop culture.",
+        "A single glove became iconic.",
+        "He had extremely precise dance moves.",
+        "He influenced generations of performers.",
+        "He had many global hits.",
+        "His stage presence was legendary.",
+      ],
+      "Amapiano": [
+        "A music style strongly linked to South Africa.",
+        "Log drums are a major sound.",
+        "It is popular in clubs and parties.",
+        "Dance challenges often use it.",
+        "It blends house, jazz, and local sounds.",
+        "It became internationally popular.",
+        "The beat often has a relaxed groove.",
+        "It is strongly linked to township culture.",
+        "Many South African artists helped it grow.",
+        "It is a modern African music movement.",
+      ],
+      "Afrobeats": [
+        "A popular modern African music sound.",
+        "Nigeria is strongly linked to it.",
+        "It blends rhythm, melody, and dance.",
+        "Burna Boy and Wizkid are linked to it.",
+        "It is popular globally.",
+        "The sound is often smooth and rhythmic.",
+        "It works well for parties.",
+        "It mixes African sounds with pop.",
+        "It has grown on global charts.",
+        "It is a major cultural export.",
+      ],
+    },
+
+    Celebrities: {
+      "Cristiano Ronaldo": [
+        "A famous football player.",
+        "He is linked to Portugal.",
+        "He has played for Real Madrid.",
+        "He is known for discipline and fitness.",
+        "His celebration is very famous.",
+        "He wears number 7 often.",
+        "He has won many individual awards.",
+        "He is one of the most followed people online.",
+        "He is known for scoring goals.",
+        "Fans often compare him with Messi.",
+      ],
+      "Lionel Messi": [
+        "A famous football player from Argentina.",
+        "He is known for dribbling.",
+        "Barcelona is strongly linked to his career.",
+        "He won the World Cup with Argentina.",
+        "Fans compare him with Ronaldo.",
+        "He is known for close ball control.",
+        "He is left-footed.",
+        "He has won many Ballon d’Or awards.",
+        "He is not very tall.",
+        "He is considered one of the greatest players ever.",
+      ],
+      "Dwayne Johnson": [
+        "Also known as The Rock.",
+        "He was a professional wrestler.",
+        "He became a Hollywood actor.",
+        "He is known for action movies.",
+        "He has a muscular build.",
+        "His eyebrow raise is famous.",
+        "He often plays heroic characters.",
+        "He has a strong fitness image.",
+        "He worked in WWE.",
+        "He is known for charisma.",
+      ],
+      "Taylor Swift": [
+        "A global singer-songwriter.",
+        "Her fans are called Swifties.",
+        "She writes many songs about relationships.",
+        "She has many album eras.",
+        "She started in country music.",
+        "Her tours are massive events.",
+        "She rerecorded some albums.",
+        "She is known for storytelling lyrics.",
+        "She has many number-one hits.",
+        "She is one of the biggest pop stars.",
+      ],
+      "Trevor Noah": [
+        "A South African comedian.",
+        "He hosted The Daily Show.",
+        "He writes and performs stand-up comedy.",
+        "He was born in South Africa.",
+        "His book is called Born a Crime.",
+        "He jokes about culture and politics.",
+        "He became internationally famous.",
+        "He speaks several languages.",
+        "He often discusses identity.",
+        "He is known for sharp humour.",
+      ],
+    },
+
+    Places: {
+      "Cape Town": [
+        "A famous South African city.",
+        "Table Mountain is strongly linked to it.",
+        "It has beaches and wine regions nearby.",
+        "Tourists love visiting it.",
+        "The waterfront is popular.",
+        "It is in the Western Cape.",
+        "Robben Island is nearby.",
+        "It has dramatic natural scenery.",
+        "It is often called one of the most beautiful cities.",
+        "The ocean and mountains meet there.",
+      ],
+      "Johannesburg": [
+        "A major city in South Africa.",
+        "It is linked to gold history.",
+        "It is in Gauteng.",
+        "It is a major business hub.",
+        "People often call it Jozi.",
+        "Soweto is part of its story.",
+        "It has busy traffic.",
+        "It is not a coastal city.",
+        "It is one of Africa’s biggest urban economies.",
+        "Many people move there for opportunities.",
+      ],
+      "Durban": [
+        "A coastal South African city.",
+        "It is known for warm beaches.",
+        "It is in KwaZulu-Natal.",
+        "The Golden Mile is famous.",
+        "Indian Ocean weather shapes the city.",
+        "It has strong Indian cultural influence.",
+        "It is popular for holidays.",
+        "Surfing is common there.",
+        "It has a major harbour.",
+        "Bunny chow is strongly linked to it.",
+      ],
+      "Paris": [
+        "A famous European city.",
+        "The Eiffel Tower is linked to it.",
+        "It is known as romantic.",
+        "It is the capital of France.",
+        "Fashion is strongly linked to it.",
+        "The Louvre is there.",
+        "The Seine River runs through it.",
+        "It attracts many tourists.",
+        "Cafés and art are part of its image.",
+        "It is called the City of Light.",
+      ],
+      "New York": [
+        "A famous American city.",
+        "Times Square is linked to it.",
+        "It has many skyscrapers.",
+        "The Statue of Liberty is nearby.",
+        "It is known as the city that never sleeps.",
+        "Central Park is there.",
+        "Wall Street is linked to finance.",
+        "Broadway is linked to theatre.",
+        "It has five boroughs.",
+        "It appears in many movies.",
+      ],
+    },
+
+    Food: {
+      Pizza: [
+        "It is usually round.",
+        "Cheese is a major ingredient.",
+        "It often has toppings.",
+        "It is strongly linked to Italy.",
+        "It is cut into slices.",
+        "People order it for parties.",
+        "It can be thin or thick crust.",
+        "Tomato sauce is common.",
+        "It is popular worldwide.",
+        "Pepperoni is a common topping.",
+      ],
+      Sushi: [
+        "It is linked to Japan.",
+        "Rice is important.",
+        "Fish is often involved.",
+        "It is served in small pieces.",
+        "Soy sauce is commonly used.",
+        "Wasabi may come with it.",
+        "Chopsticks are often used.",
+        "It can include seaweed.",
+        "Some versions use raw fish.",
+        "It is popular as a date-night meal.",
+      ],
+      "Bunny Chow": [
+        "It is strongly linked to Durban.",
+        "It uses hollowed-out bread.",
+        "Curry fills the bread.",
+        "It is a South African food.",
+        "It is often eaten with hands.",
+        "It can be spicy.",
+        "It has Indian-South African roots.",
+        "It is filling and messy.",
+        "It is popular street food.",
+        "The bread acts like a bowl.",
+      ],
+      Burger: [
+        "It usually has a bun.",
+        "A patty is the main filling.",
+        "Cheese can be added.",
+        "It is common at fast-food places.",
+        "Lettuce and tomato are common extras.",
+        "Fries often come with it.",
+        "It can be beef, chicken, or veggie.",
+        "It is held with both hands.",
+        "Sauce makes it messy.",
+        "It is popular for casual dates.",
+      ],
+      Chocolate: [
+        "It is sweet.",
+        "It is linked to cocoa.",
+        "People give it as a romantic gift.",
+        "It can be dark, milk, or white.",
+        "It melts easily.",
+        "Desserts often use it.",
+        "It is popular on Valentine’s Day.",
+        "It can come in bars.",
+        "It is loved by many people.",
+        "It can be paired with strawberries.",
+      ],
+    },
+
+    "Couple Life": {
+      "First Date": [
+        "It usually happens early in a relationship.",
+        "People often remember the outfit.",
+        "There may be nervousness.",
+        "Food or coffee is often involved.",
+        "It can decide if there is chemistry.",
+        "Couples often talk about it later.",
+        "It may include awkward silence.",
+        "It can become a special memory.",
+        "Planning matters a lot.",
+        "It is the beginning of a shared story.",
+      ],
+      Anniversary: [
+        "It happens once a year.",
+        "Couples often celebrate it.",
+        "It marks a special date.",
+        "Gifts or dinner may be involved.",
+        "Memories are often revisited.",
+        "It can be romantic.",
+        "Photos are often taken.",
+        "It reminds couples how far they have come.",
+        "Some people forget it and get in trouble.",
+        "It is linked to relationship milestones.",
+      ],
+      "Movie Night": [
+        "It usually happens at home or cinema.",
+        "Snacks are important.",
+        "Choosing what to watch can take long.",
+        "Blankets may be involved.",
+        "Couples often cuddle during it.",
+        "Arguments can happen over the genre.",
+        "It is low-pressure bonding.",
+        "It can become a weekly ritual.",
+        "Popcorn is common.",
+        "It is perfect for NightIn.",
+      ],
+      "Date Night": [
+        "Couples plan it to spend time together.",
+        "It can involve dinner.",
+        "Outfits may matter.",
+        "It breaks routine.",
+        "It can happen indoors or outdoors.",
+        "It creates memories.",
+        "It may include surprises.",
+        "Photos are often taken.",
+        "It keeps the relationship active.",
+        "Effort matters more than money.",
+      ],
+      "Inside Joke": [
+        "Only the couple fully understands it.",
+        "It can start from a random moment.",
+        "It makes both people laugh.",
+        "It becomes part of the relationship language.",
+        "Others may not understand it.",
+        "It can last for years.",
+        "A word or look can trigger it.",
+        "It strengthens closeness.",
+        "It feels private.",
+        "It often comes from shared memories.",
+      ],
+          "Geography / Places": {
+      "Mount Everest": [
+        "It is the highest mountain on Earth.",
+        "It is in the Himalayas.",
+        "Climbers train for months to attempt it.",
+        "The summit is extremely cold.",
+        "Nepal is strongly linked to it.",
+        "Oxygen becomes a major problem near the top.",
+        "It attracts adventurers from around the world.",
+        "Sherpas are often linked to climbs there.",
+        "Reaching the top is considered a major achievement.",
+        "It is taller than 8,000 meters.",
+      ],
+      "Sahara Desert": [
+        "It is one of the largest deserts in the world.",
+        "It is in Africa.",
+        "Sand dunes are strongly linked to it.",
+        "Temperatures can be extremely hot.",
+        "Camels are often associated with it.",
+        "It covers parts of many countries.",
+        "Water is very scarce there.",
+        "It is larger than many countries.",
+        "It has harsh survival conditions.",
+        "It is famous for its dry landscape.",
+      ],
+      "Amazon Rainforest": [
+        "It is one of the world’s largest rainforests.",
+        "It is in South America.",
+        "It has huge biodiversity.",
+        "A famous river shares its name.",
+        "It is important for the planet’s climate.",
+        "Many species live there.",
+        "It is often called the lungs of the Earth.",
+        "Brazil contains a large part of it.",
+        "It is dense and green.",
+        "Deforestation is a major concern there.",
+      ],
+      "Great Wall of China": [
+        "It is a famous structure in Asia.",
+        "It was built for protection.",
+        "It stretches across a huge distance.",
+        "China is strongly linked to it.",
+        "It is visited by many tourists.",
+        "It is made of walls and watchtowers.",
+        "It is very old.",
+        "It appears in many history lessons.",
+        "It was built over many dynasties.",
+        "It is one of the world’s most famous landmarks.",
+      ],
+      "Victoria Falls": [
+        "It is a famous waterfall in Africa.",
+        "It is linked to Zambia and Zimbabwe.",
+        "Mist rises strongly from it.",
+        "It is one of the largest waterfalls in the world.",
+        "The local name means smoke that thunders.",
+        "Tourists travel to see it.",
+        "The Zambezi River feeds it.",
+        "It is dramatic and powerful.",
+        "Rainbows can appear in the spray.",
+        "It is a major natural attraction.",
+      ],
+    },
+
+    "TV Shows": {
+      Friends: [
+        "It follows a group of friends in New York.",
+        "A coffee shop is very important.",
+        "The theme song is very famous.",
+        "There are six main friends.",
+        "One character says 'How you doin?'",
+        "The show includes roommates and relationships.",
+        "It was one of the biggest sitcoms.",
+        "Ross and Rachel are a major storyline.",
+        "Monica, Chandler, Joey, Phoebe, Ross, and Rachel are central.",
+        "It is still watched years later.",
+      ],
+      "Game of Thrones": [
+        "It has dragons.",
+        "Several families fight for power.",
+        "A throne is central to the story.",
+        "Winter is a repeated warning.",
+        "The show is based on fantasy books.",
+        "Kings and queens are everywhere.",
+        "The story has major betrayals.",
+        "Westeros is the main setting.",
+        "The Stark family is very important.",
+        "It became one of the biggest TV shows.",
+      ],
+      "Breaking Bad": [
+        "A chemistry teacher becomes a criminal.",
+        "The main character is Walter White.",
+        "Blue product is linked to the story.",
+        "A former student becomes his partner.",
+        "The story involves crime and consequences.",
+        "New Mexico is strongly linked to it.",
+        "The main character changes dramatically.",
+        "A hat and glasses became iconic.",
+        "It is known for intense storytelling.",
+        "The phrase 'I am the one who knocks' is linked to it.",
+      ],
+      "Squid Game": [
+        "Players compete in deadly games.",
+        "The tracksuits are green.",
+        "The guards wear masks.",
+        "A giant doll appears in one game.",
+        "It is a Korean show.",
+        "Money is a major motivation.",
+        "Childhood games become dangerous.",
+        "The visuals use strong colors.",
+        "It became globally popular.",
+        "The red light, green light game is famous.",
+      ],
+      "The Big Bang Theory": [
+        "It follows scientists and their friends.",
+        "Sheldon is a central character.",
+        "The characters love geek culture.",
+        "A couch spot becomes important.",
+        "The show has many science jokes.",
+        "Penny lives across the hall.",
+        "Bazinga is linked to the show.",
+        "It is a sitcom.",
+        "Leonard and Sheldon are roommates.",
+        "It mixes friendship, romance, and nerd culture.",
+      ],
+      "Money Heist": [
+        "A group plans major robberies.",
+        "The Professor leads the plan.",
+        "Red jumpsuits are iconic.",
+        "Masks are important.",
+        "The show is originally Spanish.",
+        "City names are used as character names.",
+        "A famous song is linked to it.",
+        "The target includes a mint.",
+        "Strategy and betrayal matter.",
+        "It became popular worldwide.",
+      ],
+    },
+
+    "Super Famous People": {
+      "Nelson Mandela": [
+        "He was South Africa’s first democratic president.",
+        "He spent many years in prison.",
+        "Robben Island is linked to his story.",
+        "He became a global symbol of peace.",
+        "He fought against apartheid.",
+        "His clan name is Madiba.",
+        "He won a Nobel Peace Prize.",
+        "He is one of the most respected leaders in history.",
+        "He promoted reconciliation.",
+        "His life is strongly linked to South African freedom.",
+      ],
+      "Elon Musk": [
+        "He is linked to Tesla.",
+        "He is linked to SpaceX.",
+        "He was born in South Africa.",
+        "He is known for technology companies.",
+        "Electric cars are strongly linked to him.",
+        "Rockets are strongly linked to him.",
+        "He bought a major social media platform.",
+        "He is one of the world’s richest people.",
+        "He often makes headlines.",
+        "Mars is often linked to his ambitions.",
+      ],
+      "Oprah Winfrey": [
+        "She is a famous talk show host.",
+        "Her interviews became globally known.",
+        "She built a major media empire.",
+        "She is known for emotional conversations.",
+        "Her name is linked to inspiration.",
+        "She has influenced books and television.",
+        "She became one of the most powerful women in media.",
+        "She is also an actress and producer.",
+        "Audience giveaways became famous on her show.",
+        "She is widely recognized worldwide.",
+      ],
+      "Barack Obama": [
+        "He was president of the United States.",
+        "He was the first Black U.S. president.",
+        "Michelle is his wife.",
+        "He is known for strong speeches.",
+        "His campaign used the word hope.",
+        "He served two terms.",
+        "He won a Nobel Peace Prize.",
+        "He wrote several books.",
+        "He remains globally recognized.",
+        "He was president before Donald Trump.",
+      ],
+      "Kim Kardashian": [
+        "She became famous through reality TV.",
+        "Her family is globally known.",
+        "She built beauty and fashion brands.",
+        "Social media is central to her fame.",
+        "She is linked to the Kardashian name.",
+        "She has been involved in legal reform efforts.",
+        "Her style often trends online.",
+        "She has millions of followers.",
+        "She was married to Kanye West.",
+        "She is one of the most famous reality stars.",
+      ],
+      "Michael Jordan": [
+        "He is one of the greatest basketball players ever.",
+        "The Chicago Bulls are strongly linked to him.",
+        "Number 23 is famous because of him.",
+        "Air Jordan shoes carry his name.",
+        "He won multiple NBA championships.",
+        "He is known for competitiveness.",
+        "He became a global sports icon.",
+        "He could score and defend at elite level.",
+        "His logo appears on sneakers.",
+        "Fans compare many players to him.",
+      ],
+      "Beyoncé": [
+        "She is one of the most famous singers in the world.",
+        "Her fanbase is called the BeyHive.",
+        "She was part of Destiny’s Child.",
+        "Her performances are known for precision.",
+        "She is married to Jay-Z.",
+        "She has many iconic albums.",
+        "She is linked to powerful vocals.",
+        "Her tours are major events.",
+        "She is also an actress and businesswoman.",
+        "She is often called Queen Bey.",
+      ],
+    },
+
+    },
+  }),
+  []
+);
+
+  const availableAnswers = Object.keys(clueBank[category] || {});
 
   React.useEffect(() => {
-    if (phase === "ENTER") {
-      setLocalStatements(
-        Array.isArray(payload?.statements) && payload.statements.length === 3
-          ? payload.statements
-          : [
-              { id: "s1", text: "" },
-              { id: "s2", text: "" },
-              { id: "s3", text: "" },
-            ]
-      );
-      setLocalLieIndex(payload?.lieIndex ?? null);
-      setIsTyping(false);
+    setCategory(payload?.category || "Movies");
+    setAnswer(payload?.answer || "");
+    setGuess(payload?.guessText || "");
+  }, [payload?.category, payload?.answer, payload?.guessText]);
+
+  React.useEffect(() => {
+    if (!payload?.startedAt || phase !== "GUESSING") {
+      setTimeLeft(payload?.timerSeconds || 30);
+      return;
     }
-  }, [phase, payload?.statements, payload?.lieIndex]);
+
+    const tick = () => {
+      const started = new Date(payload.startedAt).getTime();
+      const elapsed = Math.floor((Date.now() - started) / 1000);
+      setTimeLeft(Math.max(30 - elapsed, 0));
+    };
+
+    tick();
+    const interval = setInterval(tick, 500);
+    return () => clearInterval(interval);
+  }, [payload?.startedAt, payload?.timerSeconds, phase]);
+
+  const generateFiveClues = (nextCategory, nextAnswer) => {
+    const source = clueBank[nextCategory]?.[nextAnswer] || [];
+    return [...source].sort(() => Math.random() - 0.5).slice(0, 5);
+  };
 
   const startRound = () => {
-    if (disabled) return;
+    if (disabled || !answer) return;
 
     setPayload({
       ...payload,
-      phase: "ENTER",
-      authorId: currentUserId,
-      statements: [
-        { id: "s1", text: "" },
-        { id: "s2", text: "" },
-        { id: "s3", text: "" },
-      ],
-      lieIndex: null,
-      guessByPartner: null,
+      phase: "CHOOSE_CLUES",
+      round: payload?.round || 1,
+      category,
+      answer,
+      cluePack: generateFiveClues(category, answer),
+      selectedClues: [],
+      clueMasterId: myId,
+      guesserId: "",
+      guessText: "",
+      startedAt: null,
+      timerSeconds: 30,
+      result: null,
+      score: payload?.score || {},
     });
+  };
 
-    setLocalStatements([
-      { id: "s1", text: "" },
-      { id: "s2", text: "" },
-      { id: "s3", text: "" },
-    ]);
-    setLocalLieIndex(null);
-    setIsTyping(false);
+  const nextClues = () => {
+    if (disabled || !payload?.answer) return;
+
+    setPayload({
+      ...payload,
+      cluePack: generateFiveClues(payload.category, payload.answer),
+      selectedClues: [],
+    });
+  };
+
+  const toggleClue = (clue) => {
+    if (disabled || !isClueMaster) return;
+
+    const selected = Array.isArray(payload?.selectedClues)
+      ? payload.selectedClues
+      : [];
+
+    setPayload({
+      ...payload,
+      selectedClues: selected.includes(clue)
+        ? selected.filter((item) => item !== clue)
+        : [...selected, clue],
+    });
+  };
+
+  const sendClues = () => {
+    const selected = Array.isArray(payload?.selectedClues)
+      ? payload.selectedClues
+      : [];
+
+    if (disabled || !isClueMaster || selected.length === 0) return;
+
+    setPayload({
+      ...payload,
+      phase: "GUESSING",
+      startedAt: new Date().toISOString(),
+      timerSeconds: 30,
+      guesserId: "",
+      guessText: "",
+      result: null,
+    });
+  };
+
+  const submitGuess = () => {
+    if (disabled || !guess.trim()) return;
+
+    const cleanGuess = guess.trim();
+    const correct =
+      cleanGuess.toLowerCase() === String(payload?.answer || "").toLowerCase();
+
+    const score = { ...(payload?.score || {}) };
+
+    if (correct) {
+      score[myId] = Number(score[myId] || 0) + 1;
+    }
+
+    setPayload({
+      ...payload,
+      phase: correct ? "CORRECT" : "WRONG",
+      guesserId: myId,
+      guessText: cleanGuess,
+      result: correct ? "correct" : "wrong",
+      score,
+    });
+  };
+
+  const nextRound = () => {
+    setGuess("");
+    setPayload({
+      ...defaultPayloadFor(GAME_CLUE_DATE),
+      round: Number(payload?.round || 1) + 1,
+      score: payload?.score || {},
+    });
+  };
+
+  const selectedClues = Array.isArray(payload?.selectedClues)
+    ? payload.selectedClues
+    : [];
+
+  const cluePack = Array.isArray(payload?.cluePack) ? payload.cluePack : [];
+  const myScore = Number(payload?.score?.[myId] || 0);
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-[20px] bg-[#f8fafc] p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[14px] font-semibold text-slate-900">
+              Clue-Date
+            </p>
+            <p className="mt-2 text-[12px] text-slate-500">
+              One partner chooses clues. The other has 30 seconds to guess.
+            </p>
+          </div>
+
+          <div className="rounded-[16px] bg-white px-3 py-2 text-center shadow-[0_6px_14px_rgba(15,23,42,0.05)]">
+            <Timer className="mx-auto h-4 w-4 text-[#2f6df0]" />
+            <p className="mt-1 text-[16px] font-black text-[#2f6df0]">
+              {timeLeft}s
+            </p>
+          </div>
+        </div>
+
+        {disabled ? (
+          <p className="mt-3 text-[11px] font-medium text-rose-500">
+            Date-Locked required to play.
+          </p>
+        ) : null}
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <MiniStat value={payload?.round || 1} label="Round" />
+        <MiniStat value={myScore} label="My Score" />
+        <MiniStat
+          value={
+            phase === "SETUP"
+              ? "Pick"
+              : phase === "CHOOSE_CLUES"
+              ? "Clues"
+              : phase === "GUESSING"
+              ? "Guess"
+              : "Done"
+          }
+          label="Status"
+        />
+      </div>
+
+      {phase === "SETUP" ? (
+        <div className="space-y-3">
+          <select
+  value={category}
+  disabled={disabled}
+  onChange={(e) => {
+    setCategory(e.target.value);
+    setAnswer("");
+  }}
+  className="h-[42px] w-full rounded-[14px] border border-slate-200 bg-white px-3 text-[13px] text-slate-700 outline-none disabled:bg-slate-50"
+>
+  {Object.keys(clueBank).map((item) => (
+    <option key={item} value={item}>
+      {item}
+    </option>
+  ))}
+</select>
+
+          <select
+            value={answer}
+            disabled={disabled}
+            onChange={(e) => setAnswer(e.target.value)}
+            className="h-[42px] w-full rounded-[14px] border border-slate-200 bg-white px-3 text-[13px] text-slate-700 outline-none disabled:bg-slate-50"
+          >
+            <option value="">Choose answer...</option>
+            {availableAnswers.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+
+          <Button
+            type="button"
+            onClick={startRound}
+            disabled={disabled || !answer}
+            className="h-[42px] w-full rounded-[14px] bg-rose-500 text-[13px] font-medium text-white hover:bg-rose-600 disabled:opacity-60"
+          >
+            Generate Clues
+          </Button>
+        </div>
+      ) : null}
+
+      {phase === "CHOOSE_CLUES" ? (
+        <div className="space-y-3">
+          {isClueMaster ? (
+            <>
+              <div className="rounded-[18px] bg-[#f8fafc] p-3 text-[12px] text-slate-600">
+                Answer hidden from partner:{" "}
+                <span className="font-bold text-slate-900">
+                  {payload.answer}
+                </span>
+              </div>
+
+              {cluePack.map((clue) => {
+                const active = selectedClues.includes(clue);
+
+                return (
+                  <button
+                    key={clue}
+                    type="button"
+                    onClick={() => toggleClue(clue)}
+                    className={`w-full rounded-[16px] px-3 py-3 text-left text-[13px] font-semibold ${
+                      active
+                        ? "bg-[#eaf3ff] text-[#2f6df0] ring-2 ring-[#8ec5ff]"
+                        : "bg-slate-50 text-slate-700"
+                    }`}
+                  >
+                    {clue}
+                  </button>
+                );
+              })}
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  onClick={nextClues}
+                  disabled={disabled}
+                  className="h-[40px] rounded-[14px] bg-white text-rose-500 shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
+                >
+                  Next Clues
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={sendClues}
+                  disabled={disabled || selectedClues.length === 0}
+                  className="h-[40px] rounded-[14px] bg-rose-500 text-white disabled:opacity-60"
+                >
+                  Send Clues
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="rounded-[18px] bg-[#f8fafc] p-4 text-[12px] text-slate-500">
+              Waiting for your partner to choose clues.
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {phase === "GUESSING" ? (
+        <div className="space-y-3">
+          {selectedClues.map((clue) => (
+            <div
+              key={clue}
+              className="rounded-[16px] bg-slate-50 px-3 py-3 text-[13px] font-semibold text-slate-700"
+            >
+              {clue}
+            </div>
+          ))}
+
+          {isGuesser ? (
+            <>
+              <SafeInput
+                value={guess}
+                disabled={disabled || timeLeft <= 0}
+                onChange={(e) => setGuess(e.target.value)}
+                placeholder="Type your answer..."
+              />
+
+              <Button
+                type="button"
+                onClick={submitGuess}
+                disabled={disabled || !guess.trim() || timeLeft <= 0}
+                className="h-[42px] w-full rounded-[14px] bg-rose-500 text-[13px] font-medium text-white hover:bg-rose-600 disabled:opacity-60"
+              >
+                Submit Guess
+              </Button>
+            </>
+          ) : (
+            <div className="rounded-[18px] bg-[#f8fafc] p-4 text-[12px] text-slate-500">
+              Waiting for your partner to guess.
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {phase === "CORRECT" || phase === "WRONG" ? (
+        <div className="space-y-3">
+          <div
+            className={`rounded-[20px] px-4 py-5 text-center ${
+              phase === "CORRECT"
+                ? "bg-green-50 text-green-700"
+                : "bg-red-50 text-red-600"
+            }`}
+          >
+            <p className="text-[20px] font-black">
+              {phase === "CORRECT" ? "Correct!" : "Wrong!"}
+            </p>
+            <p className="mt-2 text-sm font-semibold">
+              Answer: {payload.answer}
+            </p>
+            {payload.guessText ? (
+              <p className="mt-1 text-xs">Guess: {payload.guessText}</p>
+            ) : null}
+          </div>
+
+          <Button
+            type="button"
+            onClick={nextRound}
+            disabled={disabled}
+            className="h-[42px] w-full rounded-[14px] bg-rose-500 text-[13px] font-medium text-white hover:bg-rose-600 disabled:opacity-60"
+          >
+            Next Round
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function MiniStat({ value, label }) {
+  return (
+    <div className="rounded-[16px] bg-slate-50 px-2 py-3 text-center">
+      <p className="truncate text-[18px] font-black text-slate-800">{value}</p>
+      <p className="text-[10px] font-semibold text-slate-500">{label}</p>
+    </div>
+  );
+}
+
+function TwoTruthsGame({ payload, currentUserId, setPayload, disabled = false }) {
+  const myId = String(currentUserId);
+  const phase = payload?.phase || "ENTER";
+  const isAuthor = String(payload?.authorId || "") === myId;
+
+  const [statements, setStatements] = React.useState(
+    Array.isArray(payload?.statements) ? payload.statements : defaultPayloadFor(GAME_TWO_TRUTHS).statements
+  );
+  const [lieIndex, setLieIndex] = React.useState(payload?.lieIndex ?? null);
+
+  React.useEffect(() => {
+    setStatements(
+      Array.isArray(payload?.statements)
+        ? payload.statements
+        : defaultPayloadFor(GAME_TWO_TRUTHS).statements
+    );
+    setLieIndex(payload?.lieIndex ?? null);
+  }, [payload?.statements, payload?.lieIndex]);
+
+  const startRound = () => {
+    if (disabled) return;
+    setPayload({
+      ...defaultPayloadFor(GAME_TWO_TRUTHS),
+      authorId: myId,
+    });
   };
 
   const submitStatements = () => {
     if (disabled) return;
 
-    const filled = localStatements.every((s) => (s.text || "").trim().length >= 3);
-    if (!filled || localLieIndex === null) return;
+    const filled = statements.every((s) => (s.text || "").trim().length >= 2);
+    if (!filled || lieIndex === null) return;
 
     setPayload({
       ...payload,
       phase: "GUESS",
-      authorId: currentUserId,
-      statements: localStatements.map((s) => ({ ...s, text: s.text.trim() })),
-      lieIndex: localLieIndex,
+      authorId: myId,
+      statements: statements.map((s) => ({ ...s, text: s.text.trim() })),
+      lieIndex,
       guessByPartner: null,
     });
-
-    setIsTyping(false);
   };
 
-  const submitGuess = (guessIndex) => {
+  const submitGuess = (idx) => {
     if (disabled) return;
 
     setPayload({
       ...payload,
-      guessByPartner: guessIndex,
+      guessByPartner: idx,
       phase: "REVEAL",
     });
   };
 
   return (
     <div className="space-y-4">
-      <div className="rounded-[20px] bg-[#f8fafc] p-4">
-        <p className="text-[14px] font-semibold text-slate-900">
-          Two Truths and a Lie
-        </p>
-        <p className="mt-2 text-[12px] text-slate-500">
-          Start a round, write 3 statements, then pick the lie.
-        </p>
-        {disabled ? (
-          <p className="mt-2 text-[11px] font-medium text-rose-500">
-            Date-Locked required to play.
-          </p>
-        ) : isTyping ? (
-          <p className="mt-2 text-[11px] font-medium text-rose-500">Typing…</p>
-        ) : null}
-      </div>
+      <GameIntro
+        title="Two Truths and a Lie"
+        text="Write three statements. Your partner must find the lie."
+        disabled={disabled}
+      />
 
       <Button
         type="button"
         onClick={startRound}
         disabled={disabled}
-        className="flex h-[42px] w-full items-center justify-center rounded-[14px] bg-rose-500 px-3 text-[13px] font-medium text-white shadow-[0_6px_14px_rgba(15,23,42,0.08)] hover:bg-rose-600 disabled:opacity-60"
+        className="h-[42px] w-full rounded-[14px] bg-rose-500 text-[13px] font-medium text-white hover:bg-rose-600 disabled:opacity-60"
       >
         Start New Round
       </Button>
 
-      {phase === "ENTER" && isAuthor && (
+      {phase === "ENTER" && isAuthor ? (
         <div className="space-y-3">
-          {localStatements.map((s, idx) => (
+          {statements.map((s, idx) => (
             <div key={s.id} className="rounded-[18px] bg-[#f8fafc] p-3">
               <SafeInput
                 value={s.text}
                 placeholder={`Statement ${idx + 1}`}
                 disabled={disabled}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setIsTyping(value.length > 0);
-                  setLocalStatements((prev) =>
-                    prev.map((x, i) => (i === idx ? { ...x, text: value } : x))
-                  );
-                }}
+                onChange={(e) =>
+                  setStatements((prev) =>
+                    prev.map((x, i) =>
+                      i === idx ? { ...x, text: e.target.value } : x
+                    )
+                  )
+                }
               />
 
               <label className="mt-3 flex items-center gap-2">
                 <input
                   type="radio"
-                  checked={localLieIndex === idx}
+                  checked={lieIndex === idx}
                   disabled={disabled}
-                  onChange={() => setLocalLieIndex(idx)}
+                  onChange={() => setLieIndex(idx)}
                   className="h-4 w-4"
                 />
                 <span className="text-[12px] font-medium text-slate-600">
@@ -861,90 +1929,77 @@ function TwoTruthsGame({ payload, currentUserId, setPayload, disabled = false })
             onClick={submitStatements}
             disabled={
               disabled ||
-              localLieIndex === null ||
-              localStatements.some((s) => (s.text || "").trim().length < 3)
+              lieIndex === null ||
+              statements.some((s) => (s.text || "").trim().length < 2)
             }
-            className="flex h-[42px] w-full items-center justify-center rounded-[14px] bg-rose-500 px-3 text-[13px] font-medium text-white shadow-[0_6px_14px_rgba(15,23,42,0.08)] hover:bg-rose-600 disabled:opacity-60"
+            className="h-[42px] w-full rounded-[14px] bg-rose-500 text-[13px] font-medium text-white hover:bg-rose-600 disabled:opacity-60"
           >
-            Send to Guess
+            Send to Partner
           </Button>
         </div>
-      )}
+      ) : null}
 
-      {phase === "ENTER" && !isAuthor && (
-        <div className="rounded-[18px] bg-[#f8fafc] p-4 text-[12px] text-slate-500">
-          Waiting for partner to create the round.
-        </div>
-      )}
+      {phase === "ENTER" && !isAuthor ? (
+        <Waiting text="Waiting for partner to create the round." />
+      ) : null}
 
-      {phase === "GUESS" && !isAuthor && Array.isArray(payload?.statements) && (
+      {phase === "GUESS" && !isAuthor ? (
         <div className="space-y-3">
-          {payload.statements.map((s, idx) => (
-            <div key={s.id} className="flex items-center justify-between rounded-[18px] bg-[#f8fafc] p-4">
-              <span className="pr-3 text-[13px] font-medium text-slate-700">
-                {idx + 1}. {s.text}
-              </span>
-              <Button
-                type="button"
-                onClick={() => submitGuess(idx)}
-                disabled={disabled}
-                className="h-[38px] rounded-[14px] bg-rose-500 px-3 text-[12px] font-medium text-white hover:bg-rose-600 disabled:opacity-60"
-              >
-                Pick
-              </Button>
-            </div>
+          {(payload?.statements || []).map((s, idx) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => submitGuess(idx)}
+              disabled={disabled}
+              className="w-full rounded-[18px] bg-[#f8fafc] p-4 text-left text-[13px] font-semibold text-slate-700 disabled:opacity-60"
+            >
+              {idx + 1}. {s.text}
+            </button>
           ))}
         </div>
-      )}
+      ) : null}
 
-      {phase === "GUESS" && isAuthor && (
-        <div className="rounded-[18px] bg-[#f8fafc] p-4 text-[12px] text-slate-500">
-          Waiting for the guess…
-        </div>
-      )}
+      {phase === "GUESS" && isAuthor ? <Waiting text="Waiting for the guess…" /> : null}
 
-      {phase === "REVEAL" && Array.isArray(payload?.statements) && (
+      {phase === "REVEAL" ? (
         <div className="space-y-3">
-          {payload.statements.map((s, idx) => {
+          {(payload?.statements || []).map((s, idx) => {
             const isLie = idx === payload.lieIndex;
             const guessed = idx === payload.guessByPartner;
 
             return (
-              <div key={s.id} className="flex items-center justify-between rounded-[18px] bg-[#f8fafc] p-4">
-                <span className="text-[13px] font-medium text-slate-700">
-                  {idx + 1}. {s.text} {isLie ? "(LIE)" : "(TRUTH)"}
-                </span>
-                {guessed ? <Badge className="bg-rose-500 text-white">Picked</Badge> : null}
+              <div
+                key={s.id}
+                className="rounded-[18px] bg-[#f8fafc] p-4 text-[13px] font-semibold text-slate-700"
+              >
+                {idx + 1}. {s.text} {isLie ? "(Lie)" : "(Truth)"}
+                {guessed ? " — Picked" : ""}
               </div>
             );
           })}
 
-          <div className="rounded-[18px] bg-[#eefcf3] p-4 text-center text-[13px] font-semibold text-emerald-700">
-            {payload.guessByPartner === payload.lieIndex
-              ? "✅ Correct guess!"
-              : "❌ Not quite!"}
-          </div>
+          <ResultBox
+            correct={payload.guessByPartner === payload.lieIndex}
+            correctText="Correct guess!"
+            wrongText="Not quite!"
+          />
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
 
 function TwentyQuestionsGame({ payload, currentUserId, setPayload, disabled = false }) {
-  const phase = payload?.phase || "CHOOSE";
   const [category, setCategory] = React.useState(payload?.answerCategory || "Thing");
   const [hint, setHint] = React.useState(payload?.secretHint || "");
   const [draft, setDraft] = React.useState("");
-  const [isTyping, setIsTyping] = React.useState(false);
+
+  const phase = payload?.phase || "CHOOSE";
 
   React.useEffect(() => {
-    if (phase === "CHOOSE") {
-      setCategory(payload?.answerCategory || "Thing");
-      setHint(payload?.secretHint || "");
-      setDraft("");
-      setIsTyping(false);
-    }
-  }, [phase, payload?.answerCategory, payload?.secretHint]);
+    setCategory(payload?.answerCategory || "Thing");
+    setHint(payload?.secretHint || "");
+  }, [payload?.answerCategory, payload?.secretHint]);
 
   const startGame = () => {
     if (disabled) return;
@@ -952,9 +2007,9 @@ function TwentyQuestionsGame({ payload, currentUserId, setPayload, disabled = fa
     setPayload({
       ...payload,
       phase: "ASK",
-      chooserId: currentUserId,
+      chooserId: String(currentUserId),
       answerCategory: category,
-      secretHint: (hint || "").trim(),
+      secretHint: hint.trim(),
       qCount: 0,
       log: [],
       winnerUserId: null,
@@ -962,20 +2017,17 @@ function TwentyQuestionsGame({ payload, currentUserId, setPayload, disabled = fa
   };
 
   const addLog = (type) => {
-    if (disabled) return;
+    if (disabled || !draft.trim()) return;
 
-    const text = (draft || "").trim();
-    if (!text) return;
-
-    const log = Array.isArray(payload.log) ? [...payload.log] : [];
-    let qCount = payload.qCount || 0;
+    const log = Array.isArray(payload?.log) ? [...payload.log] : [];
+    let qCount = Number(payload?.qCount || 0);
 
     if (type === "Q") qCount = Math.min(20, qCount + 1);
 
     log.push({
-      byUserId: currentUserId,
+      byUserId: String(currentUserId),
       type,
-      text,
+      text: draft.trim(),
       createdAt: new Date().toISOString(),
     });
 
@@ -983,47 +2035,45 @@ function TwentyQuestionsGame({ payload, currentUserId, setPayload, disabled = fa
       ...payload,
       log: log.slice(-80),
       qCount,
-      phase: qCount >= 20 ? "END" : payload.phase,
+      phase: qCount >= 20 ? "END" : "ASK",
     });
 
     setDraft("");
-    setIsTyping(false);
   };
 
-  const endWithWinner = (winnerLabel) => {
+  const endGame = (winner) => {
     if (disabled) return;
 
     setPayload({
       ...payload,
       phase: "END",
-      winnerUserId: winnerLabel,
+      winnerUserId: winner,
     });
   };
 
   return (
     <div className="space-y-4">
-      {phase === "CHOOSE" && (
-        <div className="space-y-3">
-          <div className="rounded-[18px] bg-[#f8fafc] p-4 text-[12px] text-slate-500">
-            Choose a category and start the round.
-            {disabled ? (
-              <div className="mt-2 text-[11px] font-medium text-rose-500">
-                Date-Locked required to play.
-              </div>
-            ) : null}
-          </div>
+      <GameIntro
+        title="20 Questions"
+        text="Ask, answer, and guess before the 20 questions run out."
+        disabled={disabled}
+      />
 
+      {phase === "CHOOSE" ? (
+        <div className="space-y-3">
           <select
             value={category}
             disabled={disabled}
             onChange={(e) => setCategory(e.target.value)}
-            className="h-[42px] w-full rounded-[14px] border border-slate-200 bg-white px-3 text-[13px] text-slate-700 outline-none disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+            className="h-[42px] w-full rounded-[14px] border border-slate-200 bg-white px-3 text-[13px] text-slate-700 outline-none disabled:bg-slate-50"
           >
-            {["Person", "Place", "Thing", "Memory", "Date Idea", "Movie", "Song"].map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
+            {["Person", "Place", "Thing", "Memory", "Date Idea", "Movie", "Song"].map(
+              (c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              )
+            )}
           </select>
 
           <SafeInput
@@ -1037,48 +2087,23 @@ function TwentyQuestionsGame({ payload, currentUserId, setPayload, disabled = fa
             type="button"
             onClick={startGame}
             disabled={disabled}
-            className="flex h-[42px] w-full items-center justify-center rounded-[14px] bg-rose-500 px-3 text-[13px] font-medium text-white shadow-[0_6px_14px_rgba(15,23,42,0.08)] hover:bg-rose-600 disabled:opacity-60"
+            className="h-[42px] w-full rounded-[14px] bg-rose-500 text-[13px] font-medium text-white hover:bg-rose-600 disabled:opacity-60"
           >
             Start 20 Questions
           </Button>
         </div>
-      )}
+      ) : null}
 
-      {phase === "ASK" && (
+      {phase === "ASK" ? (
         <div className="space-y-3">
-          <div className="flex items-center justify-between rounded-[18px] bg-[#f8fafc] p-4">
-            <Badge className="bg-[#eaf1ff] text-[#3b82f6]">
-              Questions: {payload?.qCount || 0}/20
-            </Badge>
-            <span className="text-[12px] font-medium text-slate-500">
-              {payload?.answerCategory}
-            </span>
+          <div className="rounded-[18px] bg-[#f8fafc] p-4 text-[12px] text-slate-600">
+            Questions: {payload?.qCount || 0}/20 • {payload?.answerCategory}
+            {payload?.secretHint ? ` • Hint: ${payload.secretHint}` : ""}
           </div>
-
-          {payload?.secretHint ? (
-            <div className="rounded-[18px] bg-[#f8fafc] p-4 text-[12px] text-slate-600">
-              Hint: {payload.secretHint}
-            </div>
-          ) : null}
-
-          {disabled ? (
-            <div className="rounded-[18px] bg-[#fff1f2] p-3 text-[11px] font-medium text-rose-500">
-              Date-Locked required to play.
-            </div>
-          ) : isTyping ? (
-            <div className="rounded-[18px] bg-[#fff1f2] p-3 text-[11px] font-medium text-rose-500">
-              Typing…
-            </div>
-          ) : null}
 
           <div className="max-h-64 space-y-2 overflow-y-auto rounded-[18px] bg-[#f8fafc] p-3">
             {(payload?.log || []).map((it, idx) => (
-              <div
-                key={idx}
-                className={`max-w-[80%] rounded-[16px] p-3 ${
-                  it.byUserId === currentUserId ? "ml-auto bg-[#fdecef]" : "mr-auto bg-white"
-                }`}
-              >
+              <div key={`${idx}-${it.createdAt}`} className="rounded-[16px] bg-white p-3">
                 <p className="text-[10px] font-bold text-slate-500">{it.type}</p>
                 <p className="text-[12px] font-medium text-slate-700">{it.text}</p>
               </div>
@@ -1089,45 +2114,25 @@ function TwentyQuestionsGame({ payload, currentUserId, setPayload, disabled = fa
             value={draft}
             placeholder="Type here…"
             disabled={disabled}
-            onChange={(e) => {
-              setDraft(e.target.value);
-              setIsTyping(e.target.value.length > 0);
-            }}
+            onChange={(e) => setDraft(e.target.value)}
           />
 
           <div className="grid grid-cols-3 gap-2">
-            <Button
-              type="button"
-              onClick={() => addLog("Q")}
-              disabled={disabled || !draft.trim()}
-              className="h-[40px] rounded-[14px] bg-white text-rose-500 shadow-[0_6px_14px_rgba(15,23,42,0.08)] hover:bg-slate-50 disabled:opacity-60"
-            >
+            <MiniButton onClick={() => addLog("Q")} disabled={disabled || !draft.trim()}>
               Ask
-            </Button>
-
-            <Button
-              type="button"
-              onClick={() => addLog("A")}
-              disabled={disabled || !draft.trim()}
-              className="h-[40px] rounded-[14px] bg-white text-rose-500 shadow-[0_6px_14px_rgba(15,23,42,0.08)] hover:bg-slate-50 disabled:opacity-60"
-            >
+            </MiniButton>
+            <MiniButton onClick={() => addLog("A")} disabled={disabled || !draft.trim()}>
               Answer
-            </Button>
-
-            <Button
-              type="button"
-              onClick={() => addLog("GUESS")}
-              disabled={disabled || !draft.trim()}
-              className="h-[40px] rounded-[14px] bg-white text-rose-500 shadow-[0_6px_14px_rgba(15,23,42,0.08)] hover:bg-slate-50 disabled:opacity-60"
-            >
+            </MiniButton>
+            <MiniButton onClick={() => addLog("GUESS")} disabled={disabled || !draft.trim()}>
               Guess
-            </Button>
+            </MiniButton>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <Button
               type="button"
-              onClick={() => endWithWinner("YOU")}
+              onClick={() => endGame("You")}
               disabled={disabled}
               className="h-[40px] rounded-[14px] bg-[#eefcf3] text-[#16a34a] hover:bg-[#dcfce7] disabled:opacity-60"
             >
@@ -1136,7 +2141,7 @@ function TwentyQuestionsGame({ payload, currentUserId, setPayload, disabled = fa
 
             <Button
               type="button"
-              onClick={() => endWithWinner("PARTNER")}
+              onClick={() => endGame("Partner")}
               disabled={disabled}
               className="h-[40px] rounded-[14px] bg-[#eaf1ff] text-[#2563eb] hover:bg-[#dbeafe] disabled:opacity-60"
             >
@@ -1144,242 +2149,13 @@ function TwentyQuestionsGame({ payload, currentUserId, setPayload, disabled = fa
             </Button>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {phase === "END" && (
+      {phase === "END" ? (
         <div className="rounded-[18px] bg-[#eefcf3] p-4 text-center text-[13px] font-semibold text-emerald-700">
           Winner: {payload?.winnerUserId || "—"}
         </div>
-      )}
-    </div>
-  );
-}
-
-function LoveIslandGame({ payload, currentUserId, setPayload, disabled = false }) {
-  const myId = String(currentUserId);
-  const stageNum = Math.min(Math.max(Number(payload?.stage || 1), 1), 100);
-  const stage = LOVE_STAGES[stageNum - 1];
-
-  const stages = payload?.stages || {};
-  const stageData = stages?.[stageNum] || {};
-  const submitted = stageData.submitted || {};
-  const answers = stageData.answers || {};
-  const physicalDone = stageData.physicalDone || {};
-
-  const mySubmitted = !!submitted?.[myId];
-  const myPhysical = !!physicalDone?.[myId];
-  const canUnlock = mySubmitted && (!stage.requiresMission || myPhysical);
-
-  const [a1, setA1] = React.useState("");
-  const [a2, setA2] = React.useState("");
-  const [a3, setA3] = React.useState("");
-  const [note, setNote] = React.useState("");
-  const [isTyping, setIsTyping] = React.useState(false);
-
-  const lastStageRef = React.useRef(null);
-
-  React.useEffect(() => {
-    if (lastStageRef.current === stageNum) return;
-    lastStageRef.current = stageNum;
-
-    const mine = answers?.[myId] || null;
-    setA1(mine?.a1 || "");
-    setA2(mine?.a2 || "");
-    setA3(mine?.a3 || "");
-    setNote(mine?.note || "");
-    setIsTyping(false);
-  }, [stageNum, answers, myId]);
-
-  const submit = () => {
-    if (disabled) return;
-
-    const x1 = (a1 || "").trim();
-    const x2 = (a2 || "").trim();
-    const x3 = (a3 || "").trim();
-
-    if (!x1 || !x2 || !x3) return;
-
-    const nextStages = { ...(payload.stages || {}) };
-    const current = { ...(nextStages[stageNum] || {}) };
-    const nextAnswers = { ...(current.answers || {}) };
-    const nextSubmitted = { ...(current.submitted || {}) };
-
-    nextAnswers[myId] = {
-      a1: x1,
-      a2: x2,
-      a3: x3,
-      note: (note || "").trim(),
-      at: new Date().toISOString(),
-    };
-
-    nextSubmitted[myId] = true;
-
-    nextStages[stageNum] = {
-      ...current,
-      answers: nextAnswers,
-      submitted: nextSubmitted,
-      physicalDone: { ...(current.physicalDone || {}) },
-    };
-
-    setPayload({
-      ...payload,
-      stage: stageNum,
-      stages: nextStages,
-    });
-
-    setIsTyping(false);
-  };
-
-  const togglePhysicalDone = () => {
-    if (disabled) return;
-
-    const nextStages = { ...(payload.stages || {}) };
-    const current = { ...(nextStages[stageNum] || {}) };
-    const nextPhysical = { ...(current.physicalDone || {}) };
-
-    nextPhysical[myId] = !nextPhysical[myId];
-
-    nextStages[stageNum] = {
-      ...current,
-      physicalDone: nextPhysical,
-      answers: { ...(current.answers || {}) },
-      submitted: { ...(current.submitted || {}) },
-    };
-
-    setPayload({
-      ...payload,
-      stage: stageNum,
-      stages: nextStages,
-    });
-  };
-
-  const unlockNext = () => {
-    if (disabled) return;
-    if (!mySubmitted) return;
-    if (stage.requiresMission && !myPhysical) return;
-
-    setPayload({
-      ...payload,
-      stage: Math.min(stageNum + 1, 100),
-    });
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-[18px] bg-[#f8fafc] p-4">
-        <Badge className="bg-[#f5e8ff] text-[#a855f7]">
-          {stage.tag} • Stage {stageNum}/100
-        </Badge>
-
-        <Badge className={canUnlock ? "bg-[#eefcf3] text-[#16a34a]" : "bg-slate-100 text-slate-500"}>
-          {canUnlock ? "Ready" : "In Progress"}
-        </Badge>
-      </div>
-
-      {disabled ? (
-        <div className="rounded-[18px] bg-[#fff1f2] p-3 text-[11px] font-medium text-rose-500">
-          Date-Locked required to play.
-        </div>
-      ) : isTyping ? (
-        <div className="rounded-[18px] bg-[#fff1f2] p-3 text-[11px] font-medium text-rose-500">
-          Typing…
-        </div>
       ) : null}
-
-      <div className="rounded-[20px] bg-[#f8fafc] p-4">
-        <p className="text-[14px] font-semibold text-slate-900">{stage.title}</p>
-
-        {stage.mission ? (
-          <div className="mt-3 rounded-[18px] bg-white p-4">
-            <div className="text-[11px] font-bold text-amber-600">
-              {stage.requiresMission ? "Mission Required" : "Mission Optional"}
-            </div>
-
-            <div className="mt-2 text-[12px] text-slate-600">{stage.mission}</div>
-
-            <Button
-              type="button"
-              onClick={togglePhysicalDone}
-              disabled={disabled}
-              className="mt-3 h-[40px] rounded-[14px] bg-white text-rose-500 shadow-[0_6px_14px_rgba(15,23,42,0.08)] hover:bg-slate-50 disabled:opacity-60"
-            >
-              {myPhysical ? "Undo Mission" : "Mark Mission Done"}
-            </Button>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="space-y-3">
-        {[0, 1, 2].map((idx) => {
-          const values = [a1, a2, a3];
-          const setters = [setA1, setA2, setA3];
-
-          return (
-            <div key={idx} className="rounded-[18px] bg-[#f8fafc] p-3">
-              <div className="mb-2 text-[12px] font-semibold text-slate-700">
-                {idx + 1}) {stage.prompts[idx]}
-              </div>
-
-              <SafeInput
-                value={values[idx]}
-                disabled={disabled || mySubmitted}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setters[idx](value);
-                  setIsTyping(value.length > 0);
-                }}
-                placeholder="Type your answer…"
-              />
-            </div>
-          );
-        })}
-
-        <div className="rounded-[18px] bg-[#f8fafc] p-3">
-          <div className="mb-2 text-[12px] font-semibold text-slate-700">
-            Note (optional)
-          </div>
-
-          <SafeInput
-            value={note}
-            disabled={disabled || mySubmitted}
-            onChange={(e) => {
-              setNote(e.target.value);
-              setIsTyping(e.target.value.length > 0);
-            }}
-            placeholder="Add a sweet note…"
-          />
-        </div>
-
-        <Button
-          type="button"
-          onClick={submit}
-          disabled={disabled || mySubmitted}
-          className="flex h-[42px] w-full items-center justify-center rounded-[14px] bg-rose-500 px-3 text-[13px] font-medium text-white shadow-[0_6px_14px_rgba(15,23,42,0.08)] hover:bg-rose-600 disabled:opacity-60"
-        >
-          {mySubmitted ? "Submitted" : "Submit Answers"}
-        </Button>
-
-        <Button
-          type="button"
-          onClick={unlockNext}
-          disabled={disabled || !canUnlock}
-          className={`flex h-[42px] w-full items-center justify-center rounded-[14px] px-3 text-[13px] font-medium shadow-[0_6px_14px_rgba(15,23,42,0.08)] ${
-            canUnlock && !disabled ? "bg-rose-500 text-white hover:bg-rose-600" : "bg-white text-slate-400"
-          }`}
-        >
-          {canUnlock && !disabled ? (
-            <>
-              <ChevronRight className="mr-2 h-4 w-4" />
-              Unlock Next Stage
-            </>
-          ) : (
-            <>
-              <Lock className="mr-2 h-4 w-4" />
-              Complete Stage to Unlock
-            </>
-          )}
-        </Button>
-      </div>
     </div>
   );
 }
@@ -1387,7 +2163,7 @@ function LoveIslandGame({ payload, currentUserId, setPayload, disabled = false }
 function DateFitGame({ payload, currentUserId, setPayload, disabled = false }) {
   const myId = String(currentUserId);
 
-  const DAYS = [
+  const days = [
     {
       day: 1,
       title: "Day 1 — Warm Start",
@@ -1440,7 +2216,7 @@ function DateFitGame({ payload, currentUserId, setPayload, disabled = false }) {
   ];
 
   const weekDay = Math.min(Math.max(Number(payload?.weekDay || 1), 1), 7);
-  const todayPlan = DAYS[weekDay - 1] || DAYS[0];
+  const todayPlan = days[weekDay - 1];
 
   const score = payload?.score || {};
   const streak = payload?.streak || {};
@@ -1455,26 +2231,22 @@ function DateFitGame({ payload, currentUserId, setPayload, disabled = false }) {
   const markDone = () => {
     if (disabled || myStatus) return;
 
-    const nextStatus = { ...(payload.status || {}) };
-    nextStatus[myId] = "DONE";
+    const nextStatus = { ...statusMap, [myId]: "DONE" };
+    const nextScore = { ...score, [myId]: myScore + 10 };
+    const nextStreak = { ...streak };
+    const nextLast = { ...lastDayCompleted };
 
-    const nextScore = { ...(payload.score || {}) };
-    nextScore[myId] = Number(nextScore[myId] || 0) + 10;
-
-    const nextStreak = { ...(payload.streak || {}) };
-    const nextLast = { ...(payload.lastDayCompleted || {}) };
-    const currentDay = Number(payload.weekDay || 1);
     const previousDay = Number(nextLast[myId] || 0);
+    let nextStreakValue = Number(nextStreak[myId] || 0);
 
-    let s = Number(nextStreak[myId] || 0);
-    if (previousDay === currentDay - 1 || (previousDay === 7 && currentDay === 1)) {
-      s += 1;
+    if (previousDay === weekDay - 1 || (previousDay === 7 && weekDay === 1)) {
+      nextStreakValue += 1;
     } else {
-      s = 1;
+      nextStreakValue = 1;
     }
 
-    nextStreak[myId] = Math.min(7, s);
-    nextLast[myId] = currentDay;
+    nextStreak[myId] = Math.min(7, nextStreakValue);
+    nextLast[myId] = weekDay;
 
     setPayload({
       ...payload,
@@ -1488,94 +2260,39 @@ function DateFitGame({ payload, currentUserId, setPayload, disabled = false }) {
   const markSkip = () => {
     if (disabled || myStatus) return;
 
-    const nextStatus = { ...(payload.status || {}) };
-    nextStatus[myId] = "SKIPPED";
-
-    const nextStreak = { ...(payload.streak || {}) };
-    nextStreak[myId] = 0;
-
     setPayload({
       ...payload,
-      status: nextStatus,
-      streak: nextStreak,
+      status: { ...statusMap, [myId]: "SKIPPED" },
+      streak: { ...streak, [myId]: 0 },
     });
   };
 
   const nextDay = () => {
     if (disabled || !canContinue) return;
 
-    const next = weekDay >= 7 ? 1 : weekDay + 1;
-
     setPayload({
       ...payload,
-      weekDay: next,
-      status: {
-        ...(payload.status || {}),
-        [myId]: null,
-      },
+      weekDay: weekDay >= 7 ? 1 : weekDay + 1,
+      status: { ...statusMap, [myId]: null },
     });
   };
 
-  const statusLabel =
-    myStatus === "DONE" ? "Done" : myStatus === "SKIPPED" ? "Skipped" : "Pending";
-
   return (
     <div className="space-y-4">
-      <div className="rounded-[20px] bg-[#f8fafc] p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-[50px] w-[50px] items-center justify-center rounded-[18px] bg-[#eefcf3]">
-              <Dumbbell className="h-6 w-6 text-[#22c55e]" strokeWidth={2.1} />
-            </div>
+      <GameIntro
+        title="Date-Fit"
+        text="One day, one task, one shared commitment."
+        disabled={disabled}
+      />
 
-            <div>
-              <p className="text-[15px] font-semibold leading-none text-[#172033]">
-                Date-Fit
-              </p>
-              <p className="mt-2 text-[12px] font-medium leading-none text-[#64748b]">
-                One day, one task, one choice
-              </p>
-            </div>
-          </div>
-
-          <Badge className="bg-[#fff7ed] text-[#f59e0b]">
-            <Trophy className="mr-1 h-3 w-3" />
-            {myScore}
-          </Badge>
-        </div>
-
-        {disabled ? (
-          <div className="mt-4 rounded-[18px] bg-[#fff1f2] p-3 text-[11px] font-medium text-rose-500">
-            Date-Locked required to play.
-          </div>
-        ) : null}
-
-        <div className="mt-4 grid grid-cols-2 gap-2.5">
-          <div className="rounded-[18px] bg-white px-3 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
-            <div className="flex items-center gap-1 text-[11px] text-slate-500">
-              <Flame className="h-3.5 w-3.5 text-rose-500" />
-              Your streak
-            </div>
-            <div className="mt-2 text-[18px] font-bold text-slate-900">
-              {myStreak}/7
-            </div>
-          </div>
-
-          <div className="rounded-[18px] bg-white px-3 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
-            <div className="flex items-center gap-1 text-[11px] text-slate-500">
-              <CalendarDays className="h-3.5 w-3.5 text-blue-500" />
-              Status
-            </div>
-            <div className="mt-2 text-[18px] font-bold text-slate-900">
-              {statusLabel}
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-2 gap-2">
+        <MiniStat value={`${myStreak}/7`} label="Streak" />
+        <MiniStat value={myScore} label="Score" />
       </div>
 
       <div className="rounded-[20px] bg-[#f8fafc] p-4">
         <div className="rounded-[18px] bg-white p-4">
-          <div className="text-[11px] text-slate-500">Today (Day {weekDay})</div>
+          <div className="text-[11px] text-slate-500">Today - Day {weekDay}</div>
           <div className="mt-1 text-[14px] font-semibold text-slate-900">
             {todayPlan.title}
           </div>
@@ -1587,9 +2304,7 @@ function DateFitGame({ payload, currentUserId, setPayload, disabled = false }) {
       </div>
 
       {myStatus === "DONE" ? (
-        <div className="rounded-[18px] bg-[#eefcf3] p-4 text-center text-[13px] font-semibold text-emerald-700">
-          Strong discipline 🔥
-        </div>
+        <ResultBox correct correctText="Strong discipline." wrongText="" />
       ) : null}
 
       {myStatus === "SKIPPED" ? (
@@ -1603,7 +2318,7 @@ function DateFitGame({ payload, currentUserId, setPayload, disabled = false }) {
           type="button"
           onClick={markDone}
           disabled={disabled || !!myStatus}
-          className="flex h-[44px] w-full items-center justify-center rounded-full bg-rose-500 px-4 text-[15px] font-semibold leading-none text-white shadow-[0_6px_14px_rgba(15,23,42,0.08)] whitespace-nowrap hover:bg-rose-600 disabled:opacity-60"
+          className="h-[44px] rounded-full bg-rose-500 text-[15px] font-semibold text-white hover:bg-rose-600 disabled:opacity-60"
         >
           Done
         </Button>
@@ -1612,7 +2327,7 @@ function DateFitGame({ payload, currentUserId, setPayload, disabled = false }) {
           type="button"
           onClick={markSkip}
           disabled={disabled || !!myStatus}
-          className="flex h-[44px] w-full items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-[15px] font-semibold leading-none text-slate-600 shadow-[0_6px_14px_rgba(15,23,42,0.08)] whitespace-nowrap hover:bg-slate-50 disabled:opacity-60"
+          className="h-[44px] rounded-full border border-slate-200 bg-white text-[15px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
         >
           Skip
         </Button>
@@ -1622,22 +2337,71 @@ function DateFitGame({ payload, currentUserId, setPayload, disabled = false }) {
         type="button"
         onClick={nextDay}
         disabled={disabled || !canContinue}
-        className={`flex h-[42px] w-full items-center justify-center rounded-[14px] px-3 text-[13px] font-medium shadow-[0_6px_14px_rgba(15,23,42,0.08)] ${
-          canContinue && !disabled ? "bg-rose-500 text-white hover:bg-rose-600" : "bg-white text-slate-400"
+        className={`h-[42px] w-full rounded-[14px] text-[13px] font-medium ${
+          canContinue && !disabled
+            ? "bg-rose-500 text-white hover:bg-rose-600"
+            : "bg-white text-slate-400"
         }`}
       >
         {canContinue && !disabled ? (
           <>
-            <ChevronRight className="mr-2 h-4 w-4" />
+            <ChevronRight className="mr-2 inline h-4 w-4" />
             Continue
           </>
         ) : (
           <>
-            <Lock className="mr-2 h-4 w-4" />
+            <Lock className="mr-2 inline h-4 w-4" />
             Choose Done or Skip
           </>
         )}
       </Button>
     </div>
+  );
+}
+
+function GameIntro({ title, text, disabled }) {
+  return (
+    <div className="rounded-[20px] bg-[#f8fafc] p-4">
+      <p className="text-[14px] font-semibold text-slate-900">{title}</p>
+      <p className="mt-2 text-[12px] text-slate-500">{text}</p>
+      {disabled ? (
+        <p className="mt-2 text-[11px] font-medium text-rose-500">
+          Date-Locked required to play.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function Waiting({ text }) {
+  return (
+    <div className="rounded-[18px] bg-[#f8fafc] p-4 text-[12px] text-slate-500">
+      {text}
+    </div>
+  );
+}
+
+function ResultBox({ correct, correctText, wrongText }) {
+  return (
+    <div
+      className={`rounded-[18px] p-4 text-center text-[13px] font-semibold ${
+        correct ? "bg-[#eefcf3] text-emerald-700" : "bg-red-50 text-red-600"
+      }`}
+    >
+      {correct ? correctText : wrongText}
+    </div>
+  );
+}
+
+function MiniButton({ children, onClick, disabled }) {
+  return (
+    <Button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="h-[40px] rounded-[14px] bg-white text-rose-500 shadow-[0_6px_14px_rgba(15,23,42,0.08)] hover:bg-slate-50 disabled:opacity-60"
+    >
+      {children}
+    </Button>
   );
 }
