@@ -21,6 +21,22 @@ import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { supabase } from "@/lib/supabase";
 
+const GOAL_SELECT = `
+  id,
+  owner_id,
+  couple_profile_id,
+  title,
+  description,
+  target_date,
+  status,
+  type,
+  invitation_status,
+  place_name,
+  place_photo_url,
+  place_id,
+  created_at
+`;
+
 const navItems = [
   { label: "Home", icon: HomeIcon, page: "Home" },
   { label: "Dating", icon: Heart, page: "Dating" },
@@ -31,6 +47,31 @@ const navItems = [
   { label: "Verify", icon: Fingerprint, page: "VerifyStatus" },
 ];
 
+function isFutureOrToday(dateString) {
+  if (!dateString) return true;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const target = new Date(`${dateString}T00:00:00`);
+  if (Number.isNaN(target.getTime())) return true;
+
+  return target >= today;
+}
+
+function normalizeItem(item) {
+  return {
+    ...item,
+    targetDate: item.target_date ?? "",
+    invitationStatus: item.invitation_status ?? "",
+    placeName: item.place_name ?? "",
+    placePhotoUrl: item.place_photo_url ?? "",
+    placeId: item.place_id ?? "",
+    status: item.status || "planned",
+    type: item.type || "goal",
+  };
+}
+
 async function getCurrentProfileUser() {
   const {
     data: { user: authUser },
@@ -40,30 +81,18 @@ async function getCurrentProfileUser() {
   if (authError) throw authError;
   if (!authUser) return null;
 
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from("profiles")
-    .select("*")
+    .select("id,email,couple_profile_id")
     .eq("id", authUser.id)
     .maybeSingle();
+
+  if (error) throw error;
 
   return {
     id: authUser.id,
     email: authUser.email,
-    ...(profile || {}),
     couple_profile_id: profile?.couple_profile_id || null,
-  };
-}
-
-function normalizeItem(item) {
-  return {
-    ...item,
-    targetDate: item.target_date ?? item.targetDate ?? "",
-    invitationStatus: item.invitation_status ?? item.invitationStatus ?? "",
-    placeName: item.place_name ?? item.placeName ?? "",
-    placePhotoUrl: item.place_photo_url ?? item.placePhotoUrl ?? "",
-    placeId: item.place_id ?? item.placeId ?? "",
-    status: item.status || "planned",
-    type: item.type || "goal",
   };
 }
 
@@ -88,7 +117,6 @@ async function getPlacePhoto({ locationText, titleText, selectedPlace }) {
     });
 
     if (error) throw error;
-
     return data || null;
   } catch (error) {
     console.warn("PLACE PHOTO LOOKUP FAILED:", error);
@@ -109,14 +137,12 @@ function AppShell({ children }) {
 function AppHeader({ title }) {
   return (
     <div className="bg-gradient-to-r from-[#5e9cff] via-[#2f6df0] to-[#6aa7ff] px-5 pb-6 pt-7">
-      <div>
-        <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-white">
-          {title}
-        </h1>
-        <p className="mt-1 text-[11px] font-medium text-white/75">
-          Goals, event invites, and shared plans
-        </p>
-      </div>
+      <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-white">
+        {title}
+      </h1>
+      <p className="mt-1 text-[11px] font-medium text-white/75">
+        Goals, event invites, and shared plans
+      </p>
     </div>
   );
 }
@@ -190,22 +216,6 @@ function TabButton({ active, children, onClick }) {
   );
 }
 
-function EmptyState({ icon, title, text }) {
-  return (
-    <AppCard className="px-4 py-8">
-      <div className="flex min-h-[190px] flex-col items-center justify-center text-center">
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#eaf3ff] shadow-[0_8px_18px_rgba(15,23,42,0.08)]">
-          {icon}
-        </div>
-        <h3 className="text-[20px] font-semibold leading-none text-slate-700">
-          {title}
-        </h3>
-        <p className="mt-3 text-center text-sm text-slate-500">{text}</p>
-      </div>
-    </AppCard>
-  );
-}
-
 function Modal({ open, onClose, title, children }) {
   if (!open) return null;
 
@@ -224,6 +234,7 @@ function Modal({ open, onClose, title, children }) {
             </button>
           </div>
         </div>
+
         <div className="space-y-4 px-4 py-4">{children}</div>
       </div>
     </div>
@@ -331,25 +342,162 @@ function formatDate(dateString) {
 }
 
 function EventImage({ item }) {
-  if (item.type !== "event") return null;
+  if (item.type !== "event" || !item.placePhotoUrl) return null;
 
-  if (item.placePhotoUrl) {
-    return (
-      <div className="mb-3 overflow-hidden rounded-[18px] bg-slate-100">
-        <img
-          src={item.placePhotoUrl}
-          alt={item.placeName || item.title || "Event location"}
-          className="h-[130px] w-full object-cover"
-          loading="lazy"
-        />
-      </div>
-    );
-  }
-
-  return null;
+  return (
+    <div className="mb-3 overflow-hidden rounded-[18px] bg-slate-100">
+      <img
+        src={item.placePhotoUrl}
+        alt={item.placeName || item.title || "Event location"}
+        className="h-[130px] w-full object-cover"
+        loading="lazy"
+      />
+    </div>
+  );
 }
 
-  
+function EmptyState() {
+  return (
+    <AppCard className="px-4 py-8">
+      <div className="flex min-h-[190px] flex-col items-center justify-center text-center">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#eaf3ff] shadow-[0_8px_18px_rgba(15,23,42,0.08)]">
+          <Target className="h-8 w-8 text-[#2f6df0]" />
+        </div>
+        <h3 className="text-[20px] font-semibold leading-none text-slate-700">
+          No goals yet
+        </h3>
+        <p className="mt-3 text-center text-sm text-slate-500">
+          Start building your future together
+        </p>
+      </div>
+    </AppCard>
+  );
+}
+
+const GoalItem = React.memo(function GoalItem({
+  item,
+  currentUserId,
+  openActionsId,
+  onToggleActions,
+  onEdit,
+  onDelete,
+  onAccept,
+  onDecline,
+}) {
+  const isInviteSender = item.type === "event" && item.owner_id === currentUserId;
+
+  const canRespondToInvite =
+    item.type === "event" &&
+    item.invitationStatus === "pending" &&
+    !isInviteSender;
+
+  return (
+    <AppCard className="p-3">
+      <EventImage item={item} />
+
+      <button
+        type="button"
+        onClick={() => onToggleActions(item.id)}
+        className="block w-full text-left"
+      >
+        <div className="flex items-start gap-3">
+          <div
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] ${
+              item.type === "event"
+                ? "bg-[#eaf3ff] text-[#2f6df0]"
+                : "bg-slate-100 text-slate-700"
+            }`}
+          >
+            {item.type === "event" ? (
+              <Calendar className="h-4 w-4" />
+            ) : (
+              <Target className="h-4 w-4" />
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[14px] font-semibold text-[#172033]">
+                  {item.title}
+                </div>
+
+                {item.description ? (
+                  <p className="mt-1 text-[12px] text-slate-500">
+                    {item.description}
+                  </p>
+                ) : null}
+
+                {item.placeName ? (
+                  <p className="mt-1 text-[11px] font-medium text-[#2f6df0]">
+                    {item.placeName}
+                  </p>
+                ) : null}
+
+                {item.targetDate ? (
+                  <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] text-slate-600">
+                    <Calendar className="h-3 w-3" />
+                    {formatDate(item.targetDate)}
+                  </div>
+                ) : null}
+
+                {isInviteSender && item.invitationStatus === "pending" ? (
+                  <div className="mt-2 inline-flex rounded-full bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-600">
+                    Waiting for partner
+                  </div>
+                ) : null}
+              </div>
+
+              <StatusBadge item={item} />
+            </div>
+          </div>
+        </div>
+      </button>
+
+      {openActionsId === item.id ? (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => onEdit(item)}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[12px] bg-slate-100 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Edit
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onDelete(item)}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[12px] bg-red-50 px-3 text-xs font-semibold text-red-500 hover:bg-red-100"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete
+          </button>
+        </div>
+      ) : null}
+
+      {canRespondToInvite ? (
+        <div className="mt-3 flex gap-2">
+          <button
+            type="button"
+            onClick={() => onAccept(item.id)}
+            className="inline-flex h-9 items-center justify-center rounded-[12px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] px-4 text-xs font-semibold text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)]"
+          >
+            Accept
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onDecline(item.id)}
+            className="inline-flex h-9 items-center justify-center rounded-[12px] border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)]"
+          >
+            Decline
+          </button>
+        </div>
+      ) : null}
+    </AppCard>
+  );
+});
 
 export default function Goals() {
   const [items, setItems] = React.useState([]);
@@ -379,6 +527,8 @@ export default function Goals() {
   const [editDate, setEditDate] = React.useState("");
   const [editStatus, setEditStatus] = React.useState("planned");
 
+  const realtimeChannelsRef = React.useRef([]);
+
   React.useEffect(() => {
     const query = eventLocation.trim();
 
@@ -394,13 +544,10 @@ export default function Goals() {
       try {
         const { data, error } = await supabase.functions.invoke(
           "search-place-suggestions",
-          {
-            body: { query },
-          }
+          { body: { query } }
         );
 
         if (error) throw error;
-
         setPlaceSuggestions(data?.suggestions || []);
       } catch (error) {
         console.warn("PLACE SEARCH FAILED:", error);
@@ -423,14 +570,12 @@ export default function Goals() {
 
     let query = supabase
       .from("couple_goals")
-      .select("*")
+      .select(GOAL_SELECT)
       .order("created_at", { ascending: false });
 
-    if (coupleId) {
-      query = query.eq("couple_profile_id", coupleId);
-    } else {
-      query = query.eq("owner_id", currentUser.id);
-    }
+    query = coupleId
+      ? query.eq("couple_profile_id", coupleId)
+      : query.eq("owner_id", currentUser.id);
 
     const { data, error } = await query;
 
@@ -441,103 +586,96 @@ export default function Goals() {
 
     const cleanItems = (data || [])
       .map(normalizeItem)
-      .filter(
-        (item) =>
-          !(item.type === "event" && item.invitationStatus === "declined")
-      );
+      .filter((item) => {
+        if (item.type === "event" && item.invitationStatus === "declined") {
+          return false;
+        }
+
+        return isFutureOrToday(item.targetDate);
+      });
 
     setItems(cleanItems);
   }, []);
 
-  const realtimeChannelsRef = React.useRef([]);
-
   React.useEffect(() => {
-  let isMounted = true;
+    let isMounted = true;
 
-  const cleanupChannels = async () => {
-    for (const channel of realtimeChannelsRef.current) {
-      try {
+    const cleanupChannels = async () => {
+      for (const channel of realtimeChannelsRef.current) {
         await supabase.removeChannel(channel);
-      } catch (error) {
-        console.warn("REMOVE CHANNEL FAILED:", error);
       }
-    }
 
-    realtimeChannelsRef.current = [];
-  };
+      realtimeChannelsRef.current = [];
+    };
 
-  const setup = async () => {
-    await cleanupChannels();
+    const setup = async () => {
+      await cleanupChannels();
 
-    const currentUser = await getCurrentProfileUser();
+      const currentUser = await getCurrentProfileUser();
 
-    if (!isMounted || !currentUser?.id) return;
+      if (!isMounted || !currentUser?.id) return;
 
-    setCurrentUserId(currentUser.id);
-    await loadGoals();
+      setCurrentUserId(currentUser.id);
+      await loadGoals();
 
-    const uniqueId =
-      typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random()}`;
+      const uniqueId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`;
 
-    const profileChannel = supabase
-      .channel(`profile-watch-${currentUser.id}-${uniqueId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "profiles",
-          filter: `id=eq.${currentUser.id}`,
-        },
-        () => {
-          loadGoals();
-        }
-      );
+      const profileChannel = supabase
+        .channel(`profile-watch-${currentUser.id}-${uniqueId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "profiles",
+            filter: `id=eq.${currentUser.id}`,
+          },
+          loadGoals
+        );
 
-    realtimeChannelsRef.current.push(profileChannel);
-    profileChannel.subscribe();
+      profileChannel.subscribe();
+      realtimeChannelsRef.current.push(profileChannel);
 
-    const goalsChannelName = currentUser.couple_profile_id
-      ? `goals-realtime-${currentUser.couple_profile_id}-${uniqueId}`
-      : `goals-realtime-user-${currentUser.id}-${uniqueId}`;
+      const goalsChannelName = currentUser.couple_profile_id
+        ? `goals-realtime-${currentUser.couple_profile_id}-${uniqueId}`
+        : `goals-realtime-user-${currentUser.id}-${uniqueId}`;
 
-    const goalsFilter = currentUser.couple_profile_id
-      ? `couple_profile_id=eq.${currentUser.couple_profile_id}`
-      : `owner_id=eq.${currentUser.id}`;
+      const goalsFilter = currentUser.couple_profile_id
+        ? `couple_profile_id=eq.${currentUser.couple_profile_id}`
+        : `owner_id=eq.${currentUser.id}`;
 
-    const goalsChannel = supabase
-      .channel(goalsChannelName)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "couple_goals",
-          filter: goalsFilter,
-        },
-        () => {
-          loadGoals();
-        }
-      );
+      const goalsChannel = supabase
+        .channel(goalsChannelName)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "couple_goals",
+            filter: goalsFilter,
+          },
+          loadGoals
+        );
 
-    realtimeChannelsRef.current.push(goalsChannel);
-    goalsChannel.subscribe();
-  };
+      goalsChannel.subscribe();
+      realtimeChannelsRef.current.push(goalsChannel);
+    };
 
-  setup();
+    setup();
 
-  return () => {
-    isMounted = false;
+    return () => {
+      isMounted = false;
 
-    for (const channel of realtimeChannelsRef.current) {
-      supabase.removeChannel(channel);
-    }
+      for (const channel of realtimeChannelsRef.current) {
+        supabase.removeChannel(channel);
+      }
 
-    realtimeChannelsRef.current = [];
-  };
-}, [loadGoals]);
+      realtimeChannelsRef.current = [];
+    };
+  }, [loadGoals]);
 
   const filteredItems = React.useMemo(() => {
     if (statusFilter === "all") return items;
@@ -563,42 +701,47 @@ export default function Goals() {
   }, [items, statusFilter]);
 
   const stats = React.useMemo(() => {
-    let planned = 0;
-    let pending = 0;
-    let inProgress = 0;
-    let completed = 0;
+    return items.reduce(
+      (acc, item) => {
+        if (item.type === "event") {
+          if (item.invitationStatus === "pending") acc.pending += 1;
+          if (item.invitationStatus === "accepted") acc.inProgress += 1;
+          return acc;
+        }
 
-    for (const item of items) {
-      if (item.type === "event") {
-        if (item.invitationStatus === "pending") pending += 1;
-        if (item.invitationStatus === "accepted") inProgress += 1;
-        continue;
-      }
+        if (item.status === "completed") acc.completed += 1;
+        else if (item.status === "in_progress") acc.inProgress += 1;
+        else acc.planned += 1;
 
-      if (item.status === "completed") completed += 1;
-      else if (item.status === "in_progress") inProgress += 1;
-      else planned += 1;
-    }
-
-    return { planned, pending, inProgress, completed };
+        return acc;
+      },
+      { planned: 0, pending: 0, inProgress: 0, completed: 0 }
+    );
   }, [items]);
 
-  const resetGoalForm = () => {
+  const sectionLabel = React.useMemo(() => {
+    if (statusFilter === "planned") return "Planned & Pending";
+    if (statusFilter === "in_progress") return "Active Items";
+    if (statusFilter === "completed") return "Completed Goals";
+    return "All Goals & Invitations";
+  }, [statusFilter]);
+
+  const resetGoalForm = React.useCallback(() => {
     setGoalTitle("");
     setGoalDescription("");
     setGoalDate("");
-  };
+  }, []);
 
-  const resetEventForm = () => {
+  const resetEventForm = React.useCallback(() => {
     setEventTitle("");
     setEventLocation("");
     setEventDate("");
     setSelectedPlace(null);
     setPlaceSuggestions([]);
     setIsSearchingPlaces(false);
-  };
+  }, []);
 
-  const handleAddGoal = async () => {
+  const handleAddGoal = React.useCallback(async () => {
     if (!goalTitle.trim()) {
       alert("Enter a goal title first.");
       return;
@@ -611,20 +754,18 @@ export default function Goals() {
       return;
     }
 
-    const newGoal = {
-      owner_id: currentUser.id,
-      couple_profile_id: currentUser.couple_profile_id || null,
-      title: goalTitle.trim(),
-      description: goalDescription.trim(),
-      target_date: goalDate || null,
-      status: "planned",
-      type: "goal",
-    };
-
     const { data, error } = await supabase
       .from("couple_goals")
-      .insert(newGoal)
-      .select()
+      .insert({
+        owner_id: currentUser.id,
+        couple_profile_id: currentUser.couple_profile_id || null,
+        title: goalTitle.trim(),
+        description: goalDescription.trim(),
+        target_date: goalDate || null,
+        status: "planned",
+        type: "goal",
+      })
+      .select(GOAL_SELECT)
       .single();
 
     if (error) {
@@ -633,12 +774,17 @@ export default function Goals() {
       return;
     }
 
-    setItems((prev) => [normalizeItem(data), ...prev]);
+    const newItem = normalizeItem(data);
+
+    setItems((prev) =>
+      [newItem, ...prev].filter((item) => isFutureOrToday(item.targetDate))
+    );
+
     resetGoalForm();
     setShowGoalModal(false);
-  };
+  }, [goalTitle, goalDescription, goalDate, resetGoalForm]);
 
-  const handleCreateInvitation = async () => {
+  const handleCreateInvitation = React.useCallback(async () => {
     if (!eventTitle.trim()) {
       alert("Enter event title first.");
       return;
@@ -651,91 +797,87 @@ export default function Goals() {
       return;
     }
 
-    const coupleId = currentUser.couple_profile_id;
-
-    if (!coupleId) {
+    if (!currentUser.couple_profile_id) {
       alert("You must be Date-Locked before creating shared event invites.");
       return;
     }
 
     setIsFetchingPlace(true);
 
-    const locationText = eventLocation.trim();
-    const description = locationText
-      ? `Location: ${locationText}`
-      : "Waiting for partner response";
+    try {
+      const locationText = eventLocation.trim();
 
-    const newEvent = {
-      owner_id: currentUser.id,
-      couple_profile_id: coupleId,
-      title: eventTitle.trim(),
-      description,
-      target_date: eventDate || null,
-      status: "pending",
-      invitation_status: "pending",
-      type: "event",
-      place_name: selectedPlace?.name || null,
-      place_id: selectedPlace?.placeId || null,
-    };
-
-    const { data, error } = await supabase
-      .from("couple_goals")
-      .insert(newEvent)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("CREATE EVENT ERROR:", error);
-      alert(error.message || "Failed to create invitation.");
-      setIsFetchingPlace(false);
-      return;
-    }
-
-    let finalEvent = normalizeItem(data);
-
-    const placeData = await getPlacePhoto({
-      locationText,
-      titleText: eventTitle.trim(),
-      selectedPlace,
-    });
-
-    if (placeData?.photoUrl || placeData?.placePhotoUrl || selectedPlace?.placeId) {
-      const placePayload = {
-        place_name:
-          placeData?.placeName ||
-          placeData?.name ||
-          selectedPlace?.name ||
-          locationText ||
-          null,
-        place_photo_url: placeData?.photoUrl || placeData?.placePhotoUrl || null,
-        place_id:
-          placeData?.placeId ||
-          placeData?.id ||
-          selectedPlace?.placeId ||
-          null,
-      };
-
-      const { data: updatedEvent, error: updateError } = await supabase
+      const { data, error } = await supabase
         .from("couple_goals")
-        .update(placePayload)
-        .eq("id", data.id)
-        .select()
+        .insert({
+          owner_id: currentUser.id,
+          couple_profile_id: currentUser.couple_profile_id,
+          title: eventTitle.trim(),
+          description: locationText
+            ? `Location: ${locationText}`
+            : "Waiting for partner response",
+          target_date: eventDate || null,
+          status: "pending",
+          invitation_status: "pending",
+          type: "event",
+          place_name: selectedPlace?.name || null,
+          place_id: selectedPlace?.placeId || null,
+        })
+        .select(GOAL_SELECT)
         .single();
 
-      if (!updateError && updatedEvent) {
-        finalEvent = normalizeItem(updatedEvent);
-      } else if (updateError) {
-        console.warn("PLACE PHOTO SAVE FAILED:", updateError);
+      if (error) {
+        console.error("CREATE EVENT ERROR:", error);
+        alert(error.message || "Failed to create invitation.");
+        return;
       }
+
+      let finalEvent = normalizeItem(data);
+
+      const placeData = await getPlacePhoto({
+        locationText,
+        titleText: eventTitle.trim(),
+        selectedPlace,
+      });
+
+      if (placeData?.photoUrl || placeData?.placePhotoUrl || selectedPlace?.placeId) {
+        const { data: updatedEvent, error: updateError } = await supabase
+          .from("couple_goals")
+          .update({
+            place_name:
+              placeData?.placeName ||
+              placeData?.name ||
+              selectedPlace?.name ||
+              locationText ||
+              null,
+            place_photo_url: placeData?.photoUrl || placeData?.placePhotoUrl || null,
+            place_id:
+              placeData?.placeId ||
+              placeData?.id ||
+              selectedPlace?.placeId ||
+              null,
+          })
+          .eq("id", data.id)
+          .select(GOAL_SELECT)
+          .single();
+
+        if (!updateError && updatedEvent) {
+          finalEvent = normalizeItem(updatedEvent);
+        }
+      }
+
+      setItems((prev) =>
+        [finalEvent, ...prev].filter((item) => isFutureOrToday(item.targetDate))
+      );
+
+      resetEventForm();
+      setShowEventModal(false);
+    } finally {
+      setIsFetchingPlace(false);
     }
+  }, [eventTitle, eventLocation, eventDate, selectedPlace, resetEventForm]);
 
-    setItems((prev) => [finalEvent, ...prev]);
-    resetEventForm();
-    setIsFetchingPlace(false);
-    setShowEventModal(false);
-  };
-
-  const acceptInvitation = async (id) => {
+  const acceptInvitation = React.useCallback(async (id) => {
     const { data, error } = await supabase
       .from("couple_goals")
       .update({
@@ -743,7 +885,7 @@ export default function Goals() {
         status: "in_progress",
       })
       .eq("id", id)
-      .select()
+      .select(GOAL_SELECT)
       .single();
 
     if (error) {
@@ -755,13 +897,10 @@ export default function Goals() {
     setItems((prev) =>
       prev.map((item) => (item.id === id ? normalizeItem(data) : item))
     );
-  };
+  }, []);
 
-  const declineInvitation = async (id) => {
-    const { error } = await supabase
-      .from("couple_goals")
-      .delete()
-      .eq("id", id);
+  const declineInvitation = React.useCallback(async (id) => {
+    const { error } = await supabase.from("couple_goals").delete().eq("id", id);
 
     if (error) {
       console.error("DECLINE ERROR:", error);
@@ -770,19 +909,19 @@ export default function Goals() {
     }
 
     setItems((prev) => prev.filter((item) => item.id !== id));
-  };
+  }, []);
 
-  const openEditModal = (item) => {
+  const openEditModal = React.useCallback((item) => {
     setEditingItem(item);
     setEditTitle(item.title || "");
     setEditDescription(item.description || "");
-    setEditDate(item.targetDate || item.target_date || "");
+    setEditDate(item.targetDate || "");
     setEditStatus(
       item.type === "event" ? item.status || "pending" : item.status || "planned"
     );
-  };
+  }, []);
 
-  const handleUpdateItem = async () => {
+  const handleUpdateItem = React.useCallback(async () => {
     if (!editingItem?.id) return;
 
     if (!editTitle.trim()) {
@@ -798,18 +937,15 @@ export default function Goals() {
     };
 
     if (editingItem.type === "event") {
-      if (editStatus === "in_progress") {
-        payload.invitation_status = "accepted";
-      } else if (editStatus === "pending") {
-        payload.invitation_status = "pending";
-      }
+      if (editStatus === "in_progress") payload.invitation_status = "accepted";
+      if (editStatus === "pending") payload.invitation_status = "pending";
     }
 
     const { data, error } = await supabase
       .from("couple_goals")
       .update(payload)
       .eq("id", editingItem.id)
-      .select()
+      .select(GOAL_SELECT)
       .single();
 
     if (error) {
@@ -818,25 +954,24 @@ export default function Goals() {
       return;
     }
 
+    const updated = normalizeItem(data);
+
     setItems((prev) =>
-      prev.map((item) =>
-        item.id === editingItem.id ? normalizeItem(data) : item
-      )
+      prev
+        .map((item) => (item.id === editingItem.id ? updated : item))
+        .filter((item) => isFutureOrToday(item.targetDate))
     );
 
     setEditingItem(null);
-  };
+  }, [editingItem, editTitle, editDescription, editStatus, editDate]);
 
-  const handleDeleteItem = async (item) => {
+  const handleDeleteItem = React.useCallback(async (item) => {
     if (!item?.id) return;
 
     const confirmed = window.confirm("Delete this item? This cannot be undone.");
     if (!confirmed) return;
 
-    const { error } = await supabase
-      .from("couple_goals")
-      .delete()
-      .eq("id", item.id);
+    const { error } = await supabase.from("couple_goals").delete().eq("id", item.id);
 
     if (error) {
       console.error("DELETE ERROR:", error);
@@ -845,7 +980,11 @@ export default function Goals() {
     }
 
     setItems((prev) => prev.filter((row) => row.id !== item.id));
-  };
+  }, []);
+
+  const toggleActions = React.useCallback((id) => {
+    setOpenActionsId((current) => (current === id ? null : id));
+  }, []);
 
   return (
     <>
@@ -895,146 +1034,26 @@ export default function Goals() {
           </AppCard>
 
           <div className="space-y-3">
-            <SectionTitle>
-              {statusFilter === "all"
-                ? "All Goals & Invitations"
-                : statusFilter === "planned"
-                ? "Planned & Pending"
-                : statusFilter === "in_progress"
-                ? "Active Items"
-                : "Completed Goals"}
-            </SectionTitle>
+            <SectionTitle>{sectionLabel}</SectionTitle>
 
             {filteredItems.length > 0 ? (
               <div className="space-y-3">
-                {filteredItems.map((item) => {
-                  const isInviteSender =
-                    item.type === "event" && item.owner_id === currentUserId;
-
-                  const canRespondToInvite =
-                    item.type === "event" &&
-                    item.invitationStatus === "pending" &&
-                    !isInviteSender;
-
-                  return (
-                    <AppCard key={item.id} className="p-3">
-                      <EventImage item={item} />
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOpenActionsId((current) =>
-                            current === item.id ? null : item.id
-                          )
-                        }
-                        className="block w-full text-left"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] ${
-                              item.type === "event"
-                                ? "bg-[#eaf3ff] text-[#2f6df0]"
-                                : "bg-slate-100 text-slate-700"
-                            }`}
-                          >
-                            {item.type === "event" ? (
-                              <Calendar className="h-4 w-4" />
-                            ) : (
-                              <Target className="h-4 w-4" />
-                            )}
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="text-[14px] font-semibold text-[#172033]">
-                                  {item.title}
-                                </div>
-
-                                {item.description ? (
-                                  <p className="mt-1 text-[12px] text-slate-500">
-                                    {item.description}
-                                  </p>
-                                ) : null}
-
-                                {item.placeName ? (
-                                  <p className="mt-1 text-[11px] font-medium text-[#2f6df0]">
-                                    {item.placeName}
-                                  </p>
-                                ) : null}
-
-                                {item.targetDate ? (
-                                  <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] text-slate-600">
-                                    <Calendar className="h-3 w-3" />
-                                    {formatDate(item.targetDate)}
-                                  </div>
-                                ) : null}
-
-                                {isInviteSender &&
-                                item.invitationStatus === "pending" ? (
-                                  <div className="mt-2 inline-flex rounded-full bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-600">
-                                    Waiting for partner
-                                  </div>
-                                ) : null}
-                              </div>
-
-                              <StatusBadge item={item} />
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-
-                      {openActionsId === item.id ? (
-                        <div className="mt-3 grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(item)}
-                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[12px] bg-slate-100 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-200"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            Edit
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteItem(item)}
-                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[12px] bg-red-50 px-3 text-xs font-semibold text-red-500 hover:bg-red-100"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            Delete
-                          </button>
-                        </div>
-                      ) : null}
-
-                      {canRespondToInvite ? (
-                        <div className="mt-3 flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => acceptInvitation(item.id)}
-                            className="inline-flex h-9 items-center justify-center rounded-[12px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] px-4 text-xs font-semibold text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
-                          >
-                            Accept
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => declineInvitation(item.id)}
-                            className="inline-flex h-9 items-center justify-center rounded-[12px] border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
-                          >
-                            Decline
-                          </button>
-                        </div>
-                      ) : null}
-                    </AppCard>
-                  );
-                })}
+                {filteredItems.map((item) => (
+                  <GoalItem
+                    key={item.id}
+                    item={item}
+                    currentUserId={currentUserId}
+                    openActionsId={openActionsId}
+                    onToggleActions={toggleActions}
+                    onEdit={openEditModal}
+                    onDelete={handleDeleteItem}
+                    onAccept={acceptInvitation}
+                    onDecline={declineInvitation}
+                  />
+                ))}
               </div>
             ) : (
-              <EmptyState
-                icon={<Target className="h-8 w-8 text-[#2f6df0]" />}
-                title="No goals yet"
-                text="Start building your future together"
-              />
+              <EmptyState />
             )}
           </div>
         </div>
@@ -1168,18 +1187,13 @@ export default function Goals() {
               Selected: {selectedPlace.name}
             </div>
           ) : null}
-
-          <p className="mt-3 text-[11px] leading-5 text-slate-500">
-            Start typing a location to search Google Places. Select a place to
-            attach its image to the event.
-          </p>
         </AppCard>
 
         <Button
           type="button"
           onClick={handleCreateInvitation}
           disabled={isFetchingPlace}
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff] disabled:opacity-70"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] disabled:opacity-70"
         >
           {isFetchingPlace ? (
             <Loader2 className="h-4 w-4 animate-spin" />
