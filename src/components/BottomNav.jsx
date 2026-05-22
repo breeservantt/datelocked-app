@@ -11,7 +11,6 @@ import {
   Fingerprint,
 } from "lucide-react";
 
-
 const navItems = [
   { label: "Home", icon: HomeIcon, page: "Home" },
   { label: "Dating", icon: Heart, page: "Dating" },
@@ -22,8 +21,17 @@ const navItems = [
   { label: "Verify", icon: Fingerprint, page: "VerifyStatus" },
 ];
 
+const hiddenRoutes = ["/terms", "/security", "/privacy", "/refunds"];
+
 export default function BottomNav() {
   const location = useLocation();
+  const pathname = location.pathname.toLowerCase();
+
+  const shouldHideBottomNav = hiddenRoutes.some((route) =>
+    pathname.startsWith(route)
+  );
+
+  if (shouldHideBottomNav) return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#ece6ea] bg-white/95 pb-[max(6px,env(safe-area-inset-bottom))] pt-1 shadow-[0_-6px_18px_rgba(15,23,42,0.05)] backdrop-blur">

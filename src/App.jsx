@@ -1,8 +1,13 @@
 import React, { Suspense, lazy } from "react";
 import { Loader2 } from "lucide-react";
-import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useLocation,
+  Navigate,
+} from "react-router-dom";
 import Layout from "./components/Layout";
-const Splash = lazy(() => import("./pages/Splash"));
 import PinLock from "./components/PinLock";
 
 const Home = lazy(() => import("./pages/Home"));
@@ -43,47 +48,44 @@ function AppRoutes() {
   const location = useLocation();
 
   const noLayoutRoutes = [
-  "/",
-  "/login",
-  "/chat",
-  "/goals",
-  "/memories",
-  "/verifystatus",
-  "/splash",
-  "/onboarding",
-];
+    "/",
+    "/login",
+    "/chat",
+    "/goals",
+    "/memories",
+    "/verifystatus",
+    "/onboarding",
+  ];
 
   const shouldUseLayout = !noLayoutRoutes.includes(location.pathname);
 
   const routes = (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-  <Route path="/" element={<Splash />} />
-  <Route path="/auth/callback" element={<AuthCallback />} />
-  <Route path="/login" element={<Login />} />
-  <Route path="/home" element={<Home />} />
-  <Route path="/chat" element={<Chat />} />
-  <Route path="/dating" element={<Dating />} />
-  <Route path="/goals" element={<Goals />} />
-  <Route path="/invite-partner" element={<InvitePartner />} />
-  <Route path="/memories" element={<Memories />} />
-  <Route path="/nightin" element={<NightIn />} />
-  <Route path="/onboarding" element={<Onboarding />} />
-  <Route path="/privacy" element={<Privacy />} />
-  <Route path="/security" element={<Security />} />
-  <Route path="/refunds" element={<Refunds />} />
-  <Route path="/relationship-insights" element={<RelationshipInsights />} />
-  <Route path="/settings" element={<Settings />} />
-  <Route path="/terms" element={<Terms />} />
-  <Route path="/verifystatus" element={<VerifyStatus />} />
-  <Route path="*" element={<NotFound />} />
-</Routes>
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/home" element={<Home />} />
+        <Route path="/chat" element={<Chat />} />
+        <Route path="/dating" element={<Dating />} />
+        <Route path="/goals" element={<Goals />} />
+        <Route path="/invite-partner" element={<InvitePartner />} />
+        <Route path="/memories" element={<Memories />} />
+        <Route path="/nightin" element={<NightIn />} />
+        <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/security" element={<Security />} />
+        <Route path="/refunds" element={<Refunds />} />
+        <Route path="/relationship-insights" element={<RelationshipInsights />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/verifystatus" element={<VerifyStatus />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
     </Suspense>
   );
 
-  if (!shouldUseLayout) {
-    return routes;
-  }
+  if (!shouldUseLayout) return routes;
 
   return <Layout>{routes}</Layout>;
 }

@@ -5,13 +5,23 @@ export default function Layout({ children }) {
   const location = useLocation();
 
   const hideBottomNavRoutes = [
-  "/",
-  "/splash",
-  "/login",
-  "/onboarding",
-];
+    "/",
+    "/splash",
+    "/login",
+    "/onboarding",
+    "/terms",
+    "/privacy",
+    "/refunds",
+    "/security",
+  ];
 
-  const shouldHideBottomNav = hideBottomNavRoutes.includes(location.pathname);
+  const pathname = location.pathname.toLowerCase();
+
+  const shouldHideBottomNav =
+    pathname === "/" ||
+    hideBottomNavRoutes
+      .filter((route) => route !== "/")
+      .some((route) => pathname.startsWith(route));
 
   return (
     <>
