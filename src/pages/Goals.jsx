@@ -1014,24 +1014,22 @@ export default function Goals() {
             <StatCard value={stats.completed} label="Done" tone="green" />
           </div>
 
-          <AppCard className="bg-slate-100/80 p-1">
-            <div className="flex gap-1">
-              {[
-                { key: "all", label: "All" },
-                { key: "planned", label: "Planned" },
-                { key: "in_progress", label: "Active" },
-                { key: "completed", label: "Done" },
-              ].map((tab) => (
-                <TabButton
-                  key={tab.key}
-                  active={statusFilter === tab.key}
-                  onClick={() => setStatusFilter(tab.key)}
-                >
-                  {tab.label}
-                </TabButton>
-              ))}
-            </div>
-          </AppCard>
+          <div className="flex gap-1 rounded-[18px] bg-slate-100/80 p-1">
+  {[
+    { key: "all", label: "All" },
+    { key: "planned", label: "Planned" },
+    { key: "in_progress", label: "Active" },
+    { key: "completed", label: "Done" },
+  ].map((tab) => (
+    <TabButton
+      key={tab.key}
+      active={statusFilter === tab.key}
+      onClick={() => setStatusFilter(tab.key)}
+    >
+      {tab.label}
+    </TabButton>
+  ))}
+</div>
 
           <div className="space-y-3">
             <SectionTitle>{sectionLabel}</SectionTitle>
