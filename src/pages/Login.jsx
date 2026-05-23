@@ -178,7 +178,7 @@ export default function Login() {
         </div>
 
         <div className="px-4 pb-6 pt-6">
-          <div className="rounded-[26px] border border-white/70 bg-white px-4 py-5 shadow-[0_14px_34px_rgba(15,23,42,0.10)]">
+          <div className="rounded-[26px] border border-white/70 bg-white px-4 py-5 pb-16 shadow-[0_14px_34px_rgba(15,23,42,0.10)]">
             <div className="grid grid-cols-2 rounded-[18px] bg-[#eef3ff] p-1">
               <button
                 type="button"
@@ -292,7 +292,7 @@ export default function Login() {
             ) : null}
           </div>
 
-          <div className="mt-6 text-center text-[11px] text-slate-500">
+          <div className="mt-10 text-center text-[11px] text-slate-500">
             By continuing, you accept our{" "}
             <Link to="/terms" className="font-bold text-[#2f6df0]">
               Terms
