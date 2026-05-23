@@ -569,63 +569,82 @@ React.useEffect(() => {
   });
 
   const { data: goalsData = { count: 0, eventsCount: 0, countdownGoal: null } } =
-    useQuery({
-      queryKey: ['homeGoalsData', coupleId, user?.id],
-      enabled: !!user?.id,
-      retry: 1,
-      staleTime: 15 * 1000,
-      refetchInterval: 30 * 1000,
-      queryFn: async () => {
-        let query = supabase.from('couple_goals').select('*');
+  useQuery({
+    queryKey: ['homeGoalsData', coupleId, user?.id],
+    enabled: !!user?.id,
+    retry: 1,
+    staleTime: 15 * 1000,
+    refetchInterval: 30 * 1000,
+    queryFn: async () => {
+      let query = supabase.from('couple_goals').select('*');
 
-        if (coupleId) {
-          query = query.eq('couple_profile_id', coupleId);
-        } else {
-          query = query.eq('owner_id', user.id);
-        }
-
-        const { data, error } = await query;
-
-        if (error) throw error;
-
-        const rows = Array.isArray(data) ? data : [];
-
-        const goalItems = rows.filter((g) => g.type === 'goal');
-        const eventItems = rows.filter(
-        (g) => g.type === 'event' && g.invitation_status === 'accepted'
-        );
-
-        const now = Date.now();
-
-        const countdownGoal =
-  rows
-    .filter((item) => item.target_date || item.event_datetime || item.event_date)
-    .filter((item) => {
-      if (item.type === "event" && item.invitation_status) {
-        return item.invitation_status === "accepted";
+      if (coupleId) {
+        query = query.eq('couple_profile_id', coupleId);
+      } else {
+        query = query.eq('owner_id', user.id);
       }
 
-      return true;
-    })
-    .map((item) => {
-      const rawDate = item.event_datetime || item.target_date || item.event_date;
-      const parsedDate = parseSafeDate(rawDate);
-      const dateMs = parsedDate ? parsedDate.getTime() : null;
+      const { data, error } = await query;
 
-      return dateMs ? { ...item, _dateMs: dateMs } : null;
-    })
-    .filter(Boolean)
-    .filter((item) => item._dateMs >= Date.now())
-    .sort((a, b) => a._dateMs - b._dateMs)[0] || null;
+      if (error) throw error;
 
-        return {
-          count: goalItems.length,
-          eventsCount: eventItems.length,
-          countdownGoal,
-        };
-      },
-    });
+      const rows = Array.isArray(data) ? data : [];
 
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const cleanItems = rows.filter((item) => {
+        if (item.type === 'event' && item.invitation_status === 'declined') {
+          return false;
+        }
+
+        const rawDate =
+          item.event_datetime || item.target_date || item.event_date;
+
+        if (!rawDate) return true;
+
+        const parsedDate = parseSafeDate(rawDate);
+
+        if (!parsedDate) return true;
+
+        parsedDate.setHours(0, 0, 0, 0);
+
+        return parsedDate >= today;
+      });
+
+      const goalItems = cleanItems.filter((g) => g.type === 'goal');
+
+      const eventItems = cleanItems.filter(
+        (g) => g.type === 'event' && g.invitation_status === 'accepted'
+      );
+
+      const countdownGoal =
+        cleanItems
+          .filter(
+            (item) =>
+              item.target_date || item.event_datetime || item.event_date
+          )
+          .map((item) => {
+            const rawDate =
+              item.event_datetime || item.target_date || item.event_date;
+
+            const parsedDate = parseSafeDate(rawDate);
+            const dateMs = parsedDate ? parsedDate.getTime() : null;
+
+            return dateMs ? { ...item, _dateMs: dateMs } : null;
+          })
+          .filter(Boolean)
+          .filter((item) => item._dateMs >= Date.now())
+          .sort((a, b) => a._dateMs - b._dateMs)[0] || null;
+
+      return {
+        count: goalItems.length,
+        eventsCount: eventItems.length,
+        countdownGoal,
+      };
+    },
+  });
+      
   const { data: memoriesCount = 0 } = useQuery({
     queryKey: ['homeMemoriesCount', coupleId, user?.id],
     enabled: !!user?.id,
