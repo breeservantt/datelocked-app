@@ -8,6 +8,7 @@ import DateLockedLogo from "@/components/DateLockedLogo";
 
 export default function Login() {
   const navigate = useNavigate();
+  const routingRef = React.useRef(false);
 
   const [mode, setMode] = React.useState("login");
   const [email, setEmail] = React.useState("");
@@ -19,6 +20,10 @@ export default function Login() {
 
   const routeLoggedInUser = React.useCallback(
     async (currentUser) => {
+      if (!currentUser?.id || routingRef.current) return;
+
+      routingRef.current = true;
+
       const { data: profile } = await supabase
         .from("profiles")
         .select(
@@ -33,6 +38,7 @@ export default function Login() {
 
       if (isDeactivated) {
         await supabase.auth.signOut();
+        routingRef.current = false;
         navigate("/login", { replace: true });
         return;
       }
@@ -48,28 +54,48 @@ export default function Login() {
     [navigate]
   );
 
+  React.useEffect(() => {
+    let mounted = true;
+
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (mounted && session?.user) {
+        await routeLoggedInUser(session.user);
+      }
+    };
+
+    checkSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, [routeLoggedInUser]);
+
   const handleGoogleLogin = async () => {
     setError("");
     setMessage("");
     setIsGoogleLoading(true);
 
-    try {
-      const { error: googleError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
+    const { error: googleError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
 
-      if (googleError) throw googleError;
-    } catch (err) {
-      setError(err.message || "Could not continue with Google.");
+    if (googleError) {
+      setError(googleError.message || "Could not continue with Google.");
       setIsGoogleLoading(false);
     }
   };
 
   const handleEmailAuth = async (e) => {
     e.preventDefault();
+
+    if (isEmailLoading || isGoogleLoading || routingRef.current) return;
 
     setError("");
     setMessage("");
@@ -94,35 +120,41 @@ export default function Login() {
           email: cleanEmail,
           password,
           options: {
-            data: {
-              full_name: "",
-            },
+            data: { full_name: "" },
           },
         });
 
         if (signupError) throw signupError;
 
-        if (data?.user) {
-          await routeLoggedInUser(data.user);
+        if (data?.session?.user) {
+          await routeLoggedInUser(data.session.user);
+        } else if (data?.user) {
+          setMessage("Account created. Please sign in to continue.");
+          setMode("login");
         }
 
-        setMessage("Account created. Complete your profile.");
         return;
       }
 
-      const { data, error: loginError } =
-        await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password,
-        });
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
 
       if (loginError) throw loginError;
 
-      if (data?.user) {
-        await routeLoggedInUser(data.user);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        await routeLoggedInUser(session.user);
+      } else {
+        setError("Login started, but session was not ready. Try again.");
       }
     } catch (err) {
       setError(err.message || "Authentication failed.");
+      routingRef.current = false;
     } finally {
       setIsEmailLoading(false);
     }
