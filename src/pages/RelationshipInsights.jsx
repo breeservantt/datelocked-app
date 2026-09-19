@@ -178,7 +178,23 @@ export default function RelationshipInsights() {
     }
 
     const goalItems = goals.filter((g) => g?.type === 'goal');
-const eventItems = goals.filter((g) => g?.type === 'event');
+
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+const eventItems = goals.filter((g) => {
+  if (g?.type !== 'event') return false;
+
+  if (g?.invitation_status === 'declined') return false;
+
+  if (!g?.target_date) return true;
+
+  const target = new Date(`${g.target_date}T00:00:00`);
+
+  if (Number.isNaN(target.getTime())) return true;
+
+  return target >= today;
+});
 
 const chatsCount = messages.length;
 const goalsCount = goalItems.length;
