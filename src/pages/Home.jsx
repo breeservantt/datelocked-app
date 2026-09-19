@@ -542,7 +542,7 @@ React.useEffect(() => {
     },
   });
 
-  const { data: eventsCount = 0 } = useQuery({
+    const { data: eventsCount = 0 } = useQuery({
     queryKey: ['homeEventsCount', coupleId, user?.id],
     enabled: !!user?.id,
     retry: 1,
@@ -560,11 +560,36 @@ React.useEffect(() => {
 
       if (error) throw error;
 
-      return (data || []).filter(
-      (item) =>
-      item?.type === 'event' &&
-      item?.invitation_status === 'accepted'
-      ).length;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      return (data || []).filter((item) => {
+        if (item?.type !== 'event') return false;
+
+        if (item?.invitation_status === 'declined') return false;
+
+        if (
+          item?.invitation_status !== 'pending' &&
+          item?.invitation_status !== 'accepted'
+        ) {
+          return false;
+        }
+
+        const rawDate =
+          item?.event_datetime ||
+          item?.target_date ||
+          item?.event_date;
+
+        if (!rawDate) return true;
+
+        const parsedDate = parseSafeDate(rawDate);
+
+        if (!parsedDate) return true;
+
+        parsedDate.setHours(0, 0, 0, 0);
+
+        return parsedDate >= today;
+      }).length;
     },
   });
 
