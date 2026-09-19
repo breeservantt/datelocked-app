@@ -2,9 +2,10 @@ import React from 'react';
 import { supabase } from '@/lib/supabase';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { calculateInteractionScore } from '@/components/utils/interactionScore';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { AvatarImage } from '@/components/ui/avatar';
 import {
   Lock,
   Heart,
@@ -25,12 +26,11 @@ import {
   Fingerprint,
 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
-import PartnerCard from '@/components/profile/PartnerCard';
 import { parseSafeDate } from '@/components/utils/dateHelpers';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const NOTIFY_AUDIO_SRC =
-  'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt5p9NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSyBzvLZiTYIGmi77eafTRAMUKfj8LZjHAY4ktfzzXksBSR3yPDekEAKFF607OupVRQKRp/g8r5sIQUsgs/y2Ik2CBlou+3mn00QDFCn4/C2YxwGOJLX8s15LAUkd8nw3pBAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQqOPwtmMcBjiS1/LNeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyBzvLZiTYIGmi77eafTRAMUKfj8LZjHAY4ktfyzHksBSR3yO/fkEAKFGCz7OupVRQKRp/g8r5sIQUsgs/y2Yk2CBlou+3mn00QDFCo4/C2YxwGOJPX8sx5LAUld8rw35BAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQqOPwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIGWi77eafTRAMT6jj8LZjHAY4k9fyzHksBSR3yO/fkEAKFGCz7OupVRQKRp/g8r5sIQUsgs/y2Yk2CBlou+3mn00QDFCn4/C2YxwGOJPX8sx5LAUkd8nw35BAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQp+PwtmMcBjiS1/LMeSwFJHfH8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIGWi77eafTRAMT6jj8LZjHAY4k9fyzHksBSR3yO/fkEAKFGCz7OupVRQKRp/g8r5sIQUsgs/y2Yk2CBlou+3mn00QDFCn4/C2YxwGOJPX8sx5LAUkd8nw35BAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQp+PwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIGWi77eafTRAMT6jj8LZjHAY4k9fyzHksBSR3yO/fkEAKFGCz7OupVRQKRp/g8r5sIQUsgs/y2Yk2CBlou+3mn00QDFCn4/C2YxwGOJPX8sx5LAUkd8nw35BAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQp+PwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIG=';
+  'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt5p9NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSyBzvLZiTYIGmi77eafTRAMUKfj8LZjHAY4ktfzzXksBSR3yPDekEAKFF607OupVRQKRp/g8r5sIQUsgs/y2Ik2CBlou+3mn00QDFCn4/C2YxwGOJLX8s15LAUkd8nw3pBAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQqOPwtmMcBjiS1/LNeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyBzvLZiTYIGmi77eafTRAMUKfj8LZjHAY4ktfyzHksBSR3yO/fkEAKFGCz7OupVRQKRp/g8r5sIQUsgs/y2Yk2CBlou+3mn00QDFCo4/C2YxwGOJPX8sx5LAUld8rw35BAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQqOPwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIGWi77eafTRAMUKfj8LZjHAY4ktfyzHksBSR3ye/fkEAKFGC07OupVRQKRp/g8r5sIQUsgs/y2Ik2CBlouujln00QDFCn4/C2YxwGOJPX8sx5LAUkd8jv35BAChRgs+zrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQp+PwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIGWi77eafTRAMT6jj8LZjHAY4k9fyzHksBSR3yO/fkEAKFGCz7OupVRQKRp/g8r5sIQUsgs/y2Yk2CBlou+3mn00QDFCn4fC2YxwGOJPX8sx5LAUkd8nw35BAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQp+PwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIG=';
 
 const navItems = [
   { label: 'Home', icon: HomeIcon, page: 'Home' },
@@ -73,9 +73,7 @@ async function tryProfileTablesByEmail(email) {
 }
 
 function getDisplayStatus(relationshipStatus) {
-  return relationshipStatus === 'date_locked'
-    ? 'Date-Locked'
-    : 'Date-Picking';
+  return relationshipStatus === 'date_locked' ? 'Date-Locked' : 'Date-Picking';
 }
 
 function StatusPill({ relationshipStatus }) {
@@ -91,15 +89,8 @@ function StatusPill({ relationshipStatus }) {
       }`}
     >
       <div className="flex items-center gap-1.5">
-        {isLocked ? (
-          <Lock className="h-4 w-4" />
-        ) : (
-          <Heart className="h-4 w-4" />
-        )}
-
-        <span className="text-[12px] font-semibold leading-none">
-          {text}
-        </span>
+        {isLocked ? <Lock className="h-4 w-4" /> : <Heart className="h-4 w-4" />}
+        <span className="text-[12px] font-semibold leading-none">{text}</span>
       </div>
     </div>
   );
@@ -109,12 +100,8 @@ function StatCard({ icon, value, label, iconColor, iconWrap }) {
   return (
     <div className="rounded-[20px] bg-white px-2.5 py-3 text-center shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
       <div className="flex flex-col items-center">
-        <div
-          className={`mb-2.5 flex h-10 w-10 items-center justify-center rounded-full ${iconWrap}`}
-        >
-          {React.cloneElement(icon, {
-            className: `h-4.5 w-4.5 ${iconColor}`,
-          })}
+        <div className={`mb-2.5 flex h-10 w-10 items-center justify-center rounded-full ${iconWrap}`}>
+          {React.cloneElement(icon, { className: `h-4.5 w-4.5 ${iconColor}` })}
         </div>
 
         <p className="text-[16px] font-bold leading-none text-slate-900">
@@ -133,34 +120,32 @@ function BottomNav() {
   const location = useLocation();
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#ece6ea] bg-white/95 pb-2 pt-2 shadow-[0_-6px_18px_rgba(15,23,42,0.06)] backdrop-blur">
-      <div className="mx-auto grid w-full max-w-[390px] grid-cols-7 gap-1 px-2">
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#ece6ea] bg-white/95 pb-[max(6px,env(safe-area-inset-bottom))] pt-1 shadow-[0_-6px_18px_rgba(15,23,42,0.05)] backdrop-blur">
+      <div className="mx-auto grid w-full max-w-[390px] grid-cols-7 gap-0.5 px-2">
         {navItems.map((item) => {
           const href = createPageUrl(item.page);
-
           const active =
             location.pathname === href ||
             (href === '/' && location.pathname === '/');
-
           const Icon = item.icon;
 
           return (
             <Link
               key={item.label}
               to={href}
-              className={`flex min-h-[64px] flex-col items-center justify-center rounded-[16px] px-1 py-2 transition ${
+              className={`flex min-h-[50px] flex-col items-center justify-center rounded-[14px] px-1 py-1 transition ${
                 active ? 'bg-[#fdecef]' : 'bg-transparent'
               }`}
             >
               <Icon
-                className={`mb-1 h-5 w-5 ${
+                className={`mb-0.5 h-[18px] w-[18px] ${
                   active ? 'text-[#ef4f75]' : 'text-slate-400'
                 }`}
-                strokeWidth={2.1}
+                strokeWidth={2}
               />
 
               <span
-                className={`truncate text-[9px] leading-tight ${
+                className={`truncate text-[8px] leading-none tracking-[-0.01em] ${
                   active
                     ? 'font-semibold text-[#ef4f75]'
                     : 'font-medium text-slate-400'
@@ -176,49 +161,103 @@ function BottomNav() {
   );
 }
 
-function extractGoalDate(goal) {
-  const possibleFields = [
-    goal?.event_datetime,
-    goal?.target_date,
-    goal?.target_datetime,
-    goal?.due_date,
-    goal?.scheduled_for,
-    goal?.goal_date,
-    goal?.date,
-  ];
-
-  for (const value of possibleFields) {
-    if (!value) continue;
-
-    const parsed = parseSafeDate(value);
-
-    if (parsed) return parsed;
-  }
-
-  return null;
-}
-
-function isFutureOrToday(dateString) {
-  if (!dateString) return true;
-
-  const parsed = parseSafeDate(`${dateString}T00:00:00`);
-
-  if (!parsed) return true;
-
-  const today = new Date();
-
-  today.setHours(0, 0, 0, 0);
-
-  return parsed.getTime() >= today.getTime();
-}
-
 function getGoalDisplayTitle(goal) {
   return (
     goal?.title ||
     goal?.name ||
     goal?.goal_title ||
     goal?.event_title ||
-    'Award Celebrati...'
+    'No event'
+  );
+}
+
+function getGoalDateMs(goal) {
+  const rawDate =
+    goal?.event_datetime ||
+    goal?.target_date ||
+    goal?.event_date ||
+    goal?.date ||
+    null;
+
+  const parsedDate = parseSafeDate(rawDate);
+
+  if (!parsedDate) return null;
+
+  const ms = parsedDate.getTime();
+
+  return Number.isNaN(ms) ? null : ms;
+}
+
+function formatCountdown(ms, nowTick) {
+  if (!ms) return '--';
+
+  const diffMs = Math.max(0, ms - nowTick);
+  const totalDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+  if (totalDays <= 0) return 'Today';
+
+  return `${totalDays} Days`;
+}
+
+function InteractionGauge({ chats = 0, goals = 0, memories = 0, dates = 0 }) {
+  const navigate = useNavigate();
+
+  const chatScore = Math.min(chats * 0.5, 20);
+  const goalScore = Math.min(goals * 3, 25);
+  const memoryScore = Math.min(memories * 2, 25);
+  const dateScore = Math.min(dates * 5, 30);
+
+  const totalScore = Math.max(
+  0,
+  Math.min(100, Math.round(chatScore + goalScore + memoryScore + dateScore))
+);
+
+  const levelLabel =
+  totalScore >= 80 ? "Strong" : totalScore >= 55 ? "Growing" : "Low";
+
+  return (
+    <button
+      type="button"
+      onClick={() => navigate(createPageUrl('RelationshipInsights'))}
+      className="w-full rounded-[26px] bg-gradient-to-r from-[#f2efff] to-[#eef1ff] px-5 py-5 text-left shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-4">
+          <div className="flex h-[58px] w-[58px] items-center justify-center rounded-[20px] bg-gradient-to-br from-[#8b5cf6] to-[#6366f1]">
+            <CheckCircle className="h-7 w-7 text-white" strokeWidth={2.1} />
+          </div>
+
+          <div>
+            <p className="text-[15px] font-semibold leading-none text-[#172033]">
+              Interaction Gauge
+            </p>
+
+            <p className="mt-3 text-[12px] font-medium leading-none text-[#64748b]">
+              Tap to view relationship insights
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-full bg-white/70 px-3 py-1 text-[12px] font-medium text-slate-700">
+          {levelLabel}
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <div className="relative h-[16px] w-full overflow-hidden rounded-full bg-white/70">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] transition-all duration-500"
+            style={{ width: `${totalScore}%` }}
+          />
+        </div>
+
+        <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+          <span>Low</span>
+          <span className="font-semibold text-slate-700">{totalScore}%</span>
+          <span>High</span>
+        </div>
+      </div>
+    </button>
   );
 }
 
@@ -228,7 +267,6 @@ export default function Home() {
   const queryClient = useQueryClient();
 
   const fileInputRef = React.useRef(null);
-
   const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
   const [avatarPreviewOpen, setAvatarPreviewOpen] = React.useState(false);
 
@@ -251,7 +289,6 @@ export default function Home() {
   const handleProfilePhotoUpload = React.useCallback(
     async (e) => {
       const file = e.target.files?.[0];
-
       e.target.value = '';
 
       if (!file) return;
@@ -265,19 +302,14 @@ export default function Home() {
         } = await supabase.auth.getUser();
 
         if (authError) throw authError;
-
-        if (!user) {
-          throw new Error('User not authenticated');
-        }
+        if (!user) throw new Error('User not authenticated');
 
         const fileExt = file.name.split('.').pop();
         const filePath = `${user.id}/${Date.now()}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from('profile-photos')
-          .upload(filePath, file, {
-            upsert: true,
-          });
+          .upload(filePath, file, { upsert: true });
 
         if (uploadError) throw uploadError;
 
@@ -291,24 +323,13 @@ export default function Home() {
           id: user.id,
           email: user.email,
           profile_photo: publicUrl,
-          full_name:
-            user.user_metadata?.full_name ||
-            user.user_metadata?.name ||
-            user.email?.split('@')[0] ||
-            'User',
+          updated_at: new Date().toISOString(),
         };
 
-        await supabase
-          .from('profiles')
-          .upsert(payload, { onConflict: 'id' });
+        await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
+        await supabase.from('users').upsert(payload, { onConflict: 'id' });
 
-        await supabase
-          .from('users')
-          .upsert(payload, { onConflict: 'id' });
-
-        await queryClient.invalidateQueries({
-          queryKey: ['currentUser'],
-        });
+        await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       } catch (err) {
         console.error(err);
         alert(err.message || 'Upload failed');
@@ -322,11 +343,7 @@ export default function Home() {
   const [nowTick, setNowTick] = React.useState(Date.now());
 
   React.useEffect(() => {
-    const timer = setInterval(
-      () => setNowTick(Date.now()),
-      60 * 1000
-    );
-
+    const timer = setInterval(() => setNowTick(Date.now()), 60 * 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -337,7 +354,6 @@ export default function Home() {
     refetch: refetchUser,
   } = useQuery({
     queryKey: ['currentUser'],
-
     queryFn: async () => {
       const {
         data: { user: authUser },
@@ -345,54 +361,125 @@ export default function Home() {
       } = await supabase.auth.getUser();
 
       if (authError) throw authError;
-
       if (!authUser) return null;
 
-      const profile = await tryProfileTablesById(authUser.id);
+      let profile = await tryProfileTablesById(authUser.id);
+
+      if (!profile) {
+        const fallbackProfile = {
+      id: authUser.id,
+      email: authUser.email,
+      full_name: '',
+      relationship_status: 'single',
+      onboarding_completed: false,
+      profile_completed: false,
+    };
+
+        await supabase.from('profiles').upsert(fallbackProfile, { onConflict: 'id' });
+        await supabase.from('users').upsert(fallbackProfile, { onConflict: 'id' });
+
+        profile = fallbackProfile;
+      }
 
       return {
         ...authUser,
-        ...(profile || {}),
+        ...profile,
         email: authUser.email,
       };
     },
-
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
   React.useEffect(() => {
-    if (location.pathname.includes('Home')) {
+    if (location.pathname.toLowerCase().includes('home')) {
       refetchUser();
     }
   }, [location.pathname, refetchUser]);
 
-  React.useEffect(() => {
-    if (!user) return;
+  const profileComplete =
+  user?.full_name?.trim() &&
+  user?.date_of_birth &&
+  user?.gender &&
+  user?.location;
 
-    if (user.legalAccepted === false) {
-      navigate(createPageUrl('Consent'), {
-        replace: true,
-      });
+React.useEffect(() => {
+  if (!user) return;
 
-      return;
-    }
+  if (!profileComplete) {
+    navigate(createPageUrl('Onboarding'), { replace: true });
+    return;
+  }
 
-    if (user.onboarding_completed === false) {
-      navigate(createPageUrl('Onboarding'), {
-        replace: true,
-      });
-    }
-  }, [user, navigate]);
+  if (user.legalAccepted === false) {
+    navigate(createPageUrl('Consent'), { replace: true });
+  }
+}, [user, profileComplete, navigate]);
 
   const coupleId = user?.couple_profile_id || null;
   const myEmail = user?.email || null;
-  const isDateLocked =
-    user?.relationship_status === 'date_locked';
+  const isDateLocked = user?.relationship_status === 'date_locked';
+
+  React.useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`home-refresh-${user.id}-${coupleId || 'solo'}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'couple_goals',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['homeGoalsData'] });
+          queryClient.invalidateQueries({ queryKey: ['homeEventsCount'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'memories',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['homeMemoriesCount'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['homeChatsCount'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, coupleId, queryClient]);
 
   const inviteToken = React.useMemo(() => {
     const params = new URLSearchParams(location.search);
-
     return params.get('invite');
   }, [location.search]);
 
@@ -400,7 +487,6 @@ export default function Home() {
     queryKey: ['pendingInvitationByToken', inviteToken],
     enabled: !!inviteToken && !!user,
     retry: 1,
-
     queryFn: async () => {
       const { data, error } = await supabase
         .from('relationship_invitations')
@@ -417,13 +503,9 @@ export default function Home() {
 
   React.useEffect(() => {
     if (!pendingInvitation?.id) return;
-
-    if (pendingInvitation.id === lastInvitationIdRef.current) {
-      return;
-    }
+    if (pendingInvitation.id === lastInvitationIdRef.current) return;
 
     lastInvitationIdRef.current = pendingInvitation.id;
-
     playNotify();
   }, [pendingInvitation?.id, playNotify]);
 
@@ -432,7 +514,6 @@ export default function Home() {
     enabled: !!coupleId,
     retry: 1,
     staleTime: 60 * 1000,
-
     queryFn: async () => {
       const { data, error } = await supabase
         .from('couple_profiles')
@@ -451,7 +532,6 @@ export default function Home() {
     enabled: !!coupleProfile?.id && !!myEmail,
     retry: 1,
     staleTime: 60 * 1000,
-
     queryFn: async () => {
       const partnerEmail =
         coupleProfile?.partner1_email === myEmail
@@ -462,213 +542,172 @@ export default function Home() {
     },
   });
 
-  /*
-   * EVENTS COUNT
-   *
-   * Matches the Goals page:
-   * - type must be "event"
-   * - pending events are included
-   * - accepted events are included
-   * - declined events are excluded
-   * - past events are excluded
-   * - missing event date remains visible
-   */
   const { data: eventsCount = 0 } = useQuery({
     queryKey: ['homeEventsCount', coupleId, user?.id],
-
     enabled: !!user?.id,
-
     retry: 1,
-
-    staleTime: 30 * 1000,
-
-    refetchInterval: 30 * 1000,
-
+    staleTime: 60 * 1000,
     queryFn: async () => {
-      let query = supabase
-        .from('couple_goals')
-        .select('*');
+      let query = supabase.from('couple_goals').select('*');
 
       if (coupleId) {
-        query = query.eq(
-          'couple_profile_id',
-          coupleId
-        );
+        query = query.eq('couple_profile_id', coupleId);
       } else {
-        query = query.eq(
-          'owner_id',
-          user.id
-        );
+        query = query.eq('owner_id', user.id);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      const events = (Array.isArray(data) ? data : []).filter(
-        (item) => {
-          if (item?.type !== 'event') {
-            return false;
-          }
-
-          if (item?.invitation_status === 'declined') {
-            return false;
-          }
-
-          if (
-            item?.invitation_status !== 'pending' &&
-            item?.invitation_status !== 'accepted'
-          ) {
-            return false;
-          }
-
-          return isFutureOrToday(item?.target_date);
-        }
-      );
-
-      return events.length;
+      return (data || []).filter(
+      (item) =>
+      item?.type === 'event' &&
+      item?.invitation_status === 'accepted'
+      ).length;
     },
   });
 
-  const {
-    data: goalsData = {
-      count: 0,
-      countdownGoal: null,
-    },
-  } = useQuery({
+  const { data: goalsData = { count: 0, eventsCount: 0, countdownGoal: null } } =
+  useQuery({
     queryKey: ['homeGoalsData', coupleId, user?.id],
-
     enabled: !!user?.id,
-
     retry: 1,
-
-    staleTime: 30 * 1000,
-
+    staleTime: 15 * 1000,
     refetchInterval: 30 * 1000,
-
     queryFn: async () => {
-      let query = supabase
-        .from('couple_goals')
-        .select('*');
+      let query = supabase.from('couple_goals').select('*');
 
       if (coupleId) {
-        query = query.eq(
-          'couple_profile_id',
-          coupleId
-        );
+        query = query.eq('couple_profile_id', coupleId);
       } else {
-        query = query.eq(
-          'owner_id',
-          user.id
-        );
+        query = query.eq('owner_id', user.id);
       }
 
-      const { data: goals, error } = await query;
+      const { data, error } = await query;
 
       if (error) throw error;
 
-      const list = Array.isArray(goals)
-        ? goals
-        : [];
+      const rows = Array.isArray(data) ? data : [];
 
-      const now = Date.now();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-      const datedGoals = list
-        .map((goal) => {
-          const parsedDate =
-            extractGoalDate(goal);
+      const cleanItems = rows.filter((item) => {
+        if (item.type === 'event' && item.invitation_status === 'declined') {
+          return false;
+        }
 
-          if (!parsedDate) return null;
+        const rawDate =
+          item.event_datetime || item.target_date || item.event_date;
 
-          return {
-            ...goal,
-            _dateMs: parsedDate.getTime(),
-          };
-        })
-        .filter(Boolean);
+        if (!rawDate) return true;
 
-      const upcoming = [...datedGoals]
-        .filter(
-          (goal) =>
-            goal._dateMs >= now
-        )
-        .sort(
-          (a, b) =>
-            a._dateMs - b._dateMs
-        );
+        const parsedDate = parseSafeDate(rawDate);
 
-      const latestDated = [...datedGoals].sort(
-        (a, b) =>
-          b._dateMs - a._dateMs
+        if (!parsedDate) return true;
+
+        parsedDate.setHours(0, 0, 0, 0);
+
+        return parsedDate >= today;
+      });
+
+      const goalItems = cleanItems.filter((g) => g.type === 'goal');
+
+      const eventItems = cleanItems.filter(
+        (g) => g.type === 'event' && g.invitation_status === 'accepted'
       );
 
+      const countdownGoal =
+        cleanItems
+          .filter(
+            (item) =>
+              item.target_date || item.event_datetime || item.event_date
+          )
+          .map((item) => {
+            const rawDate =
+              item.event_datetime || item.target_date || item.event_date;
+
+            const parsedDate = parseSafeDate(rawDate);
+            const dateMs = parsedDate ? parsedDate.getTime() : null;
+
+            return dateMs ? { ...item, _dateMs: dateMs } : null;
+          })
+          .filter(Boolean)
+          .filter((item) => item._dateMs >= Date.now())
+          .sort((a, b) => a._dateMs - b._dateMs)[0] || null;
+
       return {
-        count: list.length,
-        countdownGoal:
-          upcoming[0] ||
-          latestDated[0] ||
-          null,
+        count: goalItems.length,
+        eventsCount: eventItems.length,
+        countdownGoal,
       };
     },
   });
+      
+  const { data: memoriesCount = 0 } = useQuery({
+    queryKey: ['homeMemoriesCount', coupleId, user?.id],
+    enabled: !!user?.id,
+    retry: 1,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      let query = supabase
+        .from('memories')
+        .select('*', { count: 'exact', head: false });
 
-  const countdownGoal =
-    goalsData.countdownGoal;
+      if (coupleId) {
+        query = query.eq('couple_profile_id', coupleId);
+      } else {
+        query = query.eq('created_by', user.id);
+      }
 
-  const countdownText = React.useMemo(() => {
-    if (!countdownGoal?._dateMs) {
-      return '--';
-    }
+      const { data, error } = await query;
 
-    const diffMs =
-      countdownGoal._dateMs -
-      nowTick;
+      if (error) throw error;
 
-    if (diffMs <= 0) {
-      return 'Today';
-    }
+      return Array.isArray(data) ? data.length : 0;
+    },
+  });
 
-    const days = Math.ceil(
-      diffMs /
-        (1000 * 60 * 60 * 24)
-    );
+  const { data: chatsCount = 0 } = useQuery({
+    queryKey: ['homeChatsCount', coupleId],
+    enabled: !!coupleId,
+    retry: 1,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('couple_profile_id', coupleId);
 
-    return `${days} days`;
-  }, [
-    countdownGoal?._dateMs,
-    nowTick,
-  ]);
+      if (error) throw error;
+
+      return Array.isArray(data) ? data.length : 0;
+    },
+  });
+
+  const { total: interactionScore, level: interactionLevel } =
+    calculateInteractionScore({
+      chats: chatsCount,
+      goals: goalsData.count,
+      memories: memoriesCount,
+      dates: eventsCount,
+    });
+
+  const countdownGoal = goalsData.countdownGoal;
+  const countdownText = React.useMemo(
+    () => formatCountdown(countdownGoal?._dateMs, nowTick),
+    [countdownGoal?._dateMs, nowTick]
+  );
 
   React.useEffect(() => {
-    if (
-      !countdownGoal?._dateMs ||
-      !countdownGoal?.id
-    ) {
-      return;
-    }
+    if (!countdownGoal?._dateMs || !countdownGoal?.id) return;
+    if (lastCountdownAlertIdRef.current === countdownGoal.id) return;
 
-    if (
-      lastCountdownAlertIdRef.current ===
-      countdownGoal.id
-    ) {
-      return;
-    }
-
-    if (
-      nowTick >=
-      countdownGoal._dateMs
-    ) {
+    if (nowTick >= countdownGoal._dateMs) {
       playNotify();
-
-      lastCountdownAlertIdRef.current =
-        countdownGoal.id;
-
-      queryClient.invalidateQueries({
-        queryKey: [
-          'homeGoalsData',
-          coupleId,
-        ],
-      });
+      lastCountdownAlertIdRef.current = countdownGoal.id;
+      queryClient.invalidateQueries({ queryKey: ['homeGoalsData', coupleId] });
     }
   }, [
     nowTick,
@@ -679,227 +718,194 @@ export default function Home() {
     coupleId,
   ]);
 
-  const handleOpenCountdownGoal =
-    React.useCallback(() => {
-      if (!countdownGoal?.id) {
-        navigate(
-          createPageUrl('Goals')
-        );
+  const handleOpenCountdownGoal = React.useCallback(() => {
+    if (!countdownGoal?.id) {
+      navigate(createPageUrl('Goals'));
+      return;
+    }
 
-        return;
-      }
-
-      navigate(
-        `${createPageUrl(
-          'Goals'
-        )}?goal=${countdownGoal.id}`
-      );
-    }, [
-      countdownGoal?.id,
-      navigate,
-    ]);
+    navigate(`${createPageUrl('Goals')}?goal=${countdownGoal.id}`);
+  }, [countdownGoal?.id, navigate]);
 
   const daysTogether = React.useMemo(() => {
-    const lockedAt =
-      coupleProfile?.date_locked_at;
+    const lockedAt = coupleProfile?.date_locked_at;
 
     if (!lockedAt) return 0;
 
-    const lockedDate =
-      new Date(lockedAt);
+    const lockedDate = new Date(lockedAt);
+    const today = new Date();
 
-    const today =
-      new Date();
+    lockedDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
 
     return Math.max(
       0,
-      Math.floor(
-        (today - lockedDate) /
-          (1000 * 60 * 60 * 24)
-      )
+      Math.floor((today.getTime() - lockedDate.getTime()) / (1000 * 60 * 60 * 24))
     );
-  }, [
-    coupleProfile?.date_locked_at,
-  ]);
+  }, [coupleProfile?.date_locked_at]);
 
   const canEdit =
     !!user &&
-    user.relationship_status !==
-      'pending_verification' &&
-    user.relationship_status !==
-      'single';
+    user.relationship_status !== 'pending_verification' &&
+    user.relationship_status !== 'single';
 
-  const handleAcceptInvitation =
-    React.useCallback(async () => {
-      if (
-        !pendingInvitation?.invitation_token
-      ) {
-        return;
-      }
+  const handleAcceptInvitation = React.useCallback(async () => {
+    if (!pendingInvitation?.invitation_token) return;
 
-      try {
-        const { error } =
-          await supabase.functions.invoke(
-            'acceptInvitationByToken',
-            {
-              body: {
-                invitation_token:
-                  pendingInvitation.invitation_token,
-              },
-            }
-          );
+    try {
+      const { error } = await supabase.functions.invoke('acceptInvitationByToken', {
+        body: {
+          invitation_token: pendingInvitation.invitation_token,
+        },
+      });
 
-        if (error) throw error;
+      if (error) throw error;
 
-        await queryClient.invalidateQueries({
-          queryKey: ['currentUser'],
-        });
+      await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+      await queryClient.invalidateQueries({ queryKey: ['coupleProfile'] });
 
-        await queryClient.invalidateQueries({
-          queryKey: ['coupleProfile'],
-        });
-
-        navigate(
-          createPageUrl('Home'),
-          {
-            replace: true,
-          }
-        );
-      } catch (e) {
-        console.error(
-          'Error accepting invitation:',
-          e
-        );
-
-        alert(
-          e?.message ||
-            'Failed to accept invitation. Please try again.'
-        );
-      }
-    }, [
-      pendingInvitation?.invitation_token,
-      navigate,
-      queryClient,
-    ]);
+      navigate('/home', { replace: true });
+    } catch (e) {
+      console.error('Error accepting invitation:', e);
+      alert(e?.message || 'Failed to accept invitation. Please try again.');
+    }
+  }, [pendingInvitation?.invitation_token, navigate, queryClient]);
 
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f3edf1]">
-        <Loader2 className="h-8 w-8 animate-spin text-rose-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#5e9cff]" />
       </div>
     );
   }
 
-  if (isError || !user) {
+  if (user && !profileComplete) {
+  navigate("/onboarding", { replace: true });
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#f3edf1]">
+      <Loader2 className="h-8 w-8 animate-spin text-[#5e9cff]" />
+    </div>
+  );
+}
+
+  if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f3edf1] p-4">
-        <Card className="w-full max-w-md p-6 text-center">
-          <p className="mb-4 text-slate-600">
-            Unable to load your profile
+      <div className="flex min-h-screen items-center justify-center bg-[#f3edf1] px-4">
+        <Card className="w-full max-w-[360px] p-6 text-center">
+          <p className="mb-4 text-sm text-slate-600">
+            Please sign in to continue.
           </p>
 
           <Button
-            onClick={() =>
-              window.location.reload()
-            }
-            className="bg-rose-500 hover:bg-rose-600"
+            onClick={() => navigate('/login', { replace: true })}
+            className="bg-[#2f6df0] hover:bg-[#2f6df0]"
           >
-            Retry
+            Go to Login
           </Button>
         </Card>
       </div>
     );
   }
 
-  const hasProfilePhoto =
-    Boolean(user?.profile_photo);
+  if (isError) {
+    return (
+      <>
+        <div className="flex min-h-screen items-center justify-center bg-[#f7f1f4] px-3 py-3 pb-24">
+          <div className="mx-auto w-full max-w-[390px]">
+            <Card className="w-full p-6 text-center">
+              <p className="mb-4 text-slate-600">
+                Unable to load your profile
+              </p>
+
+              <Button
+                onClick={() => window.location.reload()}
+                className="bg-rose-500 hover:bg-rose-600"
+              >
+                Retry
+              </Button>
+            </Card>
+          </div>
+        </div>
+
+        <BottomNav />
+      </>
+    );
+  }
+
+  if (user && !profileComplete) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#f3edf1]">
+      <Loader2 className="h-8 w-8 animate-spin text-[#5e9cff]" />
+    </div>
+  );
+}
+
+  const hasProfilePhoto = Boolean(user?.profile_photo);
 
   return (
     <>
-      <div className="min-h-screen bg-[#f3edf1] px-3 py-3 pb-[96px]">
-        <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-[28px] border border-[#e8e2e7] bg-[#f7f3f6] shadow-[0_12px_40px_rgba(15,23,42,0.10)]">
-
+      <div className="min-h-screen bg-[#f3edf1] px-2 py-2 pb-[74px]">
+        <div className="mx-auto w-full max-w-[410px] overflow-hidden rounded-[28px] border border-[#e8e2e7] bg-[#f7f3f6] shadow-[0_12px_40px_rgba(15,23,42,0.10)]">
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            onChange={
-              handleProfilePhotoUpload
-            }
+            onChange={handleProfilePhotoUpload}
             className="hidden"
           />
 
-          {avatarPreviewOpen &&
-            hasProfilePhoto && (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-                onClick={() =>
-                  setAvatarPreviewOpen(false)
-                }
+          {avatarPreviewOpen && hasProfilePhoto && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+              onClick={() => setAvatarPreviewOpen(false)}
+            >
+              <button
+                type="button"
+                onClick={() => setAvatarPreviewOpen(false)}
+                className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
               >
-                <button
-                  onClick={() =>
-                    setAvatarPreviewOpen(false)
-                  }
-                  className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                <X className="h-5 w-5" />
+              </button>
 
-                <img
-                  src={user.profile_photo}
-                  alt="Profile"
-                  className="max-h-full max-w-full rounded-[18px] object-contain"
-                  onClick={(e) =>
-                    e.stopPropagation()
-                  }
-                />
-              </div>
-            )}
+              <AvatarImage
+                src={user.profile_photo}
+                alt="Profile"
+                className="h-full w-full object-cover object-center"
+              />
+            </div>
+          )}
 
           <div className="bg-gradient-to-r from-[#5e9cff] via-[#2f6df0] to-[#6aa7ff] px-5 pb-10 pt-7">
             <div className="flex items-start justify-between gap-4">
-
               <div className="flex min-w-0 items-center gap-4">
                 <div className="relative shrink-0">
-
                   <button
                     type="button"
                     onClick={() => {
-                      if (hasProfilePhoto) {
-                        setAvatarPreviewOpen(true);
-                      }
+                      if (hasProfilePhoto) setAvatarPreviewOpen(true);
                     }}
-                    className="block overflow-hidden rounded-full"
+                    className="block"
                   >
-                    <Avatar className="h-[84px] w-[84px] overflow-hidden rounded-full border-[3px] border-white/75 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.18)]">
-
+                    <div className="relative h-[84px] w-[84px] shrink-0 overflow-hidden rounded-full border-[3px] border-white/75 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.18)]">
                       {hasProfilePhoto ? (
-                        <AvatarImage
-                          src={
-                            user.profile_photo
-                          }
+                        <img
+                          src={user.profile_photo}
                           alt="Profile"
-                          className="h-full w-full rounded-full object-cover object-center"
+                          className="absolute left-1/2 top-1/2 h-[120%] w-[120%] max-w-none -translate-x-1/2 -translate-y-1/2 object-cover"
                         />
                       ) : (
-                        <AvatarFallback className="h-full w-full rounded-full bg-white/20 text-[30px] font-semibold text-white">
-                          {user?.full_name?.[0] ||
-                            'U'}
-                        </AvatarFallback>
+                        <div className="flex h-full w-full items-center justify-center bg-white/20 text-[30px] font-semibold text-white">
+                          {user?.full_name?.[0] || 'U'}
+                        </div>
                       )}
-
-                    </Avatar>
+                    </div>
                   </button>
 
                   <button
                     type="button"
-                    onClick={
-                      openPhotoPicker
-                    }
-                    disabled={
-                      isUploadingPhoto
-                    }
+                    onClick={openPhotoPicker}
+                    disabled={isUploadingPhoto}
                     className="absolute -bottom-1 -right-1 flex h-[36px] w-[36px] items-center justify-center rounded-full bg-white text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.16)] active:scale-95"
                     aria-label="Upload profile photo"
                   >
@@ -909,14 +915,9 @@ export default function Home() {
                       <Camera className="h-4 w-4 text-slate-700" />
                     )}
                   </button>
-
                 </div>
 
                 <div className="min-w-0 pt-1">
-                  <p className="text-[14px] text-white/80">
-                    Welcome back
-                  </p>
-
                   <h2 className="truncate text-[18px] font-semibold text-white">
                     {user?.full_name}
                   </h2>
@@ -924,18 +925,11 @@ export default function Home() {
               </div>
 
               <div className="flex gap-3 pt-1">
-
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-10 w-10 rounded-full text-white hover:bg-white/15"
-                  onClick={() =>
-                    navigate(
-                      createPageUrl(
-                        'Notifications'
-                      )
-                    )
-                  }
+                  onClick={() => navigate(createPageUrl('Notifications'))}
                 >
                   <Bell className="h-5 w-5" />
                 </Button>
@@ -944,63 +938,33 @@ export default function Home() {
                   variant="ghost"
                   size="icon"
                   className="h-10 w-10 rounded-full text-white hover:bg-white/15"
-                  onClick={() =>
-                    navigate(
-                      createPageUrl(
-                        'Settings'
-                      )
-                    )
-                  }
+                  onClick={() => navigate(createPageUrl('Settings'))}
                 >
                   <Settings className="h-5 w-5" />
                 </Button>
-
               </div>
             </div>
 
             <div className="mt-4 rounded-[18px] bg-white/95 px-3 py-3 shadow-[0_8px_18px_rgba(15,23,42,0.10)] backdrop-blur-sm">
-
               <div className="flex items-center justify-between gap-4">
-
                 <div>
-                  <p className="mb-1.5 text-[12px] text-slate-500">
-                    Your Status
-                  </p>
-
-                  <StatusPill
-                    relationshipStatus={
-                      user?.relationship_status
-                    }
-                  />
+                  <p className="mb-1.5 text-[12px] text-slate-500">Your Status</p>
+                  <StatusPill relationshipStatus={user?.relationship_status} />
                 </div>
 
-                {isDateLocked &&
-                  daysTogether > 0 && (
-                    <div className="text-right">
-                      <p className="text-[11px] text-slate-500">
-                        Together for
-                      </p>
-
-                      <p className="text-[20px] font-bold leading-none text-rose-500">
-                        {daysTogether} days
-                      </p>
-                    </div>
-                  )}
-
+                <div className="text-right">
+                  <p className="text-[11px] text-slate-500">Together for</p>
+                  <p className="text-[20px] font-bold leading-none text-rose-500">
+                  {isDateLocked ? daysTogether : 0} Days
+                  </p>
+                  </div>
               </div>
             </div>
           </div>
 
-          <div className="-mt-8 px-4 pb-6 pt-4">
-
+          <div className="-mt-10 px-4 pt-5 pb-6">
             <div className="mb-5 grid grid-cols-3 gap-2.5">
-
-              <Link
-                to={createPageUrl(
-                  'Goals'
-                )}
-                className="block"
-              >
+              <Link to={createPageUrl('Goals')} className="block">
                 <StatCard
                   icon={<Clock />}
                   value={eventsCount}
@@ -1010,12 +974,7 @@ export default function Home() {
                 />
               </Link>
 
-              <Link
-                to={createPageUrl(
-                  'Goals'
-                )}
-                className="block"
-              >
+              <Link to={createPageUrl('Goals')} className="block">
                 <StatCard
                   icon={<Target />}
                   value={goalsData.count}
@@ -1026,13 +985,10 @@ export default function Home() {
               </Link>
 
               <div
-                onClick={
-                  handleOpenCountdownGoal
-                }
+                onClick={handleOpenCountdownGoal}
                 className="cursor-pointer rounded-[20px] bg-white px-2.5 py-3 text-center shadow-[0_10px_24px_rgba(15,23,42,0.05)]"
               >
                 <div className="flex flex-col items-center">
-
                   <div className="mb-2.5 flex h-10 w-10 items-center justify-center rounded-full bg-amber-50">
                     <Clock className="h-4.5 w-4.5 text-amber-400" />
                   </div>
@@ -1042,26 +998,18 @@ export default function Home() {
                   </p>
 
                   <p className="mt-2 truncate text-[11px] font-medium text-slate-500">
-                    {getGoalDisplayTitle(
-                      countdownGoal
-                    )}
+                    {getGoalDisplayTitle(countdownGoal)}
                   </p>
-
                 </div>
               </div>
-
             </div>
 
             <AnimatePresence>
               {pendingInvitation && (
                 <div className="mb-4">
-
                   <Card className="overflow-hidden border-0 bg-gradient-to-r from-amber-50 to-orange-50 shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
-
                     <div className="p-4">
-
                       <div className="mb-3 flex items-center gap-3">
-
                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
                           <Heart className="h-5 w-5 text-amber-600" />
                         </div>
@@ -1072,137 +1020,62 @@ export default function Home() {
                           </p>
 
                           <p className="text-sm text-slate-500">
-                            From{' '}
-                            {pendingInvitation.sender_name ||
-                              pendingInvitation.sender_email}
+                            From {pendingInvitation.sender_name || pendingInvitation.sender_email}
                           </p>
                         </div>
-
                       </div>
 
                       <Button
-                        onClick={
-                          handleAcceptInvitation
-                        }
+                        onClick={handleAcceptInvitation}
                         className="w-full bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600"
                       >
                         <Lock className="mr-2 h-4 w-4" />
                         Accept & Date-Lock
                       </Button>
-
                     </div>
                   </Card>
                 </div>
               )}
             </AnimatePresence>
 
-            {!pendingInvitation && (
+            {!pendingInvitation && !isDateLocked && (
               <div className="mb-4 flex gap-3">
-
                 <Button
                   type="button"
                   onClick={() =>
-                    navigate(
-                      `${createPageUrl(
-                        'InvitePartner'
-                      )}?mode=invite`
-                    )
+                    navigate(`${createPageUrl('InvitePartner')}?mode=email-invite`)
                   }
                   className="flex h-[42px] w-full items-center justify-center gap-2 rounded-[14px] bg-white px-3 text-[13px] font-medium text-rose-500 shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
                 >
                   <Heart className="h-3.5 w-3.5 shrink-0" />
-
-                  <span className="leading-none">
-                    Invite
-                  </span>
+                  <span className="leading-none">Email Invite</span>
                 </Button>
 
                 <Button
                   type="button"
                   onClick={() =>
-                    navigate(
-                      `${createPageUrl(
-                        'InvitePartner'
-                      )}?mode=accept`
-                    )
+                    navigate(`${createPageUrl('InvitePartner')}?mode=email-accept`)
                   }
                   className="flex h-[42px] w-full items-center justify-center rounded-[14px] bg-rose-500 px-3 text-[13px] font-medium text-white shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
                 >
-                  <span className="leading-none">
-                    Accept-Date
-                  </span>
+                  <span className="leading-none">Enter Email OTP</span>
                 </Button>
-
               </div>
             )}
 
-            {partner && (
-              <div className="mb-4">
-                <PartnerCard
-                  partner={partner}
-                  coupleProfile={
-                    coupleProfile
-                  }
-                  isLocked={
-                    isDateLocked
-                  }
-                />
-              </div>
-            )}
+            <InteractionGauge
+  chats={isDateLocked ? chatsCount : 0}
+  goals={isDateLocked ? goalsData.count : 0}
+  memories={isDateLocked ? memoriesCount : 0}
+  dates={isDateLocked ? eventsCount : 0}
+/>
 
-            <div className="space-y-3">
-
-              <Link
-                to={createPageUrl(
-                  'RelationshipInsights'
-                )}
-                className="block"
-              >
-                <div className="flex items-center justify-between rounded-[26px] bg-gradient-to-r from-[#f2efff] to-[#eef1ff] px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-
-                  <div className="flex items-center gap-4">
-
-                    <div className="flex h-[58px] w-[58px] items-center justify-center rounded-[20px] bg-gradient-to-br from-[#8b5cf6] to-[#6366f1]">
-                      <CheckCircle
-                        className="h-7 w-7 text-white"
-                        strokeWidth={2.1}
-                      />
-                    </div>
-
-                    <div>
-                      <p className="text-[15px] font-semibold leading-none text-[#172033]">
-                        Relationship Insights
-                      </p>
-
-                      <p className="mt-3 text-[12px] font-medium leading-none text-[#64748b]">
-                        View your weekly health report
-                      </p>
-                    </div>
-
-                  </div>
-
-                  <ChevronRight
-                    className="h-6 w-6 text-[#94a3b8]"
-                    strokeWidth={2.2}
-                  />
-                </div>
-              </Link>
-
-              <Link
-                to={createPageUrl(
-                  'Memories'
-                )}
-                className="block"
-              >
+            <div className="mt-3 space-y-3">
+              <Link to={createPageUrl('Memories')} className="block">
                 <div className="flex items-center justify-between rounded-[26px] bg-white px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-
                   <div className="flex items-center gap-4">
-
                     <div className="flex h-[58px] w-[58px] items-center justify-center rounded-[20px] bg-[#fdecef]">
-                      <Plus
-                        className="h-7 w-7 text-[#ff4d6d]"
-                        strokeWidth={2.1}
-                      />
+                      <Plus className="h-7 w-7 text-[#ff4d6d]" strokeWidth={2.1} />
                     </div>
 
                     <div>
@@ -1214,32 +1087,17 @@ export default function Home() {
                         Capture your special moments
                       </p>
                     </div>
-
                   </div>
 
-                  <ChevronRight
-                    className="h-6 w-6 text-[#94a3b8]"
-                    strokeWidth={2.2}
-                  />
-
+                  <ChevronRight className="h-6 w-6 text-[#94a3b8]" strokeWidth={2.2} />
                 </div>
               </Link>
 
-              <Link
-                to={createPageUrl(
-                  'Goals'
-                )}
-                className="block"
-              >
+              <Link to={createPageUrl('Goals')} className="block">
                 <div className="flex items-center justify-between rounded-[26px] bg-white px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-
                   <div className="flex items-center gap-4">
-
                     <div className="flex h-[58px] w-[58px] items-center justify-center rounded-[20px] bg-[#eaf1ff]">
-                      <Target
-                        className="h-7 w-7 text-[#3b82f6]"
-                        strokeWidth={2.1}
-                      />
+                      <Target className="h-7 w-7 text-[#3b82f6]" strokeWidth={2.1} />
                     </div>
 
                     <div>
@@ -1251,24 +1109,12 @@ export default function Home() {
                         Plan your future together
                       </p>
                     </div>
-
                   </div>
 
-                  <ChevronRight
-                    className="h-6 w-6 text-[#94a3b8]"
-                    strokeWidth={2.2}
-                  />
-
+                  <ChevronRight className="h-6 w-6 text-[#94a3b8]" strokeWidth={2.2} />
                 </div>
               </Link>
-
             </div>
-
-            {isDateLocked &&
-              canEdit
-              ? null
-              : null}
-
           </div>
         </div>
       </div>
