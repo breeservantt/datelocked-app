@@ -83,17 +83,18 @@ async function getCurrentProfileUser() {
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("id,email,couple_profile_id")
+    .select("id,email,couple_profile_id,relationship_status")
     .eq("id", authUser.id)
     .maybeSingle();
 
   if (error) throw error;
 
   return {
-    id: authUser.id,
-    email: authUser.email,
-    couple_profile_id: profile?.couple_profile_id || null,
-  };
+  id: authUser.id,
+  email: authUser.email,
+  couple_profile_id: profile?.couple_profile_id || null,
+  relationship_status: profile?.relationship_status || "single",
+};
 }
 
 async function getPlacePhoto({ locationText, titleText, selectedPlace }) {
@@ -504,6 +505,7 @@ export default function Goals() {
   const [statusFilter, setStatusFilter] = React.useState("all");
   const [openActionsId, setOpenActionsId] = React.useState(null);
   const [currentUserId, setCurrentUserId] = React.useState(null);
+  const [relationshipStatus, setRelationshipStatus] = React.useState("single");
 
   const [showGoalModal, setShowGoalModal] = React.useState(false);
   const [showEventModal, setShowEventModal] = React.useState(false);
@@ -561,12 +563,32 @@ export default function Goals() {
   }, [eventLocation]);
 
   const loadGoals = React.useCallback(async () => {
-    const currentUser = await getCurrentProfileUser();
-    if (!currentUser) return;
+  const currentUser = await getCurrentProfileUser();
+  if (!currentUser) return;
 
-    setCurrentUserId(currentUser.id);
+  setCurrentUserId(currentUser.id);
+  setRelationshipStatus(currentUser.relationship_status);
 
-    const coupleId = currentUser.couple_profile_id;
+  const coupleId = currentUser.couple_profile_id;
+
+  if (currentUser.relationship_status !== "date_locked") {
+    let deleteQuery = supabase.from("couple_goals").delete();
+
+    if (coupleId) {
+      deleteQuery = deleteQuery.eq("couple_profile_id", coupleId);
+    } else {
+      deleteQuery = deleteQuery.eq("owner_id", currentUser.id);
+    }
+
+    const { error: deleteError } = await deleteQuery;
+
+    if (deleteError) {
+      console.error("RESET GOALS ERROR:", deleteError);
+    }
+
+    setItems([]);
+    return;
+  }
 
     let query = supabase
       .from("couple_goals")
@@ -748,6 +770,10 @@ export default function Goals() {
     }
 
     const currentUser = await getCurrentProfileUser();
+    if (currentUser?.relationship_status !== "date_locked") {
+    alert("Goals can only be set when your status is Date-Locked.");
+    return;
+    }
 
     if (!currentUser?.id) {
       alert("User profile not loaded.");
