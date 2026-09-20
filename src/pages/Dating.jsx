@@ -1,11 +1,19 @@
 import React from "react";
+
 import { supabase } from "@/lib/supabase";
+
 import { Button } from "@/components/ui/button";
+
 import { Loader2 } from "lucide-react";
+
 import { generateId } from "@/lib/generateId";
+
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+
 import { Card, CardContent } from "@/components/ui/card";
+
 import { Badge } from "@/components/ui/badge";
+
 import {
   Camera,
   Eye,
@@ -27,10 +35,15 @@ import {
   Shield,
   Zap,
 } from "lucide-react";
+
 import { toast } from "sonner";
+
 import { motion, AnimatePresence } from "framer-motion";
+
 import { Link, useLocation } from "react-router-dom";
+
 import { createPageUrl } from "@/utils";
+
 import {
   FEATURE_KEYS,
   checkDailyLimit,
@@ -39,6 +52,7 @@ import {
 } from "@/lib/monetization";
 
 const STORAGE_BUCKET = "dating-wall-media";
+
 const FREE_DAILY_POST_LIMIT = 2;
 
 const navItems = [
@@ -66,14 +80,19 @@ const ROMANTIC_MESSAGES = [
 
 function getFiveHourMessage() {
   const now = new Date();
-  const bucket = Math.floor(now.getTime() / (5 * 60 * 60 * 1000));
+  const bucket = Math.floor(
+    now.getTime() / (5 * 60 * 60 * 1000)
+  );
+
   return ROMANTIC_MESSAGES[bucket % ROMANTIC_MESSAGES.length];
 }
 
 function getNextFiveHourRefreshMs() {
   const now = Date.now();
   const windowMs = 5 * 60 * 60 * 1000;
-  const nextBoundary = Math.ceil(now / windowMs) * windowMs;
+  const nextBoundary =
+    Math.ceil(now / windowMs) * windowMs;
+
   return Math.max(nextBoundary - now, 1000);
 }
 
@@ -85,7 +104,9 @@ function isPremiumUser(user) {
 
     const expiryDate = new Date(user.subscription_expires);
 
-    if (Number.isNaN(expiryDate.getTime())) return false;
+    if (Number.isNaN(expiryDate.getTime())) {
+      return false;
+    }
 
     return expiryDate.getTime() > Date.now();
   }
@@ -100,6 +121,7 @@ async function getCurrentDatingUser() {
   } = await supabase.auth.getUser();
 
   if (error) throw error;
+
   if (!user) return false;
 
   const { data: profile } = await supabase
@@ -122,57 +144,116 @@ async function getCurrentDatingUser() {
 }
 
 async function compressImage(file) {
-  if (!file.type.startsWith("image/")) return file;
+  if (!file.type.startsWith("image/")) {
+    return file;
+  }
 
   const imageBitmap = await createImageBitmap(file);
+
   const maxWidth = 1080;
-  const scale = Math.min(1, maxWidth / imageBitmap.width);
+
+  const scale = Math.min(
+    1,
+    maxWidth / imageBitmap.width
+  );
 
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(imageBitmap.width * scale);
-  canvas.height = Math.round(imageBitmap.height * scale);
+
+  canvas.width = Math.round(
+    imageBitmap.width * scale
+  );
+
+  canvas.height = Math.round(
+    imageBitmap.height * scale
+  );
 
   const ctx = canvas.getContext("2d");
-  ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+
+  if (!ctx) {
+    imageBitmap.close();
+    return file;
+  }
+
+  ctx.drawImage(
+    imageBitmap,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  imageBitmap.close();
 
   const blob = await new Promise((resolve) => {
-    canvas.toBlob(resolve, "image/jpeg", 0.75);
+    canvas.toBlob(
+      resolve,
+      "image/jpeg",
+      0.75
+    );
   });
 
-  if (!blob) return file;
+  if (!blob) {
+    return file;
+  }
 
-  return new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
-    type: "image/jpeg",
-  });
+  return new File(
+    [blob],
+    file.name.replace(/\.[^/.]+$/, ".jpg"),
+    {
+      type: "image/jpeg",
+    }
+  );
 }
 
 async function uploadDatingFile(file) {
-  if (!file) throw new Error("No file selected");
+  if (!file) {
+    throw new Error("No file selected");
+  }
 
   const isImage = file.type.startsWith("image/");
-  const ext = isImage ? "jpg" : file.name.split(".").pop()?.toLowerCase() || "mp4";
-  const folder = isImage ? "dating/photos" : "dating/videos";
-  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+  const ext = isImage
+    ? "jpg"
+    : file.name.split(".").pop()?.toLowerCase() || "mp4";
+
+  const folder = isImage
+    ? "dating/photos"
+    : "dating/videos";
+
+  const fileName = `${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}.${ext}`;
+
   const filePath = `${folder}/${fileName}`;
 
-  const preparedFile = isImage ? await compressImage(file) : file;
+  const preparedFile = isImage
+    ? await compressImage(file)
+    : file;
 
   const { data, error } = await supabase.storage
     .from(STORAGE_BUCKET)
     .upload(filePath, preparedFile, {
       cacheControl: "31536000",
-      contentType: preparedFile.type || file.type || undefined,
+      contentType:
+        preparedFile.type ||
+        file.type ||
+        undefined,
       upsert: false,
     });
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
 
-  const { data: publicUrlData } = supabase.storage
-    .from(STORAGE_BUCKET)
-    .getPublicUrl(data.path);
+  const { data: publicUrlData } =
+    supabase.storage
+      .from(STORAGE_BUCKET)
+      .getPublicUrl(data.path);
 
   if (!publicUrlData?.publicUrl) {
-    throw new Error("Upload succeeded but no public URL was returned");
+    throw new Error(
+      "Upload succeeded but no public URL was returned"
+    );
   }
 
   return {
@@ -188,9 +269,12 @@ const wallApi = {
         .from("dating_wall_content")
         .select("*")
         .eq("owner_email", email)
-        .order("created_at", { ascending: false });
+        .order("created_at", {
+          ascending: false,
+        });
 
       if (error) throw error;
+
       return data || [];
     },
 
@@ -198,9 +282,12 @@ const wallApi = {
       const { data, error } = await supabase
         .from("dating_wall_content")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", {
+          ascending: false,
+        });
 
       if (error) throw error;
+
       return data || [];
     },
 
@@ -211,6 +298,7 @@ const wallApi = {
         .eq("id", contentId);
 
       if (error) throw error;
+
       return true;
     },
 
@@ -219,16 +307,21 @@ const wallApi = {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) throw new Error("User not loaded");
+      if (!user) {
+        throw new Error("User not loaded");
+      }
 
-      const { error } = await supabase.from("dating_wall_reports").insert({
-        content_id: contentId,
-        reporter_id: user.id,
-        reporter_email: user.email,
-        reason,
-      });
+      const { error } = await supabase
+        .from("dating_wall_reports")
+        .insert({
+          content_id: contentId,
+          reporter_id: user.id,
+          reporter_email: user.email,
+          reason,
+        });
 
       if (error) throw error;
+
       return true;
     },
 
@@ -237,7 +330,9 @@ const wallApi = {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) throw new Error("User not loaded");
+      if (!user) {
+        throw new Error("User not loaded");
+      }
 
       const items = payload.media.map((item) => ({
         owner_id: user.id,
@@ -273,6 +368,7 @@ const wallApi = {
         .select("*");
 
       if (error) throw error;
+
       return data || [];
     },
 
@@ -281,7 +377,9 @@ const wallApi = {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) throw new Error("User not loaded");
+      if (!user) {
+        throw new Error("User not loaded");
+      }
 
       const { data: existing } = await supabase
         .from("dating_wall_reactions")
@@ -299,12 +397,14 @@ const wallApi = {
 
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("dating_wall_reactions").insert({
-          content_id: contentId,
-          user_id: user.id,
-          user_email: user.email,
-          reaction_type: reactionType,
-        });
+        const { error } = await supabase
+          .from("dating_wall_reactions")
+          .insert({
+            content_id: contentId,
+            user_id: user.id,
+            user_email: user.email,
+            reaction_type: reactionType,
+          });
 
         if (error) throw error;
       }
@@ -314,7 +414,12 @@ const wallApi = {
   },
 };
 
-function Modal({ open, onClose, title, children }) {
+function Modal({
+  open,
+  onClose,
+  title,
+  children,
+}) {
   if (!open) return null;
 
   return (
@@ -322,11 +427,15 @@ function Modal({ open, onClose, title, children }) {
       <div className="w-full max-w-[390px] overflow-hidden rounded-[20px] border border-[#ece6ea] bg-[#f7f3f6] shadow-[0_12px_30px_rgba(15,23,42,0.14)]">
         <div className="border-b border-slate-200 bg-[#f8f6f7] px-4 py-4">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
+            <h3 className="text-lg font-semibold text-slate-800">
+              {title}
+            </h3>
+
             <button
               type="button"
               onClick={onClose}
               className="rounded-[10px] p-1.5 transition hover:bg-slate-100"
+              aria-label="Close"
             >
               <X className="h-5 w-5 text-slate-600" />
             </button>
@@ -341,24 +450,35 @@ function Modal({ open, onClose, title, children }) {
   );
 }
 
-function FloatingUploadButton({ disabled = false, onClick }) {
+function FloatingUploadButton({
+  disabled = false,
+  onClick,
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       className={`group fixed bottom-28 right-6 z-40 ${
-        disabled ? "pointer-events-none opacity-60" : ""
+        disabled
+          ? "pointer-events-none opacity-60"
+          : ""
       }`}
       aria-label="Open upload modal"
     >
       <div className="relative">
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-[0_10px_22px_rgba(244,63,94,0.25)] transition-all duration-200 group-hover:scale-[1.03] group-hover:from-rose-600 group-hover:to-pink-600">
-          <Camera className="h-6 w-6" strokeWidth={2.2} />
+          <Camera
+            className="h-6 w-6"
+            strokeWidth={2.2}
+          />
         </div>
 
         <div className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full border border-white/80 bg-white shadow-[0_6px_16px_rgba(15,23,42,0.12)]">
-          <Plus className="h-3.5 w-3.5 text-rose-500" strokeWidth={2.4} />
+          <Plus
+            className="h-3.5 w-3.5 text-rose-500"
+            strokeWidth={2.4}
+          />
         </div>
       </div>
     </button>
@@ -373,8 +493,12 @@ function BottomNav() {
       <div className="mx-auto grid w-full max-w-[390px] grid-cols-7 gap-0.5 px-2">
         {navItems.map((item) => {
           const href = createPageUrl(item.page);
+
           const active =
-            location.pathname === href || (href === "/" && location.pathname === "/");
+            location.pathname === href ||
+            (href === "/" &&
+              location.pathname === "/");
+
           const Icon = item.icon;
 
           return (
@@ -382,18 +506,25 @@ function BottomNav() {
               key={item.label}
               to={href}
               className={`flex min-h-[50px] flex-col items-center justify-center rounded-[14px] px-1 py-1 transition ${
-                active ? "bg-[#fdecef]" : "bg-transparent"
+                active
+                  ? "bg-[#fdecef]"
+                  : "bg-transparent"
               }`}
             >
               <Icon
                 className={`mb-0.5 h-[18px] w-[18px] ${
-                  active ? "text-[#ef4f75]" : "text-slate-400"
+                  active
+                    ? "text-[#ef4f75]"
+                    : "text-slate-400"
                 }`}
                 strokeWidth={2}
               />
+
               <span
                 className={`truncate text-[8px] leading-none tracking-[-0.01em] ${
-                  active ? "font-semibold text-[#ef4f75]" : "font-medium text-slate-400"
+                  active
+                    ? "font-semibold text-[#ef4f75]"
+                    : "font-medium text-slate-400"
                 }`}
               >
                 {item.label}
@@ -409,43 +540,96 @@ function BottomNav() {
 export default function Dating() {
   const queryClient = useQueryClient();
 
-  const [user, setUser] = React.useState(undefined);
-  const [isUploading, setIsUploading] = React.useState(false);
-  const [uploadProgressText, setUploadProgressText] = React.useState("");
-  const [showMyContent, setShowMyContent] = React.useState(false);
-  const [zoomedImage, setZoomedImage] = React.useState(null);
-  const [activeVideo, setActiveVideo] = React.useState(null);
-  const [dailyAdvice, setDailyAdvice] = React.useState("");
-  const [showAdvice, setShowAdvice] = React.useState(true);
-  const [openMenuId, setOpenMenuId] = React.useState(null);
-  const [showAddModal, setShowAddModal] = React.useState(false);
-  const [showSubscriptionModal, setShowSubscriptionModal] = React.useState(false);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [processingPlan, setProcessingPlan] = React.useState(null);
-  const [limitInfo, setLimitInfo] = React.useState(null);
-  const [newPost, setNewPost] = React.useState({
-    caption: "",
-    location: "",
-    media: [],
-  });
+  const [user, setUser] =
+    React.useState(undefined);
 
-  const [myContentState, setMyContentState] = React.useState([]);
-  const [publicContentState, setPublicContentState] = React.useState([]);
-  const [allReactionsState, setAllReactionsState] = React.useState([]);
-  const recordedViewIdsRef = React.useRef(new Set());
+  const [isUploading, setIsUploading] =
+    React.useState(false);
 
-  const premiumActive = isPremiumUser(user);
+  const [uploadProgressText, setUploadProgressText] =
+    React.useState("");
+
+  const [showMyContent, setShowMyContent] =
+    React.useState(false);
+
+  const [zoomedImage, setZoomedImage] =
+    React.useState(null);
+
+  const [activeVideo, setActiveVideo] =
+    React.useState(null);
+
+  const [dailyAdvice, setDailyAdvice] =
+    React.useState("");
+
+  const [showAdvice, setShowAdvice] =
+    React.useState(true);
+
+  const [openMenuId, setOpenMenuId] =
+    React.useState(null);
+
+  const [showAddModal, setShowAddModal] =
+    React.useState(false);
+
+  const [
+    showSubscriptionModal,
+    setShowSubscriptionModal,
+  ] = React.useState(false);
+
+  const [isSubmitting, setIsSubmitting] =
+    React.useState(false);
+
+  const [processingPlan, setProcessingPlan] =
+    React.useState(null);
+
+  const [limitInfo, setLimitInfo] =
+    React.useState(null);
+
+  const [newPost, setNewPost] =
+    React.useState({
+      caption: "",
+      location: "",
+      media: [],
+    });
+
+  const [myContentState, setMyContentState] =
+    React.useState([]);
+
+  const [
+    publicContentState,
+    setPublicContentState,
+  ] = React.useState([]);
+
+  const [
+    allReactionsState,
+    setAllReactionsState,
+  ] = React.useState([]);
+
+  const recordedViewIdsRef =
+    React.useRef(new Set());
+
+  const premiumActive =
+    isPremiumUser(user);
 
   React.useEffect(() => {
     let mounted = true;
 
     (async () => {
       try {
-        const currentUser = await getCurrentDatingUser();
-        if (mounted) setUser(currentUser);
+        const currentUser =
+          await getCurrentDatingUser();
+
+        if (mounted) {
+          setUser(currentUser);
+        }
       } catch (error) {
-        console.error("Failed to load user:", error);
-        if (mounted) setUser(false);
+        console.error(
+          "Failed to load user:",
+          error
+        );
+
+        if (mounted) {
+          setUser(false);
+        }
       }
     })();
 
@@ -455,16 +639,27 @@ export default function Dating() {
   }, []);
 
   React.useEffect(() => {
-    if (!user?.email || premiumActive) return;
+    if (!user?.email || premiumActive) {
+      return;
+    }
 
     let mounted = true;
 
     (async () => {
       try {
-        const result = await checkDailyLimit(FEATURE_KEYS.DATING_WALL_POST);
-        if (mounted) setLimitInfo(result);
+        const result =
+          await checkDailyLimit(
+            FEATURE_KEYS.DATING_WALL_POST
+          );
+
+        if (mounted) {
+          setLimitInfo(result);
+        }
       } catch (error) {
-        console.error("Daily limit check failed:", error);
+        console.error(
+          "Daily limit check failed:",
+          error
+        );
       }
     })();
 
@@ -474,74 +669,149 @@ export default function Dating() {
   }, [user?.email, premiumActive]);
 
   React.useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const status = urlParams.get("status");
-    const token = urlParams.get("token");
-    const plan = urlParams.get("plan");
+    const urlParams =
+      new URLSearchParams(
+        window.location.search
+      );
 
-    if (status === "success" && token && plan) {
+    const status =
+      urlParams.get("status");
+
+    const token =
+      urlParams.get("token");
+
+    const plan =
+      urlParams.get("plan");
+
+    if (
+      status === "success" &&
+      token &&
+      plan
+    ) {
       capturePayment(token, plan);
-    } else if (status === "cancelled") {
-      toast.error("Payment was cancelled.");
-      window.history.replaceState({}, "", createPageUrl("Dating"));
+    } else if (
+      status === "cancelled"
+    ) {
+      toast.error(
+        "Payment was cancelled."
+      );
+
+      window.history.replaceState(
+        {},
+        "",
+        createPageUrl("Dating")
+      );
     }
   }, []);
 
-  const handlePayPalPayment = async (plan) => {
-    setProcessingPlan(plan);
+  const handlePayPalPayment =
+    async (plan) => {
+      setProcessingPlan(plan);
 
-    try {
-      const { data, error } = await supabase.functions.invoke("createPayPalPayment", {
-        body: {
-          plan,
-          returnPage: "Dating",
-        },
-      });
+      try {
+        const { data, error } =
+          await supabase.functions.invoke(
+            "createPayPalPayment",
+            {
+              body: {
+                plan,
+                returnPage: "Dating",
+              },
+            }
+          );
 
-      if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
-      if (data?.success && data?.approvalUrl) {
-        window.location.href = data.approvalUrl;
-        return;
+        if (
+          data?.success &&
+          data?.approvalUrl
+        ) {
+          window.location.href =
+            data.approvalUrl;
+
+          return;
+        }
+
+        toast.error(
+          "Payment initialization failed. Please try again."
+        );
+
+        setProcessingPlan(null);
+      } catch (error) {
+        console.error(
+          "Payment error:",
+          error
+        );
+
+        toast.error(
+          error?.message ||
+            "Payment failed. Please try again."
+        );
+
+        setProcessingPlan(null);
       }
+    };
 
-      toast.error("Payment initialization failed. Please try again.");
-      setProcessingPlan(null);
-    } catch (error) {
-      console.error("Payment error:", error);
-      toast.error(error?.message || "Payment failed. Please try again.");
-      setProcessingPlan(null);
-    }
-  };
-
-  const capturePayment = async (token, plan) => {
+  const capturePayment = async (
+    token,
+    plan
+  ) => {
     setProcessingPlan(plan);
 
     try {
-      const { data, error } = await supabase.functions.invoke("capturePayPalPayment", {
-        body: {
-          orderId: token,
-          plan,
-        },
-      });
+      const { data, error } =
+        await supabase.functions.invoke(
+          "capturePayPalPayment",
+          {
+            body: {
+              orderId: token,
+              plan,
+            },
+          }
+        );
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       if (data?.success) {
-        toast.success("Subscription activated successfully");
+        toast.success(
+          "Subscription activated successfully"
+        );
 
-        const refreshedUser = await getCurrentDatingUser();
+        const refreshedUser =
+          await getCurrentDatingUser();
+
         setUser(refreshedUser);
 
-        window.history.replaceState({}, "", createPageUrl("Dating"));
-        setShowSubscriptionModal(false);
+        window.history.replaceState(
+          {},
+          "",
+          createPageUrl("Dating")
+        );
+
+        setShowSubscriptionModal(
+          false
+        );
+
         return;
       }
 
-      toast.error("Payment capture failed. Please contact support.");
+      toast.error(
+        "Payment capture failed. Please contact support."
+      );
     } catch (error) {
-      console.error("Capture error:", error);
-      toast.error(error?.message || "Payment processing failed.");
+      console.error(
+        "Capture error:",
+        error
+      );
+
+      toast.error(
+        error?.message ||
+          "Payment processing failed."
+      );
     } finally {
       setProcessingPlan(null);
     }
@@ -558,8 +828,15 @@ export default function Dating() {
           table: "dating_wall_content",
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["publicDateContent"] });
-          queryClient.invalidateQueries({ queryKey: ["myDateContent"] });
+          queryClient.invalidateQueries({
+            queryKey: [
+              "publicDateContent",
+            ],
+          });
+
+          queryClient.invalidateQueries({
+            queryKey: ["myDateContent"],
+          });
         }
       )
       .on(
@@ -570,7 +847,11 @@ export default function Dating() {
           table: "dating_wall_reactions",
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["contentReactions"] });
+          queryClient.invalidateQueries({
+            queryKey: [
+              "contentReactions",
+            ],
+          });
         }
       )
       .subscribe();
@@ -581,10 +862,15 @@ export default function Dating() {
   }, [queryClient]);
 
   React.useEffect(() => {
-    const updateMessage = () => setDailyAdvice(getFiveHourMessage());
+    const updateMessage = () =>
+      setDailyAdvice(
+        getFiveHourMessage()
+      );
+
     updateMessage();
 
     let timer;
+
     const schedule = () => {
       timer = setTimeout(() => {
         updateMessage();
@@ -594,190 +880,400 @@ export default function Dating() {
 
     schedule();
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+    };
   }, []);
 
   React.useEffect(() => {
-    const onDocClick = () => setOpenMenuId(null);
-    document.addEventListener("click", onDocClick);
+    const onDocClick = () =>
+      setOpenMenuId(null);
 
-    return () => document.removeEventListener("click", onDocClick);
+    document.addEventListener(
+      "click",
+      onDocClick
+    );
+
+    return () =>
+      document.removeEventListener(
+        "click",
+        onDocClick
+      );
   }, []);
 
-  const { data: myContent = [] } = useQuery({
-    queryKey: ["myDateContent", user?.email],
-    queryFn: () => wallApi.content.listMine(user.email),
-    enabled: !!user?.email && showMyContent,
-  });
+  const { data: myContent = [] } =
+    useQuery({
+      queryKey: [
+        "myDateContent",
+        user?.email,
+      ],
+      queryFn: () =>
+        wallApi.content.listMine(
+          user.email
+        ),
+      enabled:
+        !!user?.email &&
+        showMyContent,
+    });
 
-  const { data: publicContent = [], isLoading: publicLoading } = useQuery({
-    queryKey: ["publicDateContent"],
-    queryFn: () => wallApi.content.listPublic(),
+  const {
+    data: publicContent = [],
+    isLoading: publicLoading,
+  } = useQuery({
+    queryKey: [
+      "publicDateContent",
+    ],
+    queryFn: () =>
+      wallApi.content.listPublic(),
     enabled: !!user?.email,
     refetchInterval: false,
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: allReactions = [] } = useQuery({
-    queryKey: ["contentReactions"],
-    queryFn: () => wallApi.reactions.list(),
-    enabled: !!user?.email,
-    refetchInterval: isUploading || isSubmitting ? false : 15000,
-  });
+  const { data: allReactions = [] } =
+    useQuery({
+      queryKey: [
+        "contentReactions",
+      ],
+      queryFn: () =>
+        wallApi.reactions.list(),
+      enabled: !!user?.email,
+      refetchInterval:
+        isUploading || isSubmitting
+          ? false
+          : 15000,
+    });
 
   React.useEffect(() => {
     setMyContentState(myContent);
   }, [myContent]);
 
   React.useEffect(() => {
-    setPublicContentState(publicContent);
+    setPublicContentState(
+      publicContent
+    );
   }, [publicContent]);
 
   React.useEffect(() => {
-    setAllReactionsState(allReactions);
+    setAllReactionsState(
+      allReactions
+    );
   }, [allReactions]);
 
-    const handleView = async (contentId) => {
-    if (!user?.id) return;
-
-    const content = publicContentState.find(
-      (item) => item.id === contentId
-    );
-
-    if (!content || content.owner_id === user.id) return;
-
-    if (recordedViewIdsRef.current.has(contentId)) return;
-
-    const { error } = await supabase.rpc("record_dating_wall_view", {
-      p_content_id: contentId,
-    });
-
-    if (error) {
-      console.error("Failed to record Dating wall view:", error);
+  const handleView = async (
+    contentId
+  ) => {
+    if (!user?.id) {
       return;
     }
 
-    recordedViewIdsRef.current.add(contentId);
+    const content =
+      publicContentState.find(
+        (item) =>
+          item.id === contentId
+      );
+
+    if (
+      !content ||
+      content.owner_id === user.id
+    ) {
+      return;
+    }
+
+    if (
+      recordedViewIdsRef.current.has(
+        contentId
+      )
+    ) {
+      return;
+    }
+
+    const { error } =
+      await supabase.rpc(
+        "record_dating_wall_view",
+        {
+          p_content_id: contentId,
+        }
+      );
+
+    if (error) {
+      console.error(
+        "Failed to record Dating wall view:",
+        error
+      );
+
+      return;
+    }
+
+    recordedViewIdsRef.current.add(
+      contentId
+    );
 
     queryClient.invalidateQueries({
-      queryKey: ["publicDateContent"],
+      queryKey: [
+        "publicDateContent",
+      ],
     });
   };
 
-  const handleReaction = async (contentId, reactionType) => {
+  const handleReaction = async (
+    contentId,
+    reactionType
+  ) => {
     try {
-      await wallApi.reactions.toggle({ contentId, reactionType });
+      await wallApi.reactions.toggle({
+        contentId,
+        reactionType,
+      });
 
-      setAllReactionsState((current) => {
-        const existing = current.find(
-          (r) =>
-            r.content_id === contentId &&
-            r.user_email === user?.email &&
-            r.reaction_type === reactionType
-        );
+      setAllReactionsState(
+        (current) => {
+          const existing =
+            current.find(
+              (reaction) =>
+                reaction.content_id ===
+                  contentId &&
+                reaction.user_email ===
+                  user?.email &&
+                reaction.reaction_type ===
+                  reactionType
+            );
 
-        if (existing) {
-          return current.filter((r) => r.id !== existing.id);
+          if (existing) {
+            return current.filter(
+              (reaction) =>
+                reaction.id !==
+                existing.id
+            );
+          }
+
+          return [
+            ...current,
+            {
+              id: generateId(),
+              content_id: contentId,
+              user_email: user?.email,
+              reaction_type:
+                reactionType,
+            },
+          ];
         }
+      );
 
-        return [
-          ...current,
-          {
-            id: generateId(),
-            content_id: contentId,
-            user_email: user?.email,
-            reaction_type: reactionType,
-          },
-        ];
+      queryClient.invalidateQueries({
+        queryKey: [
+          "contentReactions",
+        ],
+      });
+    } catch (error) {
+      console.error(
+        "Failed to react:",
+        error
+      );
+
+      toast.error(
+        "Failed to react"
+      );
+    }
+  };
+
+  const handleDelete = async (
+    contentId
+  ) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this content?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await wallApi.content.remove(
+        contentId
+      );
+
+      setMyContentState(
+        (current) =>
+          current.filter(
+            (x) => x.id !== contentId
+          )
+      );
+
+      setPublicContentState(
+        (current) =>
+          current.filter(
+            (x) => x.id !== contentId
+          )
+      );
+
+      toast.success(
+        "Content deleted"
+      );
+
+      queryClient.invalidateQueries({
+        queryKey: [
+          "myDateContent",
+        ],
       });
 
       queryClient.invalidateQueries({
-        queryKey: ["contentReactions"],
+        queryKey: [
+          "publicDateContent",
+        ],
       });
-    } catch {
-      toast.error("Failed to react");
+    } catch (error) {
+      console.error(
+        "Failed to delete content:",
+        error
+      );
+
+      toast.error(
+        "Failed to delete content"
+      );
     }
   };
 
-  const handleDelete = async (contentId) => {
-    if (!window.confirm("Are you sure you want to delete this content?")) return;
-
-    try {
-      await wallApi.content.remove(contentId);
-      setMyContentState((current) => current.filter((x) => x.id !== contentId));
-      setPublicContentState((current) => current.filter((x) => x.id !== contentId));
-      toast.success("Content deleted");
-      queryClient.invalidateQueries({ queryKey: ["myDateContent"] });
-      queryClient.invalidateQueries({ queryKey: ["publicDateContent"] });
-    } catch {
-      toast.error("Failed to delete content");
-    }
-  };
-
-  const handleQuickReport = async (content) => {
+  const handleQuickReport = async (
+    content
+  ) => {
     try {
       await wallApi.content.report({
         contentId: content.id,
         reason: "inappropriate",
       });
-      toast.success("Content reported");
-    } catch {
-      toast.error("Failed to report content");
+
+      toast.success(
+        "Content reported"
+      );
+    } catch (error) {
+      console.error(
+        "Failed to report content:",
+        error
+      );
+
+      toast.error(
+        "Failed to report content"
+      );
     }
   };
 
-  const handleMediaUpload = async (event) => {
-    const files = Array.from(event.target.files || []);
+  const handleMediaUpload = async (
+    event
+  ) => {
+    const files = Array.from(
+      event.target.files || []
+    );
+
     event.target.value = "";
 
-    if (!files.length) return;
-
-    if (!user?.email) {
-      toast.error("User not loaded yet");
+    if (!files.length) {
       return;
     }
 
-    const validFiles = files.filter((file) => {
-      const isImage = file.type.startsWith("image/");
-      const isVideo = file.type.startsWith("video/");
+    if (!user?.email) {
+      toast.error(
+        "User not loaded yet"
+      );
 
-      if (!isImage && !isVideo) {
-        toast.error(`${file.name} is not supported.`);
-        return false;
-      }
+      return;
+    }
 
-      if (isVideo && file.size > 25 * 1024 * 1024) {
-        toast.error(`${file.name} is too large. Max video size is 25MB.`);
-        return false;
-      }
+    const validFiles =
+      files.filter((file) => {
+        const isImage =
+          file.type.startsWith(
+            "image/"
+          );
 
-      return true;
-    });
+        const isVideo =
+          file.type.startsWith(
+            "video/"
+          );
 
-    if (!validFiles.length) return;
+        if (!isImage && !isVideo) {
+          toast.error(
+            `${file.name} is not supported.`
+          );
+
+          return false;
+        }
+
+        if (
+          isVideo &&
+          file.size >
+            25 * 1024 * 1024
+        ) {
+          toast.error(
+            `${file.name} is too large. Max video size is 25MB.`
+          );
+
+          return false;
+        }
+
+        return true;
+      });
+
+    if (!validFiles.length) {
+      return;
+    }
 
     setIsUploading(true);
+
     setUploadProgressText(
-      `Uploading ${validFiles.length} file${validFiles.length > 1 ? "s" : ""}...`
+      `Uploading ${validFiles.length} file${
+        validFiles.length > 1
+          ? "s"
+          : ""
+      }...`
     );
 
     try {
-      const uploaded = await Promise.all(validFiles.map((file) => uploadDatingFile(file)));
+      const uploaded =
+        await Promise.all(
+          validFiles.map((file) =>
+            uploadDatingFile(file)
+          )
+        );
 
       setNewPost((prev) => {
-        const existingUrls = new Set(prev.media.map((item) => item.url));
-        const nextMedia = uploaded.filter((item) => !existingUrls.has(item.url));
+        const existingUrls =
+          new Set(
+            prev.media.map(
+              (item) => item.url
+            )
+          );
+
+        const nextMedia =
+          uploaded.filter(
+            (item) =>
+              !existingUrls.has(
+                item.url
+              )
+          );
 
         return {
           ...prev,
-          media: [...prev.media, ...nextMedia],
+          media: [
+            ...prev.media,
+            ...nextMedia,
+          ],
         };
       });
 
-      toast.success("Media ready");
+      toast.success(
+        "Media ready"
+      );
     } catch (error) {
-      console.error("Media upload failed:", error);
-      toast.error(error?.message || "Upload failed");
+      console.error(
+        "Media upload failed:",
+        error
+      );
+
+      toast.error(
+        error?.message ||
+          "Upload failed"
+      );
     } finally {
       setIsUploading(false);
       setUploadProgressText("");
@@ -787,84 +1283,163 @@ export default function Dating() {
   const removeMedia = (index) => {
     setNewPost((prev) => ({
       ...prev,
-      media: prev.media.filter((_, i) => i !== index),
+      media: prev.media.filter(
+        (_, i) => i !== index
+      ),
     }));
   };
 
   const handleSavePost = async () => {
     if (!user?.email) {
-      toast.error("User not loaded yet");
+      toast.error(
+        "User not loaded yet"
+      );
+
       return;
     }
 
-    const cleanName = user?.full_name?.trim();
+    const cleanName =
+      user?.full_name?.trim();
 
-    if (!cleanName || cleanName === user.email?.split("@")[0]) {
-      toast.error("Complete your profile name before posting");
+    if (
+      !cleanName ||
+      cleanName ===
+        user.email?.split("@")[0]
+    ) {
+      toast.error(
+        "Complete your profile name before posting"
+      );
+
       return;
     }
 
-    if (!newPost.caption.trim() && newPost.media.length === 0) {
-      toast.error("Add media or a caption before saving");
+    if (
+      !newPost.caption.trim() &&
+      newPost.media.length === 0
+    ) {
+      toast.error(
+        "Add media or a caption before saving"
+      );
+
       return;
     }
 
-    if (isSubmitting || isUploading) return;
+    if (
+      isSubmitting ||
+      isUploading
+    ) {
+      return;
+    }
 
     setIsSubmitting(true);
 
     try {
       if (!premiumActive) {
-        const limitResult = await consumeDailyLimit(FEATURE_KEYS.DATING_WALL_POST);
+        const limitResult =
+          await consumeDailyLimit(
+            FEATURE_KEYS.DATING_WALL_POST
+          );
 
         if (!limitResult?.allowed) {
-          setShowSubscriptionModal(true);
-          toast.error(`Daily free limit reached. Free users get ${FREE_DAILY_POST_LIMIT} Dating posts per day.`);
+          setShowSubscriptionModal(
+            true
+          );
+
+          toast.error(
+            `Daily free limit reached. Free users get ${FREE_DAILY_POST_LIMIT} Dating posts per day.`
+          );
+
           return;
         }
 
-        setLimitInfo(limitResult);
+        setLimitInfo(
+          limitResult
+        );
       }
 
-      const result = await wallApi.content.createMany({
-        owner_email: user.email,
-        owner_name: cleanName,
-        caption: newPost.caption.trim(),
-        location: newPost.location.trim(),
-        media: newPost.media,
-      });
+      const result =
+        await wallApi.content.createMany({
+          owner_email: user.email,
+          owner_name: cleanName,
+          caption:
+            newPost.caption.trim(),
+          location:
+            newPost.location.trim(),
+          media: newPost.media,
+        });
 
-      if (!result?.success || !Array.isArray(result.items)) {
-        toast.error("Upload failed");
+      if (
+        !result?.success ||
+        !Array.isArray(result.items)
+      ) {
+        toast.error(
+          "Upload failed"
+        );
+
         return;
       }
 
-      const createdItems = result.items;
-      setPublicContentState((current) => [...createdItems, ...current]);
+      const createdItems =
+        result.items;
+
+      setPublicContentState(
+        (current) => [
+          ...createdItems,
+          ...current,
+        ]
+      );
 
       if (showMyContent) {
-        setMyContentState((current) => [...createdItems, ...current]);
+        setMyContentState(
+          (current) => [
+            ...createdItems,
+            ...current,
+          ]
+        );
       }
 
       try {
-        await awardCouplePoints?.("DATING_WALL_POST", 5);
+        await awardCouplePoints?.(
+          "DATING_WALL_POST",
+          5
+        );
       } catch {
         // Points must never block posting.
       }
 
-      toast.success("Post uploaded successfully");
-      queryClient.invalidateQueries({ queryKey: ["publicDateContent"] });
-      queryClient.invalidateQueries({ queryKey: ["myDateContent"] });
+      toast.success(
+        "Post uploaded successfully"
+      );
+
+      queryClient.invalidateQueries({
+        queryKey: [
+          "publicDateContent",
+        ],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: [
+          "myDateContent",
+        ],
+      });
 
       setShowAddModal(false);
+
       setNewPost({
         caption: "",
         location: "",
         media: [],
       });
     } catch (error) {
-      console.error("Upload failed:", error);
-      toast.error(error?.message || "Upload failed");
+      console.error(
+        "Upload failed:",
+        error
+      );
+
+      toast.error(
+        error?.message ||
+          "Upload failed"
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -875,62 +1450,81 @@ export default function Dating() {
       <div className="min-h-screen w-screen overflow-x-hidden bg-[#f3edf1] px-0 py-0 pb-[74px]">
         <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-[28px] border border-[#e8e2e7] bg-[#f7f3f6] shadow-[0_12px_40px_rgba(15,23,42,0.10)]">
           <div className="bg-gradient-to-r from-[#5e9cff] via-[#2f6df0] to-[#6aa7ff] px-5 pb-8 pt-7">
-  <div className="flex items-center justify-between gap-3">
-    <div className="min-w-0">
-      <h1 className="truncate text-[22px] font-semibold text-white">
-        Dating
-      </h1>
-    </div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className="truncate text-[22px] font-semibold text-white">
+                  Dating
+                </h1>
+              </div>
 
-    {!premiumActive && (
-      <Button
-        type="button"
-        onClick={() => setShowSubscriptionModal(true)}
-        className="h-10 rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600 px-5 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(168,85,247,0.28)] hover:from-purple-700 hover:to-pink-700"
-      >
-        Upgrade
-      </Button>
-    )}
-  </div>
-</div>
+              {!premiumActive && (
+                <Button
+                  type="button"
+                  onClick={() =>
+                    setShowSubscriptionModal(
+                      true
+                    )
+                  }
+                  className="h-10 rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600 px-5 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(168,85,247,0.28)] hover:from-purple-700 hover:to-pink-700"
+                >
+                  Upgrade
+                </Button>
+              )}
+            </div>
+          </div>
 
           <div className="-mt-7 space-y-4 px-4 pb-6 pt-1">
-
             <AnimatePresence>
-              {showAdvice && dailyAdvice && (
-                <motion.div
-                  initial={{ opacity: 0, y: -16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -16 }}
-                >
-                  <Card className="overflow-hidden rounded-[20px] border border-rose-100 bg-gradient-to-r from-pink-50 via-rose-50 to-red-50 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-400 to-pink-500">
-                          <Sparkles className="h-4 w-4 text-white" />
-                        </div>
+              {showAdvice &&
+                dailyAdvice && (
+                  <motion.div
+                    initial={{
+                      opacity: 0,
+                      y: -16,
+                    }}
+                    animate={{
+                      opacity: 1,
+                      y: 0,
+                    }}
+                    exit={{
+                      opacity: 0,
+                      y: -16,
+                    }}
+                  >
+                    <Card className="overflow-hidden rounded-[20px] border border-rose-100 bg-gradient-to-r from-pink-50 via-rose-50 to-red-50 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-400 to-pink-500">
+                            <Sparkles className="h-4 w-4 text-white" />
+                          </div>
 
-                        <div className="flex-1">
-                          <p className="mb-1 text-xs font-semibold text-rose-600">
-                            💕 Relationship Insight
-                          </p>
-                          <p className="text-sm leading-relaxed text-slate-700">
-                            {dailyAdvice}
-                          </p>
-                        </div>
+                          <div className="flex-1">
+                            <p className="mb-1 text-xs font-semibold text-rose-600">
+                              💕 Relationship Insight
+                            </p>
 
-                        <button
-                          type="button"
-                          onClick={() => setShowAdvice(false)}
-                          className="rounded-[10px] p-1 text-slate-400 transition hover:bg-white hover:text-slate-600"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
+                            <p className="text-sm leading-relaxed text-slate-700">
+                              {dailyAdvice}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowAdvice(
+                                false
+                              )
+                            }
+                            className="rounded-[10px] p-1 text-slate-400 transition hover:bg-white hover:text-slate-600"
+                            aria-label="Close relationship insight"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
             </AnimatePresence>
 
             <div className="space-y-4">
@@ -938,7 +1532,8 @@ export default function Dating() {
                 <div className="flex min-h-[180px] items-center justify-center">
                   <Loader2 className="h-7 w-7 animate-spin text-[#5e9cff]" />
                 </div>
-              ) : publicContentState.length === 0 ? (
+              ) : publicContentState.length ===
+                0 ? (
                 <Card className="rounded-[20px] border border-slate-100 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
                   <CardContent className="p-12 text-center text-slate-500">
                     No public content yet.
@@ -946,135 +1541,235 @@ export default function Dating() {
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 gap-4">
-                  {publicContentState.map((content) => (
-                    <div
-                      key={content.id}
-                      className="overflow-hidden rounded-[20px] bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
-                    >
-                      <div className="relative">
-                        {content.content_type === "VIDEO" ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                            handleView(content.id);
-                            setActiveVideo(content.content_url);
-                            }}
-                            className="block w-full"
-                          >
-                            <div className="relative aspect-[4/5] w-full overflow-hidden bg-black">
-                              <video
-                                src={content.content_url}
-                                preload="metadata"
-                                muted
-                                playsInline
-                                className="h-full w-full object-cover"
-                              />
+                  {publicContentState.map(
+                    (content) => (
+                      <div
+                        key={content.id}
+                        className="overflow-hidden rounded-[20px] bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
+                      >
+                        <div className="relative">
+                          {content.content_type ===
+                          "VIDEO" ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleView(
+                                  content.id
+                                );
 
-                              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/45">
-                                  <Play className="h-6 w-6 text-white" />
+                                setActiveVideo(
+                                  content.content_url
+                                );
+                              }}
+                              className="block w-full"
+                            >
+                              <div className="relative aspect-[4/5] w-full overflow-hidden bg-black">
+                                <video
+                                  src={
+                                    content.content_url
+                                  }
+                                  preload="metadata"
+                                  muted
+                                  playsInline
+                                  className="h-full w-full object-cover"
+                                />
+
+                                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/45">
+                                    <Play className="h-6 w-6 text-white" />
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                            handleView(content.id);
-                            setZoomedImage(content.content_url);
-                            }}
-                            className="block w-full"
-                          >
-                            <div className="relative aspect-[4/5] w-full overflow-hidden bg-black">
-                              <img
-                                src={content.content_url}
-                                alt=""
-                                loading="lazy"
-                                className="h-full w-full object-cover"
-                              />
-                            </div>
-                          </button>
-                        )}
-
-                        {content.owner_email !== user?.email ? (
-                          <div
-                            className="absolute right-3 top-3 z-20"
-                            onClick={(e) => e.stopPropagation()}
-                          >
+                            </button>
+                          ) : (
                             <button
                               type="button"
-                              onClick={() =>
-                                setOpenMenuId((prev) =>
-                                  prev === content.id ? null : content.id
-                                )
-                              }
-                              className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/92 shadow-sm backdrop-blur"
-                              aria-label="Open post options"
-                            >
-                              <MoreHorizontal className="h-5 w-5 text-slate-700" />
-                            </button>
+                              onClick={() => {
+                                handleView(
+                                  content.id
+                                );
 
-                            {openMenuId === content.id && (
-                              <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-[12px] border border-slate-200 bg-white shadow-lg">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleQuickReport(content);
-                                    setOpenMenuId(null);
-                                  }}
-                                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50"
-                                >
-                                  <Flag className="h-4 w-4 text-rose-500" />
-                                  Report Content
-                                </button>
+                                setZoomedImage(
+                                  content.content_url
+                                );
+                              }}
+                              className="block w-full"
+                            >
+                              <div className="relative aspect-[4/5] w-full overflow-hidden bg-black">
+                                <img
+                                  src={
+                                    content.content_url
+                                  }
+                                  alt=""
+                                  loading="lazy"
+                                  className="h-full w-full object-cover"
+                                />
                               </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div
-                            className="absolute right-3 top-3 z-20"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(content.id)}
-                              className="flex h-10 w-10 items-center justify-center rounded-full border border-red-200 bg-white/92 shadow-sm backdrop-blur"
-                              aria-label="Delete post"
-                            >
-                              <MoreHorizontal className="h-5 w-5 text-slate-700" />
                             </button>
+                          )}
+
+                          {content.owner_email !==
+                          user?.email ? (
+                            <div
+                              className="absolute right-3 top-3 z-20"
+                              onClick={(e) =>
+                                e.stopPropagation()
+                              }
+                            >
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setOpenMenuId(
+                                    (prev) =>
+                                      prev ===
+                                      content.id
+                                        ? null
+                                        : content.id
+                                  )
+                                }
+                                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/92 shadow-sm backdrop-blur"
+                                aria-label="Open post options"
+                              >
+                                <MoreHorizontal className="h-5 w-5 text-slate-700" />
+                              </button>
+
+                              {openMenuId ===
+                                content.id && (
+                                <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-[12px] border border-slate-200 bg-white shadow-lg">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleQuickReport(
+                                        content
+                                      );
+
+                                      setOpenMenuId(
+                                        null
+                                      );
+                                    }}
+                                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                  >
+                                    <Flag className="h-4 w-4 text-rose-500" />
+                                    Report Content
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div
+                              className="absolute right-3 top-3 z-20"
+                              onClick={(e) =>
+                                e.stopPropagation()
+                              }
+                            >
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDelete(
+                                    content.id
+                                  )
+                                }
+                                className="flex h-10 w-10 items-center justify-center rounded-full border border-red-200 bg-white/92 shadow-sm backdrop-blur"
+                                aria-label="Delete post"
+                              >
+                                <MoreHorizontal className="h-5 w-5 text-slate-700" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-3 p-4">
+                          {content.caption ? (
+                            <p className="text-sm text-slate-700">
+                              {content.caption}
+                            </p>
+                          ) : null}
+
+                          {content.location ? (
+                            <div className="flex items-center gap-1 text-xs text-slate-500">
+                              <MapPin className="h-3 w-3" />
+                              {content.location}
+                            </div>
+                          ) : null}
+
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="min-w-0 truncate text-sm font-medium text-slate-700">
+                              {content.owner_name ||
+                                content.owner_email?.split(
+                                  "@"
+                                )[0] ||
+                                "User"}
+                            </span>
+
+                            <div className="flex flex-shrink-0 items-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className="flex items-center gap-1"
+                              >
+                                <Eye className="h-3 w-3" />
+                                {content.view_count ||
+                                  0}
+                              </Badge>
+
+                              {(() => {
+                                const heartCount =
+                                  allReactionsState.filter(
+                                    (reaction) =>
+                                      reaction.content_id ===
+                                        content.id &&
+                                      reaction.reaction_type ===
+                                        "HEART"
+                                  ).length;
+
+                                const hasHeart =
+                                  allReactionsState.some(
+                                    (reaction) =>
+                                      reaction.content_id ===
+                                        content.id &&
+                                      reaction.user_email ===
+                                        user?.email &&
+                                      reaction.reaction_type ===
+                                        "HEART"
+                                  );
+
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleReaction(
+                                        content.id,
+                                        "HEART"
+                                      )
+                                    }
+                                    className={`flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                                      hasHeart
+                                        ? "border-rose-200 bg-rose-50 text-rose-500"
+                                        : "border-slate-200 bg-white text-slate-500 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500"
+                                    }`}
+                                    aria-label={
+                                      hasHeart
+                                        ? "Remove heart reaction"
+                                        : "React with heart"
+                                    }
+                                  >
+                                    <Heart
+                                      className={`h-3.5 w-3.5 ${
+                                        hasHeart
+                                          ? "fill-current"
+                                          : ""
+                                      }`}
+                                    />
+
+                                    {heartCount}
+                                  </button>
+                                );
+                              })()}
+                            </div>
                           </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-3 p-4">
-                        {content.caption ? (
-                          <p className="text-sm text-slate-700">{content.caption}</p>
-                        ) : null}
-
-                        {content.location ? (
-                          <div className="flex items-center gap-1 text-xs text-slate-500">
-                            <MapPin className="h-3 w-3" />
-                            {content.location}
-                          </div>
-                        ) : null}
-
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-slate-700">
-                            {content.owner_name ||
-                              content.owner_email?.split("@")[0] ||
-                              "User"}
-                          </span>
-
-                          <Badge variant="outline" className="flex items-center gap-1">
-                            <Eye className="h-3 w-3" />
-                            {content.view_count || 0}
-                          </Badge>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
               )}
             </div>
@@ -1082,23 +1777,39 @@ export default function Dating() {
         </div>
 
         <FloatingUploadButton
-          onClick={() => setShowAddModal(true)}
-          disabled={isUploading || isSubmitting}
+          onClick={() =>
+            setShowAddModal(true)
+          }
+          disabled={
+            isUploading ||
+            isSubmitting
+          }
         />
 
         <AnimatePresence>
           {zoomedImage && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{
+                opacity: 0,
+              }}
+              animate={{
+                opacity: 1,
+              }}
+              exit={{
+                opacity: 0,
+              }}
               className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4"
-              onClick={() => setZoomedImage(null)}
+              onClick={() =>
+                setZoomedImage(null)
+              }
             >
               <button
                 type="button"
-                onClick={() => setZoomedImage(null)}
+                onClick={() =>
+                  setZoomedImage(null)
+                }
                 className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+                aria-label="Close image"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1107,7 +1818,9 @@ export default function Dating() {
                 src={zoomedImage}
                 alt=""
                 className="max-h-[90vh] max-w-full rounded-[18px] object-contain"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) =>
+                  e.stopPropagation()
+                }
               />
             </motion.div>
           )}
@@ -1116,16 +1829,27 @@ export default function Dating() {
         <AnimatePresence>
           {activeVideo && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{
+                opacity: 0,
+              }}
+              animate={{
+                opacity: 1,
+              }}
+              exit={{
+                opacity: 0,
+              }}
               className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4"
-              onClick={() => setActiveVideo(null)}
+              onClick={() =>
+                setActiveVideo(null)
+              }
             >
               <button
                 type="button"
-                onClick={() => setActiveVideo(null)}
+                onClick={() =>
+                  setActiveVideo(null)
+                }
                 className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+                aria-label="Close video"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1136,7 +1860,9 @@ export default function Dating() {
                 autoPlay
                 playsInline
                 className="max-h-[90vh] max-w-full rounded-[18px] object-contain"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) =>
+                  e.stopPropagation()
+                }
               />
             </motion.div>
           )}
@@ -1146,8 +1872,15 @@ export default function Dating() {
       <Modal
         open={showAddModal}
         onClose={() => {
-          if (isSubmitting || isUploading) return;
+          if (
+            isSubmitting ||
+            isUploading
+          ) {
+            return;
+          }
+
           setShowAddModal(false);
+
           setNewPost({
             caption: "",
             location: "",
@@ -1161,10 +1894,15 @@ export default function Dating() {
             <label className="mb-2 block text-sm font-medium text-slate-700">
               Caption
             </label>
+
             <textarea
               value={newPost.caption}
               onChange={(e) =>
-                setNewPost((prev) => ({ ...prev, caption: e.target.value }))
+                setNewPost((prev) => ({
+                  ...prev,
+                  caption:
+                    e.target.value,
+                }))
               }
               placeholder="Write something romantic..."
               className="mb-4 min-h-[96px] w-full rounded-[12px] border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#ef4f75]"
@@ -1173,13 +1911,19 @@ export default function Dating() {
             <label className="mb-2 block text-sm font-medium text-slate-700">
               Location
             </label>
+
             <div className="relative mb-4">
               <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
               <input
                 type="text"
                 value={newPost.location}
                 onChange={(e) =>
-                  setNewPost((prev) => ({ ...prev, location: e.target.value }))
+                  setNewPost((prev) => ({
+                    ...prev,
+                    location:
+                      e.target.value,
+                  }))
                 }
                 placeholder="Where was this?"
                 className="h-11 w-full rounded-[12px] border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#ef4f75]"
@@ -1190,45 +1934,56 @@ export default function Dating() {
               Media
             </label>
 
-            {newPost.media.length > 0 ? (
+            {newPost.media.length >
+            0 ? (
               <div className="mb-3 grid grid-cols-3 gap-2">
-                {newPost.media.map((item, index) => (
-                  <div
-                    key={`${item.url}-${index}`}
-                    className="relative aspect-square overflow-hidden rounded-[10px] bg-black"
-                  >
-                    {item.type === "VIDEO" ? (
-                      <video
-                        src={item.url}
-                        preload="metadata"
-                        muted
-                        playsInline
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <img
-                        src={item.url}
-                        alt=""
-                        loading="lazy"
-                        className="h-full w-full object-cover"
-                      />
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => removeMedia(index)}
-                      className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/55"
+                {newPost.media.map(
+                  (item, index) => (
+                    <div
+                      key={`${item.url}-${index}`}
+                      className="relative aspect-square overflow-hidden rounded-[10px] bg-black"
                     >
-                      <X className="h-4 w-4 text-white" />
-                    </button>
-                  </div>
-                ))}
+                      {item.type ===
+                      "VIDEO" ? (
+                        <video
+                          src={item.url}
+                          preload="metadata"
+                          muted
+                          playsInline
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <img
+                          src={item.url}
+                          alt=""
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                        />
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeMedia(
+                            index
+                          )
+                        }
+                        className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/55"
+                        aria-label="Remove media"
+                      >
+                        <X className="h-4 w-4 text-white" />
+                      </button>
+                    </div>
+                  )
+                )}
               </div>
             ) : null}
 
             <label
               className={`flex min-h-[130px] w-full cursor-pointer flex-col items-center justify-center rounded-[14px] border border-dashed border-[#c7d7ff] bg-gradient-to-br from-[#f8fbff] to-[#eef4ff] text-slate-600 transition hover:border-[#8ec5ff] ${
-                isUploading ? "pointer-events-none opacity-70" : ""
+                isUploading
+                  ? "pointer-events-none opacity-70"
+                  : ""
               }`}
             >
               {isUploading ? (
@@ -1239,7 +1994,8 @@ export default function Dating() {
 
               <span className="mt-2 text-sm font-semibold text-slate-700">
                 {isUploading
-                  ? uploadProgressText || "Uploading media..."
+                  ? uploadProgressText ||
+                    "Uploading media..."
                   : "Add Photos & Videos"}
               </span>
 
@@ -1252,7 +2008,9 @@ export default function Dating() {
                 accept="image/*,video/*"
                 multiple
                 disabled={isUploading}
-                onChange={handleMediaUpload}
+                onChange={
+                  handleMediaUpload
+                }
                 className="hidden"
               />
             </label>
@@ -1265,7 +2023,9 @@ export default function Dating() {
           disabled={
             isSubmitting ||
             isUploading ||
-            (!newPost.caption.trim() && newPost.media.length === 0)
+            (!newPost.caption.trim() &&
+              newPost.media.length ===
+                0)
           }
           className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-[#ef4f75] text-white hover:bg-[#e24469]"
         >
@@ -1283,8 +2043,13 @@ export default function Dating() {
       <Modal
         open={showSubscriptionModal}
         onClose={() => {
-          if (processingPlan) return;
-          setShowSubscriptionModal(false);
+          if (processingPlan) {
+            return;
+          }
+
+          setShowSubscriptionModal(
+            false
+          );
         }}
         title="Date-Locked Plus"
       >
@@ -1299,8 +2064,11 @@ export default function Dating() {
                 <h3 className="text-lg font-black text-slate-900">
                   Unlock unlimited Dating posts
                 </h3>
+
                 <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                  Free users can post {FREE_DAILY_POST_LIMIT} times per day.
+                  Free users can post{" "}
+                  {FREE_DAILY_POST_LIMIT}{" "}
+                  times per day.
                   Upgrade to remove the daily public wall limit.
                 </p>
               </div>
@@ -1313,8 +2081,12 @@ export default function Dating() {
                 "Date-Locked Plus access",
                 "One subscription per couple",
               ].map((feature) => (
-                <div key={feature} className="flex items-start gap-2">
+                <div
+                  key={feature}
+                  className="flex items-start gap-2"
+                >
                   <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-purple-600" />
+
                   <span className="text-sm font-medium text-slate-700">
                     {feature}
                   </span>
@@ -1324,23 +2096,35 @@ export default function Dating() {
 
             <div className="mb-4 rounded-[14px] bg-white/75 p-4">
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-slate-900">R39</span>
-                <span className="text-sm font-semibold text-slate-500">/month</span>
+                <span className="text-3xl font-black text-slate-900">
+                  R39
+                </span>
 
-                <p className="mt-1 text-xs font-medium text-slate-500">
+                <span className="text-sm font-semibold text-slate-500">
+                  /month
+                </span>
+              </div>
+
+              <p className="mt-1 text-xs font-medium text-slate-500">
                 or R397.80/year • Save 15%
               </p>
             </div>
-          </div> 
 
             <div className="space-y-2">
               <Button
                 type="button"
-                onClick={() => handlePayPalPayment("monthly")}
-                disabled={!!processingPlan}
+                onClick={() =>
+                  handlePayPalPayment(
+                    "monthly"
+                  )
+                }
+                disabled={
+                  !!processingPlan
+                }
                 className="h-11 w-full rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
               >
-                {processingPlan === "monthly" ? (
+                {processingPlan ===
+                "monthly" ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Processing...
@@ -1352,12 +2136,19 @@ export default function Dating() {
 
               <Button
                 type="button"
-                onClick={() => handlePayPalPayment("yearly")}
-                disabled={!!processingPlan}
+                onClick={() =>
+                  handlePayPalPayment(
+                    "yearly"
+                  )
+                }
+                disabled={
+                  !!processingPlan
+                }
                 variant="outline"
                 className="h-11 w-full rounded-[14px] border-purple-200 bg-white"
               >
-                {processingPlan === "yearly" ? (
+                {processingPlan ===
+                "yearly" ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Processing...
@@ -1374,7 +2165,6 @@ export default function Dating() {
             </div>
           </CardContent>
         </Card>
-
       </Modal>
 
       <BottomNav />
