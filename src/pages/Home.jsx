@@ -752,23 +752,33 @@ React.useEffect(() => {
       );
 
       const countdownGoal =
-        cleanItems
-          .filter(
-            (item) =>
-              item.target_date || item.event_datetime || item.event_date
-          )
-          .map((item) => {
-            const rawDate =
-              item.event_datetime || item.target_date || item.event_date;
+  cleanItems
+    .filter((item) => {
+      if (
+        item.type === 'event' &&
+        item.invitation_status !== 'accepted'
+      ) {
+        return false;
+      }
 
-            const parsedDate = parseSafeDate(rawDate);
-            const dateMs = parsedDate ? parsedDate.getTime() : null;
+      return (
+        item.target_date ||
+        item.event_datetime ||
+        item.event_date
+      );
+    })
+    .map((item) => {
+      const rawDate =
+        item.event_datetime || item.target_date || item.event_date;
 
-            return dateMs ? { ...item, _dateMs: dateMs } : null;
-          })
-          .filter(Boolean)
-          .filter((item) => item._dateMs >= Date.now())
-          .sort((a, b) => a._dateMs - b._dateMs)[0] || null;
+      const parsedDate = parseSafeDate(rawDate);
+      const dateMs = parsedDate ? parsedDate.getTime() : null;
+
+      return dateMs ? { ...item, _dateMs: dateMs } : null;
+    })
+    .filter(Boolean)
+    .filter((item) => item._dateMs >= Date.now())
+    .sort((a, b) => a._dateMs - b._dateMs)[0] || null;
 
       return {
         count: goalItems.length,
