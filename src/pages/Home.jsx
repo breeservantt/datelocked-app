@@ -956,8 +956,10 @@ React.useEffect(() => {
                   className="h-10 w-10 rounded-full text-white hover:bg-white/15"
                   onClick={() => navigate(createPageUrl('Notifications'))}
                 >
-                  <Bell className="h-5 w-5" />
-                </Button>
+                  <div className="relative">
+                <Bell className="h-5 w-5" />
+
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white"> 2 </span> </div> </Button>
 
                 <Button
                   variant="ghost"
