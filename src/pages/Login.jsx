@@ -55,24 +55,26 @@ export default function Login() {
   );
 
   React.useEffect(() => {
-    let mounted = true;
+  let mounted = true;
 
-    const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+  const checkSession = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-      if (mounted && session?.user) {
-        await routeLoggedInUser(session.user);
-      }
-    };
+    if (!mounted) return;
 
-    checkSession();
+    if (session?.user) {
+      await routeLoggedInUser(session.user);
+    }
+  };
 
-    return () => {
-      mounted = false;
-    };
-  }, [routeLoggedInUser]);
+  checkSession();
+
+  return () => {
+    mounted = false;
+  };
+}, [routeLoggedInUser]);
 
   const handleGoogleLogin = async () => {
     setError("");

@@ -622,17 +622,19 @@ export default function Settings() {
   };
 
   const handleLogout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+  try {
+    queryClient.clear();
 
-      queryClient.clear();
-      navigate("/login", { replace: true });
-    } catch (e) {
-      console.error("Logout failed:", e);
-      alert("Logout failed. Please try again.");
-    }
-  };
+    const { error } = await supabase.auth.signOut();
+
+    if (error) throw error;
+
+    navigate("/login", { replace: true });
+  } catch (e) {
+    console.error("Logout failed:", e);
+    alert("Logout failed. Please try again.");
+  }
+};
 
   if (isLoading) {
     return (
