@@ -449,6 +449,19 @@ React.useEffect(() => {
           queryClient.invalidateQueries({ queryKey: ['homeEventsCount'] });
         }
       )
+            .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'relationship_invitations',
+        },
+        () => {
+          queryClient.invalidateQueries({
+            queryKey: ['unreadNotificationCount'],
+          });
+        }
+      )
       .on(
         'postgres_changes',
         {
@@ -524,6 +537,104 @@ React.useEffect(() => {
       if (error) throw error;
 
       return data?.[0] || null;
+    },
+  });
+
+    const { data: unreadNotificationCount = 0 } = useQuery({
+    queryKey: ['unreadNotificationCount', user?.id, user?.email, coupleProfile?.id],
+    enabled: !!user?.id && !!user?.email,
+    queryFn: async () => {
+      const currentEmail = user.email;
+
+      const [receivedResult, sentResult, eventsResult] = await Promise.all([
+        supabase
+          .from('relationship_invitations')
+          .select('id, status, created_at, updated_at')
+          .eq('recipient_email', currentEmail)
+          .limit(10),
+
+        supabase
+          .from('relationship_invitations')
+          .select('id, status, created_at, updated_at')
+          .eq('sender_email', currentEmail)
+          .limit(10),
+
+        coupleProfile?.id
+          ? supabase
+              .from('couple_goals')
+              .select('id, title, invitation_status, invited_by, created_at, updated_at')
+              .eq('couple_profile_id', coupleProfile.id)
+              .eq('type', 'event')
+              .limit(20)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+      if (receivedResult.error) throw receivedResult.error;
+      if (sentResult.error) throw sentResult.error;
+      if (eventsResult.error) throw eventsResult.error;
+
+      const notificationIds = [];
+
+      (receivedResult.data || []).forEach((inv) => {
+        if (inv.status === 'pending') {
+          notificationIds.push(String(inv.id));
+        }
+
+        if (inv.status === 'accepted') {
+          notificationIds.push(`${inv.id}_accepted`);
+        }
+      });
+
+      (sentResult.data || []).forEach((inv) => {
+        if (inv.status === 'accepted') {
+          notificationIds.push(`${inv.id}_partner_accepted`);
+        }
+
+        if (inv.status === 'pending') {
+          notificationIds.push(`${inv.id}_pending`);
+        }
+      });
+
+      (eventsResult.data || []).forEach((event) => {
+        if (
+          event.invitation_status === 'pending' &&
+          event.invited_by !== currentEmail
+        ) {
+          notificationIds.push(`${event.id}_event_invite`);
+        }
+
+        if (
+          event.invitation_status === 'accepted' &&
+          event.invited_by === currentEmail
+        ) {
+          notificationIds.push(`${event.id}_event_accepted`);
+        }
+
+        if (
+          event.invitation_status === 'declined' &&
+          event.invited_by === currentEmail
+        ) {
+          notificationIds.push(`${event.id}_event_declined`);
+        }
+      });
+
+      if (notificationIds.length === 0) {
+        return 0;
+      }
+
+      const { data: readRows, error: readError } = await supabase
+        .from('notification_reads')
+        .select('notification_id')
+        .eq('user_id', user.id)
+        .in('notification_id', notificationIds);
+
+      if (readError) throw readError;
+
+      const readIds = new Set(
+        (readRows || []).map((row) => String(row.notification_id))
+      );
+
+      return notificationIds.filter((id) => !readIds.has(id)).length;
     },
   });
 
@@ -950,27 +1061,33 @@ React.useEffect(() => {
               </div>
 
               <div className="flex gap-3 pt-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 rounded-full text-white hover:bg-white/15"
-                  onClick={() => navigate(createPageUrl('Notifications'))}
-                >
-                  <div className="relative">
-                <Bell className="h-5 w-5" />
+  <Button
+    variant="ghost"
+    size="icon"
+    className="h-10 w-10 rounded-full text-white hover:bg-white/15"
+    onClick={() => navigate(createPageUrl("Notifications"))}
+  >
+    <div className="relative">
+      <Bell className="h-5 w-5" />
 
-                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white"> 2 </span> </div> </Button>
+      {unreadNotificationCount > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+          {unreadNotificationCount}
+        </span>
+      )}
+    </div>
+  </Button>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 rounded-full text-white hover:bg-white/15"
-                  onClick={() => navigate(createPageUrl('Settings'))}
-                >
-                  <Settings className="h-5 w-5" />
-                </Button>
-              </div>
-            </div>
+  <Button
+    variant="ghost"
+    size="icon"
+    className="h-10 w-10 rounded-full text-white hover:bg-white/15"
+    onClick={() => navigate(createPageUrl("Settings"))}
+  >
+    <Settings className="h-5 w-5" />
+  </Button>
+  </div>
+  </div>  
 
             <div className="mt-4 rounded-[18px] bg-white/95 px-3 py-3 shadow-[0_8px_18px_rgba(15,23,42,0.10)] backdrop-blur-sm">
               <div className="flex items-center justify-between gap-4">

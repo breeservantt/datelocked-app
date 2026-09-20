@@ -181,14 +181,32 @@ export default function Notifications() {
       if (eventsResult.error) throw eventsResult.error;
 
       const nextNotifications = buildNotifications(
-        currentUser,
-        profile,
-        receivedResult.data || [],
-        sentResult.data || [],
-        eventsResult.data || []
-      );
+  currentUser,
+  profile,
+  receivedResult.data || [],
+  sentResult.data || [],
+  eventsResult.data || []
+);
 
-      setNotifications(nextNotifications);
+setNotifications(nextNotifications);
+
+// Mark all currently displayed notifications as read
+if (nextNotifications.length > 0) {
+  const readRows = nextNotifications.map((notification) => ({
+    user_id: currentUser.id,
+    notification_id: String(notification.id),
+  }));
+
+  const { error: readError } = await supabase
+    .from("notification_reads")
+    .upsert(readRows, {
+      onConflict: "user_id,notification_id",
+    });
+
+  if (readError) {
+    console.error("Error marking notifications as read:", readError);
+  }
+}
     } catch (e) {
       console.error("Error loading notifications:", e);
       setError(e?.message || "Couldn't load notifications. Please try again.");
