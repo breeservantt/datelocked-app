@@ -432,6 +432,7 @@ export default function Dating() {
   const [myContentState, setMyContentState] = React.useState([]);
   const [publicContentState, setPublicContentState] = React.useState([]);
   const [allReactionsState, setAllReactionsState] = React.useState([]);
+  const recordedViewIdsRef = React.useRef(new Set());
 
   const premiumActive = isPremiumUser(user);
 
@@ -635,6 +636,42 @@ export default function Dating() {
   React.useEffect(() => {
     setAllReactionsState(allReactions);
   }, [allReactions]);
+
+  React.useEffect(() => {
+  if (!user?.id || !publicContentState.length) return;
+
+  const recordViews = async () => {
+    const postsToRecord = publicContentState.filter(
+      (content) =>
+        content.owner_id !== user.id &&
+        !recordedViewIdsRef.current.has(content.id)
+    );
+
+    if (!postsToRecord.length) return;
+
+    const results = await Promise.all(
+      postsToRecord.map(async (content) => {
+        const { error } = await supabase.rpc("record_dating_wall_view", {
+          p_content_id: content.id,
+        });
+
+        if (!error) {
+          recordedViewIdsRef.current.add(content.id);
+        }
+
+        return error;
+      })
+    );
+
+    const failed = results.find(Boolean);
+
+    if (failed) {
+      console.error("Failed to record Dating wall view:", failed);
+    }
+  };
+
+  recordViews();
+}, [user?.id, publicContentState]);
 
   const handleReaction = async (contentId, reactionType) => {
     try {
@@ -1024,18 +1061,55 @@ export default function Dating() {
                           </div>
                         ) : null}
 
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-slate-700">
-                            {content.owner_name ||
-                              content.owner_email?.split("@")[0] ||
-                              "User"}
-                          </span>
+                        <div className="flex items-center justify-between gap-3">
+  <span className="min-w-0 truncate text-sm font-medium text-slate-700">
+    {content.owner_name ||
+      content.owner_email?.split("@")[0] ||
+      "User"}
+  </span>
 
-                          <Badge variant="outline" className="flex items-center gap-1">
-                            <Eye className="h-3 w-3" />
-                            {content.view_count || 0}
-                          </Badge>
-                        </div>
+  <div className="flex flex-shrink-0 items-center gap-2">
+    <Badge variant="outline" className="flex items-center gap-1">
+      <Eye className="h-3 w-3" />
+      {content.view_count || 0}
+    </Badge>
+
+    {(() => {
+      const heartCount = allReactionsState.filter(
+        (reaction) =>
+          reaction.content_id === content.id &&
+          reaction.reaction_type === "HEART"
+      ).length;
+
+      const hasHeart = allReactionsState.some(
+        (reaction) =>
+          reaction.content_id === content.id &&
+          reaction.user_email === user?.email &&
+          reaction.reaction_type === "HEART"
+      );
+
+      return (
+        <button
+          type="button"
+          onClick={() => handleReaction(content.id, "HEART")}
+          className={`flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+            hasHeart
+              ? "border-rose-200 bg-rose-50 text-rose-500"
+              : "border-slate-200 bg-white text-slate-500 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500"
+          }`}
+          aria-label={hasHeart ? "Remove heart reaction" : "React with heart"}
+        >
+          <Heart
+            className={`h-3.5 w-3.5 ${
+              hasHeart ? "fill-current" : ""
+            }`}
+          />
+          {heartCount}
+        </button>
+      );
+    })()}
+  </div>
+</div>
                       </div>
                     </div>
                   ))}
