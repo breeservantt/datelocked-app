@@ -653,9 +653,24 @@ export default function Chat() {
             return areMessagesEqual(prev, next) ? prev : next;
           });
 
-          if (eventType === "INSERT" && isNearBottomRef.current) {
-            setTimeout(() => scrollToLatest("smooth"), 30);
-          }
+          if (eventType === "INSERT") {
+  if (isNearBottomRef.current) {
+    setTimeout(() => scrollToLatest("smooth"), 30);
+  }
+
+  if (row.sender_email !== user?.email) {
+    supabase
+      .from("messages")
+      .update({ read: true })
+      .eq("id", row.id)
+      .eq("read", false)
+      .then(({ error }) => {
+        if (error) {
+          console.error("Failed to mark realtime message as read:", error);
+        }
+      });
+  }
+}
         }
       )
       .subscribe();

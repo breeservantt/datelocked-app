@@ -10,6 +10,7 @@ import {
   MessageCircle,
   Fingerprint,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 const navItems = [
   { label: "Home", icon: HomeIcon, page: "Home" },
@@ -27,9 +28,151 @@ export default function BottomNav() {
   const location = useLocation();
   const pathname = location.pathname.toLowerCase();
 
+  const [unreadChatCount, setUnreadChatCount] = React.useState(0);
+  const channelRef = React.useRef(null);
+
   const shouldHideBottomNav = hiddenRoutes.some((route) =>
     pathname.startsWith(route)
   );
+
+  const loadUnreadChatCount = React.useCallback(async () => {
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        setUnreadChatCount(0);
+        return;
+      }
+
+      let coupleProfileId = null;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("couple_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      coupleProfileId = profile?.couple_profile_id || null;
+
+      if (!coupleProfileId) {
+        const { data: userProfile } = await supabase
+          .from("users")
+          .select("couple_profile_id")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        coupleProfileId = userProfile?.couple_profile_id || null;
+      }
+
+      if (!coupleProfileId) {
+        setUnreadChatCount(0);
+        return;
+      }
+
+      const { count, error } = await supabase
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("couple_profile_id", coupleProfileId)
+        .neq("sender_email", user.email)
+        .eq("read", false);
+
+      if (error) {
+        console.error("Error loading unread chat count:", error);
+        return;
+      }
+
+      setUnreadChatCount(count || 0);
+    } catch (error) {
+      console.error("Error loading unread chat count:", error);
+      setUnreadChatCount(0);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadUnreadChatCount();
+
+    const authChannel = supabase.auth.onAuthStateChange(() => {
+      loadUnreadChatCount();
+    });
+
+    return () => {
+      authChannel.data.subscription.unsubscribe();
+    };
+  }, [loadUnreadChatCount]);
+
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const subscribeToMessages = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user || !isMounted) return;
+
+      let coupleProfileId = null;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("couple_profile_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      coupleProfileId = profile?.couple_profile_id || null;
+
+      if (!coupleProfileId) {
+        const { data: userProfile } = await supabase
+          .from("users")
+          .select("couple_profile_id")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        coupleProfileId = userProfile?.couple_profile_id || null;
+      }
+
+      if (!coupleProfileId || !isMounted) return;
+
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+
+      const channel = supabase
+        .channel(`bottom-nav-messages-${coupleProfileId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "messages",
+            filter: `couple_profile_id=eq.${coupleProfileId}`,
+          },
+          () => {
+            loadUnreadChatCount();
+          }
+        )
+        .subscribe();
+
+      channelRef.current = channel;
+    };
+
+    subscribeToMessages();
+
+    return () => {
+      isMounted = false;
+
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [loadUnreadChatCount]);
+
+  React.useEffect(() => {
+    loadUnreadChatCount();
+  }, [location.pathname, loadUnreadChatCount]);
 
   if (shouldHideBottomNav) return null;
 
@@ -52,12 +195,21 @@ export default function BottomNav() {
                   active ? "bg-[#fdecef]" : "bg-transparent"
                 }`}
               >
-                <Icon
-                  className={`mb-0.5 h-[18px] w-[18px] ${
-                    active ? "text-[#ef4f75]" : "text-slate-400"
-                  }`}
-                  strokeWidth={2}
-                />
+                <div className="relative">
+                  <Icon
+                    className={`mb-0.5 h-[18px] w-[18px] ${
+                      active ? "text-[#ef4f75]" : "text-slate-400"
+                    }`}
+                    strokeWidth={2}
+                  />
+
+                  {item.page === "Chat" && unreadChatCount > 0 ? (
+                    <span className="absolute -right-3 -top-2 flex min-h-[15px] min-w-[15px] items-center justify-center rounded-full bg-[#ef4f75] px-1 text-[9px] font-bold leading-none text-white">
+                      {unreadChatCount > 99 ? "99+" : unreadChatCount}
+                    </span>
+                  ) : null}
+                </div>
+
                 <span
                   className={`truncate text-[8px] leading-none tracking-[-0.01em] ${
                     active
@@ -66,6 +218,9 @@ export default function BottomNav() {
                   }`}
                 >
                   {item.label}
+                  {item.page === "Chat" && unreadChatCount > 0
+                    ? ` (${unreadChatCount})`
+                    : ""}
                 </span>
               </Link>
             );
