@@ -406,6 +406,7 @@ export default function Chat() {
   const messageListRef = React.useRef(null);
   const channelRef = React.useRef(null);
   const isNearBottomRef = React.useRef(true);
+  const hasInitialScrolledRef = React.useRef(false);
 
   const setMessagesIfChanged = React.useCallback((next) => {
     const normalized = sortMessages((next || []).map(normalizeMessage));
@@ -449,11 +450,29 @@ export default function Chat() {
 
       if (error) throw error;
 
+      hasInitialScrolledRef.current = false;
       setMessagesIfChanged(data || []);
-      setTimeout(() => scrollToLatest("auto"), 40);
     },
     [setMessagesIfChanged, scrollToLatest]
   );
+
+    React.useLayoutEffect(() => {
+    if (isLoading || !activeCoupleId || hasInitialScrolledRef.current) {
+      return;
+    }
+
+    if (!messages.length) {
+      hasInitialScrolledRef.current = true;
+      return;
+    }
+
+    const container = messageListRef.current;
+    if (!container) return;
+
+    hasInitialScrolledRef.current = true;
+
+    container.scrollTop = container.scrollHeight;
+  }, [messages, isLoading, activeCoupleId]);
 
   const loadPage = React.useCallback(async () => {
     setIsLoading(true);
@@ -803,7 +822,7 @@ export default function Chat() {
             onScroll={handleMessageScroll}
             className="absolute left-0 right-0 top-[64px] bottom-[64px] z-0 overflow-y-auto overscroll-contain px-4 py-3"
           >
-            <div className="flex min-h-full flex-col justify-end gap-3">
+          <div className="flex min-h-full flex-col gap-3">
               {messages.length > 0 ? (
                 messages.map((msg) => (
                   <ChatBubble
