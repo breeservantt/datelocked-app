@@ -679,11 +679,8 @@ React.useEffect(() => {
 
         if (item?.invitation_status === 'declined') return false;
 
-        if (
-          item?.invitation_status !== 'pending' &&
-          item?.invitation_status !== 'accepted'
-        ) {
-          return false;
+        if (item?.invitation_status !== 'accepted') {
+        return false;
         }
 
         const rawDate =
@@ -1111,7 +1108,7 @@ React.useEffect(() => {
               <Link to={createPageUrl('Goals')} className="block">
                 <StatCard
                   icon={<Clock />}
-                  value={eventsCount}
+                  value={isDateLocked ? eventsCount : 0}
                   label="Events"
                   iconColor="text-amber-500"
                   iconWrap="bg-amber-50"
@@ -1121,7 +1118,7 @@ React.useEffect(() => {
               <Link to={createPageUrl('Goals')} className="block">
                 <StatCard
                   icon={<Target />}
-                  value={goalsData.count}
+                  value={isDateLocked ? goalsData.count : 0}
                   label="Goals"
                   iconColor="text-blue-400"
                   iconWrap="bg-blue-50"
