@@ -9,6 +9,8 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import format from "date-fns/format";
+import isToday from "date-fns/isToday";
+import isYesterday from "date-fns/isYesterday";
 import { supabase } from "@/lib/supabase";
 import { parseSafeDate } from "@/components/utils/dateHelpers";
 
@@ -65,6 +67,20 @@ function ChatHeader({ partner, onBack }) {
       </div>
     </div>
   );
+}
+
+function getDateSeparatorLabel(date) {
+  if (!date) return "";
+
+  if (isToday(date)) {
+    return "Today";
+  }
+
+  if (isYesterday(date)) {
+    return "Yesterday";
+  }
+
+  return format(date, "d MMMM yyyy");
 }
 
 const ChatBubble = React.memo(function ChatBubble({ msg, isMe }) {
@@ -824,13 +840,44 @@ export default function Chat() {
           >
           <div className="flex min-h-full flex-col gap-3">
               {messages.length > 0 ? (
-                messages.map((msg) => (
-                  <ChatBubble
-                    key={msg.id}
-                    msg={msg}
-                    isMe={msg.sender_email === user.email}
-                  />
-                ))
+                messages.map((msg, index) => {
+  const currentDate = parseSafeDate(msg.created_date || msg.created_at);
+
+  const previousMessage = messages[index - 1];
+  const previousDate = previousMessage
+    ? parseSafeDate(
+        previousMessage.created_date || previousMessage.created_at
+      )
+    : null;
+
+  const currentDateKey = currentDate
+    ? format(currentDate, "yyyy-MM-dd")
+    : null;
+
+  const previousDateKey = previousDate
+    ? format(previousDate, "yyyy-MM-dd")
+    : null;
+
+  const showDateSeparator =
+    currentDateKey && currentDateKey !== previousDateKey;
+
+  return (
+    <React.Fragment key={msg.id}>
+      {showDateSeparator ? (
+        <div className="flex justify-center py-1">
+          <div className="rounded-full bg-white/75 px-3 py-1 text-[11px] font-medium text-slate-600 shadow-sm backdrop-blur">
+            {getDateSeparatorLabel(currentDate)}
+          </div>
+        </div>
+      ) : null}
+
+      <ChatBubble
+        msg={msg}
+        isMe={msg.sender_email === user.email}
+      />
+    </React.Fragment>
+  );
+})
               ) : (
                 <EmptyState />
               )}
