@@ -18,6 +18,7 @@ const Goals = lazy(() => import("./pages/Goals"));
 const InvitePartner = lazy(() => import("./pages/InvitePartner"));
 const Memories = lazy(() => import("./pages/Memories"));
 const NightIn = lazy(() => import("./pages/NightIn"));
+const Notifications = lazy(() => import("./pages/Notifications"));
 const Security = lazy(() => import("./pages/Security"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Privacy = lazy(() => import("./pages/Privacy"));
@@ -72,6 +73,7 @@ function AppRoutes() {
         <Route path="/invite-partner" element={<InvitePartner />} />
         <Route path="/memories" element={<Memories />} />
         <Route path="/nightin" element={<NightIn />} />
+        <Route path="/notifications" element={<Notifications />} />
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/security" element={<Security />} />
