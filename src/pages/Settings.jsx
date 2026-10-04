@@ -30,6 +30,7 @@ import {
   Image,
   Target,
   MessageCircle,
+  Send,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -219,6 +220,15 @@ export default function Settings() {
   const [showUnlockDialog, setShowUnlockDialog] = React.useState(false);
   const [showTerminationDialog, setShowTerminationDialog] = React.useState(false);
   const [showDeactivateDialog, setShowDeactivateDialog] = React.useState(false);
+
+  const [showSupportModal, setShowSupportModal] = React.useState(false);
+  const [supportSubmitting, setSupportSubmitting] = React.useState(false);
+
+  const [supportForm, setSupportForm] = React.useState({
+    category: "GENERAL",
+    subject: "",
+    message: "",
+  });
 
   const [pendingTermination, setPendingTermination] = React.useState(null);
   const [openFolder, setOpenFolder] = React.useState(null);
@@ -572,10 +582,8 @@ export default function Settings() {
     }
   };
 
-  const handleConfirmTermination = async () => {
+    const handleConfirmTermination = async () => {
     if (isBusyAction) return;
-
-    setIsBusyAction(true);
 
     try {
       await handleUnlock();
@@ -635,6 +643,69 @@ export default function Settings() {
     alert("Logout failed. Please try again.");
   }
 };
+
+    const handleSupportSubmit = async () => {
+    if (supportSubmitting) return;
+
+    const category = (supportForm.category || "").trim();
+    const subject = (supportForm.subject || "").trim();
+    const message = (supportForm.message || "").trim();
+
+    if (!subject) {
+      alert("Please enter a subject.");
+      return;
+    }
+
+    if (!message) {
+      alert("Please enter a message.");
+      return;
+    }
+
+    setSupportSubmitting(true);
+
+    try {
+      const {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
+
+      if (!authUser) {
+        throw new Error("No signed-in user found.");
+      }
+
+      const { error } = await supabase
+        .from("support_requests")
+        .insert({
+          user_id: authUser.id,
+          email: authUser.email || null,
+          category,
+          subject,
+          message,
+        });
+
+      if (error) throw error;
+
+      setSupportForm({
+        category: "GENERAL",
+        subject: "",
+        message: "",
+      });
+
+      setShowSupportModal(false);
+
+      alert("Support request submitted.");
+    } catch (error) {
+      console.error("Support request failed:", error);
+      alert(
+        error?.message ||
+          "Could not submit support request. Please try again."
+      );
+    } finally {
+      setSupportSubmitting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -853,6 +924,33 @@ export default function Settings() {
     </div>
   </div>
 </AppCard>
+
+            <AppCard className="p-3">
+  <div className="flex items-start gap-3">
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#eaf3ff] text-[#77aef7]">
+      <MessageCircle className="h-4 w-4" />
+    </div>
+
+    <div className="min-w-0 flex-1">
+      <p className="text-sm font-semibold text-slate-800">
+        Support
+      </p>
+
+      <p className="mt-1 text-xs text-slate-500">
+        Tell us how we can help.
+      </p>
+
+      <button
+        type="button"
+        onClick={() => setShowSupportModal(true)}
+        className="mt-3 inline-flex h-8 w-full items-center justify-center rounded-[9px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] px-3 text-xs font-medium text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
+      >
+        <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
+        Contact Support
+      </button>
+    </div>
+  </div>
+</AppCard> 
 
               <AppCard className="px-3 pt-3 pb-5">
                 <div className="flex items-start gap-3">
@@ -1247,6 +1345,151 @@ export default function Settings() {
               >
                 {isBusyAction ? "Sending..." : "Send Request"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+            {showSupportModal && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-[390px] overflow-hidden rounded-[22px] bg-[#f7f3f6] shadow-[0_20px_50px_rgba(15,23,42,0.2)]">
+
+            <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-800">
+                  Support
+                </h2>
+
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Tell us how we can help
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (supportSubmitting) return;
+                  setShowSupportModal(false);
+                }}
+                className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+              >
+                <XIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[75vh] space-y-4 overflow-y-auto px-5 py-5">
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  What do you need help with?
+                </label>
+
+                <select
+                  value={supportForm.category}
+                  onChange={(e) =>
+                    setSupportForm((prev) => ({
+                      ...prev,
+                      category: e.target.value,
+                    }))
+                  }
+                  className="h-11 w-full rounded-[12px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#5e9cff]"
+                >
+                  <option value="GENERAL">
+                    General Support
+                  </option>
+
+                  <option value="BUG">
+                    Report a Bug
+                  </option>
+
+                  <option value="REFUND">
+                    Refund Request
+                  </option>
+
+                  <option value="PAYMENT">
+                    Payment Issue
+                  </option>
+
+                  <option value="SUBSCRIPTION">
+                    Subscription Issue
+                  </option>
+
+                  <option value="ACCOUNT">
+                    Account Issue
+                  </option>
+
+                  <option value="SAFETY">
+                    Safety Concern
+                  </option>
+
+                  <option value="OTHER">
+                    Other
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Subject
+                </label>
+
+                <input
+                  type="text"
+                  value={supportForm.subject}
+                  onChange={(e) =>
+                    setSupportForm((prev) => ({
+                      ...prev,
+                      subject: e.target.value,
+                    }))
+                  }
+                  placeholder="Briefly describe your issue"
+                  className="h-11 w-full rounded-[12px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#5e9cff]"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Message
+                </label>
+
+                <textarea
+                  value={supportForm.message}
+                  onChange={(e) =>
+                    setSupportForm((prev) => ({
+                      ...prev,
+                      message: e.target.value,
+                    }))
+                  }
+                  placeholder="Explain what happened and how we can help..."
+                  className="min-h-[140px] w-full resize-none rounded-[12px] border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#5e9cff]"
+                />
+              </div>
+
+              <div className="rounded-[12px] bg-[#eef4ff] px-3 py-3">
+                <p className="text-xs leading-relaxed text-slate-600">
+                  Please provide as much information as possible so our support team can assist you.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSupportSubmit}
+                disabled={supportSubmitting}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-[#2f6df0] text-sm font-semibold text-white transition hover:bg-[#255ed4] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {supportSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    Submit Request
+                  </>
+                )}
+              </button>
+
             </div>
           </div>
         </div>
