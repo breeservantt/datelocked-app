@@ -28,6 +28,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Terms = lazy(() => import("./pages/Terms"));
 const VerifyStatus = lazy(() => import("./pages/VerifyStatus"));
 const Login = lazy(() => import("./pages/Login"));
+const Landing = lazy(() => import("./pages/Landing"));
 
 function PageLoader() {
   return (
@@ -63,7 +64,7 @@ function AppRoutes() {
   const routes = (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<Landing />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/login" element={<Login />} />
         <Route path="/home" element={<Home />} />
