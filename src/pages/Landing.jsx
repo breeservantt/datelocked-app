@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -161,14 +160,6 @@ export default function Landing() {
                     </>
                   )}
                 </button>
-
-                <Link
-                  to="/login"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-6 py-3.5 font-bold text-slate-700 transition hover:border-[#2f6df0] hover:text-[#2f6df0]"
-                >
-                  Log In
-                  <ArrowRight size={17} />
-                </Link>
               </div>
 
               {errorMessage && (
@@ -179,24 +170,6 @@ export default function Landing() {
                   {errorMessage}
                 </p>
               )}
-
-              <p className="mt-5 text-xs leading-5 text-slate-500">
-                By continuing, you agree to our{" "}
-                <Link
-                  to="/terms"
-                  className="underline underline-offset-2 hover:text-[#2f6df0]"
-                >
-                  Terms of Service
-                </Link>{" "}
-                and{" "}
-                <Link
-                  to="/privacy"
-                  className="underline underline-offset-2 hover:text-[#2f6df0]"
-                >
-                  Privacy Policy
-                </Link>
-                .
-              </p>
             </div>
 
             {/* Hero illustration */}
@@ -259,7 +232,10 @@ export default function Landing() {
         </section>
 
         {/* About and features */}
-        <section id="features" className="scroll-mt-24 bg-white px-5 py-20 sm:px-8 sm:py-24">
+        <section
+          id="features"
+          className="scroll-mt-24 bg-white px-5 py-20 sm:px-8 sm:py-24"
+        >
           <div className="mx-auto max-w-6xl">
             <div className="mx-auto max-w-3xl text-center">
               <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#2f6df0]">
@@ -361,7 +337,8 @@ export default function Landing() {
             </h2>
             <p className="mx-auto mt-4 max-w-2xl leading-7 text-white/90">
               Start your Date-Locked journey and explore tools for building
-              connections, planning dates, and sharing your relationship journey.
+              connections, planning dates, and sharing your relationship
+              journey.
             </p>
             <button
               type="button"
@@ -411,3 +388,4 @@ export default function Landing() {
     </div>
   );
 }
+```
