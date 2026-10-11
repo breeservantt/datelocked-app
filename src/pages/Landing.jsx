@@ -190,10 +190,10 @@ export default function Landing() {
 
                   <div className="my-4 flex items-center justify-center sm:my-7">
                     <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/40 bg-white/15 sm:h-24 sm:w-24">
-                      <Heart
-                        size={36}
-                        strokeWidth={1.7}
-                        fill="currentColor"
+                      <img
+                        src="/Datelocked%20Logo.png"
+                        alt="Date-Locked Logo"
+                        className="h-12 w-12 object-contain sm:h-20 sm:w-20"
                       />
                     </div>
                   </div>
@@ -243,9 +243,7 @@ export default function Landing() {
                 What is Date-Locked?
               </h2>
               <p className="mt-3 text-sm leading-6 text-slate-600 sm:mt-6 sm:text-base sm:leading-8">
-                Date-Locked brings together identity verification tools, date
-                planning, shared experiences, and relationship status features
-                to support safer, more transparent connections.
+                Date Locked is a relationship verification and social experience mobile application designed to promote honesty, commitment, and transparency between romantic partners. The app allows couples to mutually confirm and lock their relationship status using secure verification methods, while also enabling them to document and share their relationship journey with trusted audiences.
               </p>
             </div>
 
