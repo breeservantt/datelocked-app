@@ -103,13 +103,14 @@ export default function Landing() {
             </div>
 
             <h1 className="mx-auto max-w-sm text-3xl font-extrabold leading-tight tracking-tight text-slate-950 sm:text-4xl">
-              Build genuine connections.
+              What Is Date-Locked?
             </h1>
 
             <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-600">
-              Verify, plan dates, share experiences, and
-              build your relationship together when you are
-              both ready.
+              Date Locked is a relationship verification and social experience mobile application designed to promote honesty,
+              commitment, and transparency between romantic partners. The app allows couples to mutually confirm and lock
+              their relationship status using secure verification methods, while also enabling them to document and share their
+              relationship journey with trusted audiences.
             </p>
 
             {/* Google sign-in */}
