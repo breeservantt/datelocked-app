@@ -40,11 +40,12 @@ return (
    id="top"
    className="min-h-screen overflow-x-hidden bg-[#dfd0cc] px-4 py-6 text-[#342b30] sm:px-8 sm:py-8"
  >
-{/* Presentation heading */}
-<div className="mb-6 text-center">
-<h1 className="text-xl font-bold tracking-tight text-[#211a1e]">
-Date-Locked
-</h1>
+  {/* Presentation heading */}
+  <div className="mb-6 text-center">
+  <h1 className="text-4xl font-bold tracking-tight text-[#211a1e]">
+    Date-Locked
+  </h1>
+</div>
 <p className="mt-1 text-[11px] tracking-wide text-[#76666c]">
 Love, trust & commitment
 </p>
