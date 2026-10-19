@@ -44,12 +44,11 @@ return (
   <div className="mb-6 text-center">
   <h1 className="text-4xl font-bold tracking-tight text-[#211a1e]">
     Date-Locked
-  </h1>
+    </h1>
 </div>
 <p className="mt-1 text-[11px] tracking-wide text-[#76666c]">
-Love, trust & commitment
+  Love, trust & commitment
 </p>
-</div>
 
   {/* Main landing page */}
   <div className="relative mx-auto w-full max-w-[1120px]">
