@@ -9,7 +9,7 @@ import { AvatarImage } from '@/components/ui/avatar';
 import {
   Lock,
   Heart,
-  Image,
+  Image as ImageIcon,
   Target,
   Bell,
   Settings,
@@ -30,12 +30,14 @@ import { parseSafeDate } from '@/components/utils/dateHelpers';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const NOTIFY_AUDIO_SRC =
-  'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt5p9NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSyBzvLZiTYIGmi77eafTRAMUKfj8LZjHAY4ktfzzXksBSR3yPDekEAKFF607OupVRQKRp/g8r5sIQUsgs/y2Ik2CBlou+3mn00QDFCn4/C2YxwGOJLX8s15LAUkd8nw3pBAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQqOPwtmMcBjiS1/LNeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyBzvLZiTYIGmi77eafTRAMUKfj8LZjHAY4ktfyzHksBSR3yO/fkEAKFGCz7OupVRQKRp/g8r5sIQUsgs/y2Yk2CBlou+3mn00QDFCo4/C2YxwGOJPX8sx5LAUld8rw35BAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQqOPwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIGWi77eafTRAMUKfj8LZjHAY4ktfyzHksBSR3ye/fkEAKFGC07OupVRQKRp/g8r5sIQUsgs/y2Ik2CBlouujln00QDFCn4/C2YxwGOJPX8sx5LAUkd8jv35BAChRgs+zrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQp+PwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIGWi77eafTRAMT6jj8LZjHAY4k9fyzHksBSR3yO/fkEAKFGCz7OupVRQKRp/g8r5sIQUsgs/y2Yk2CBlou+3mn00QDFCn4fC2YxwGOJPX8sx5LAUkd8nw35BAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQp+PwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIG=';
+  'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt5p9NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSyBzvLZiTYIGmi77eafTRAMUKfj8LZjHAY4ktfzzXksBSR3yPDekEAKFF607OupVRQKRp/g8r5sIQUsgs/y2Ik2CBlou+3mn00QDFCn4/C2YxwGOJLX8s15LAUkd8nw3pBAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQqOPwtmMcBjiS1/LNeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyBzvLZiTYIGmi77eafTRAMUKfj8LZjHAY4ktfyzHksBSR3yO/fkEAKFGCz7OupVRQKRp/g8r5sIQUsgs/y2Yk2CBlou+3mn00QDFCo4/C2YxwGOJPX8sx5LAUld8rw35BAChRftOzrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQqOPwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIGWi77eafTRAMUKfj8LZjHAY4ktfyzHksBSR3ye/fkEAKFGC07OupVRQKRp/g8r5sIQUsgs/y2Ik2CBlouujln00QDFCn4/C2YxwGOJPX8sx5LAUkd8jv35BAChRgs+zrqVUUCkaf4PK+bCEFLILP8tmJNggZaLvt5p9NEAxQp+PwtmMcBjiS1/LMeSwFJHfK8N+QQAoUX7Ts66lVFApGn+DyvmwhBSyCz/LZiTYIG=';
+
+const SPIDER_WEB_DAYS = 30;
 
 const navItems = [
   { label: 'Home', icon: HomeIcon, page: 'Home' },
   { label: 'Dating', icon: Heart, page: 'Dating' },
-  { label: 'Memories', icon: Image, page: 'Memories' },
+  { label: 'Memories', icon: ImageIcon, page: 'Memories' },
   { label: 'Goals', icon: Target, page: 'Goals' },
   { label: 'NightIn', icon: MapPin, page: 'NightIn' },
   { label: 'Chat', icon: MessageCircle, page: 'Chat' },
@@ -73,12 +75,13 @@ async function tryProfileTablesByEmail(email) {
 }
 
 function getDisplayStatus(relationshipStatus) {
-  return relationshipStatus === 'date_locked' ? 'Date-Locked' : 'Date-Picking';
+  return relationshipStatus === 'date_locked'
+    ? 'Date-Locked'
+    : 'Date-Picking';
 }
 
 function StatusPill({ relationshipStatus }) {
   const isLocked = relationshipStatus === 'date_locked';
-  const text = getDisplayStatus(relationshipStatus);
 
   return (
     <div
@@ -89,8 +92,14 @@ function StatusPill({ relationshipStatus }) {
       }`}
     >
       <div className="flex items-center gap-1.5">
-        {isLocked ? <Lock className="h-4 w-4" /> : <Heart className="h-4 w-4" />}
-        <span className="text-[12px] font-semibold leading-none">{text}</span>
+        {isLocked ? (
+          <Lock className="h-4 w-4" />
+        ) : (
+          <Heart className="h-4 w-4" />
+        )}
+        <span className="text-[12px] font-semibold leading-none">
+          {getDisplayStatus(relationshipStatus)}
+        </span>
       </div>
     </div>
   );
@@ -100,14 +109,16 @@ function StatCard({ icon, value, label, iconColor, iconWrap }) {
   return (
     <div className="rounded-[20px] bg-white px-2.5 py-3 text-center shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
       <div className="flex flex-col items-center">
-        <div className={`mb-2.5 flex h-10 w-10 items-center justify-center rounded-full ${iconWrap}`}>
-          {React.cloneElement(icon, { className: `h-4.5 w-4.5 ${iconColor}` })}
+        <div
+          className={`mb-2.5 flex h-10 w-10 items-center justify-center rounded-full ${iconWrap}`}
+        >
+          {React.cloneElement(icon, {
+            className: `h-4.5 w-4.5 ${iconColor}`,
+          })}
         </div>
-
         <p className="text-[16px] font-bold leading-none text-slate-900">
           {value}
         </p>
-
         <p className="mt-2 truncate text-[11px] font-medium text-slate-500">
           {label}
         </p>
@@ -124,9 +135,7 @@ function BottomNav() {
       <div className="mx-auto grid w-full max-w-[390px] grid-cols-7 gap-0.5 px-2">
         {navItems.map((item) => {
           const href = createPageUrl(item.page);
-          const active =
-            location.pathname === href ||
-            (href === '/' && location.pathname === '/');
+          const active = location.pathname === href;
           const Icon = item.icon;
 
           return (
@@ -143,7 +152,6 @@ function BottomNav() {
                 }`}
                 strokeWidth={2}
               />
-
               <span
                 className={`truncate text-[8px] leading-none tracking-[-0.01em] ${
                   active
@@ -171,23 +179,6 @@ function getGoalDisplayTitle(goal) {
   );
 }
 
-function getGoalDateMs(goal) {
-  const rawDate =
-    goal?.event_datetime ||
-    goal?.target_date ||
-    goal?.event_date ||
-    goal?.date ||
-    null;
-
-  const parsedDate = parseSafeDate(rawDate);
-
-  if (!parsedDate) return null;
-
-  const ms = parsedDate.getTime();
-
-  return Number.isNaN(ms) ? null : ms;
-}
-
 function formatCountdown(ms, nowTick) {
   if (!ms) return '--';
 
@@ -208,12 +199,12 @@ function InteractionGauge({ chats = 0, goals = 0, memories = 0, dates = 0 }) {
   const dateScore = Math.min(dates * 5, 30);
 
   const totalScore = Math.max(
-  0,
-  Math.min(100, Math.round(chatScore + goalScore + memoryScore + dateScore))
-);
+    0,
+    Math.min(100, Math.round(chatScore + goalScore + memoryScore + dateScore))
+  );
 
   const levelLabel =
-  totalScore >= 80 ? "Strong" : totalScore >= 55 ? "Growing" : "Low";
+    totalScore >= 80 ? 'Strong' : totalScore >= 55 ? 'Growing' : 'Low';
 
   return (
     <button
@@ -226,18 +217,15 @@ function InteractionGauge({ chats = 0, goals = 0, memories = 0, dates = 0 }) {
           <div className="flex h-[58px] w-[58px] items-center justify-center rounded-[20px] bg-gradient-to-br from-[#8b5cf6] to-[#6366f1]">
             <CheckCircle className="h-7 w-7 text-white" strokeWidth={2.1} />
           </div>
-
           <div>
             <p className="text-[15px] font-semibold leading-none text-[#172033]">
               Interaction Gauge
             </p>
-
             <p className="mt-3 text-[12px] font-medium leading-none text-[#64748b]">
               Tap to view relationship insights
             </p>
           </div>
         </div>
-
         <div className="rounded-full bg-white/70 px-3 py-1 text-[12px] font-medium text-slate-700">
           {levelLabel}
         </div>
@@ -250,14 +238,218 @@ function InteractionGauge({ chats = 0, goals = 0, memories = 0, dates = 0 }) {
             style={{ width: `${totalScore}%` }}
           />
         </div>
-
         <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
           <span>Low</span>
-          <span className="font-semibold text-slate-700">{totalScore}%</span>
+          <span className="font-semibold text-slate-700">
+            {totalScore}%
+          </span>
           <span>High</span>
         </div>
       </div>
     </button>
+  );
+}
+
+/*
+ * Spider web overlay.
+ *
+ * The web grows according to the time since the later of:
+ * last_interaction_at and spider_web_cleared_at.
+ *
+ * Swiping across a web strand clears it for both partners by saving
+ * spider_web_cleared_at in the shared couple_profiles row.
+ */
+function SpiderWebOverlay({
+  coupleProfile,
+  enabled,
+  onClear,
+  isClearing,
+}) {
+  const startPointRef = React.useRef(null);
+  const [swipeProgress, setSwipeProgress] = React.useState(null);
+  const [localHidden, setLocalHidden] = React.useState(false);
+
+  React.useEffect(() => {
+    setLocalHidden(false);
+  }, [
+    coupleProfile?.last_interaction_at,
+    coupleProfile?.spider_web_cleared_at,
+  ]);
+
+  const growth = React.useMemo(() => {
+    if (!enabled || !coupleProfile) return 0;
+
+    const lastInteraction = coupleProfile.last_interaction_at
+      ? new Date(coupleProfile.last_interaction_at).getTime()
+      : 0;
+
+    const lastCleared = coupleProfile.spider_web_cleared_at
+      ? new Date(coupleProfile.spider_web_cleared_at).getTime()
+      : 0;
+
+    const baseline = Math.max(lastInteraction, lastCleared);
+
+    // Do not create a web until there is a known timestamp.
+    if (!baseline || Number.isNaN(baseline)) return 0;
+
+    const elapsed = Math.max(0, Date.now() - baseline);
+    return Math.min(1, elapsed / (SPIDER_WEB_DAYS * 24 * 60 * 60 * 1000));
+  }, [
+    enabled,
+    coupleProfile?.last_interaction_at,
+    coupleProfile?.spider_web_cleared_at,
+  ]);
+
+  const strands = React.useMemo(() => {
+    const result = [];
+
+    // Radial strands from the centre.
+    const centreX = 500;
+    const centreY = 500;
+    const radialCount = 24;
+    const maxRadius = 720;
+
+    for (let i = 0; i < radialCount; i += 1) {
+      const angle = (Math.PI * 2 * i) / radialCount;
+      const endX = centreX + Math.cos(angle) * maxRadius;
+      const endY = centreY + Math.sin(angle) * maxRadius;
+
+      result.push({
+        id: `radial-${i}`,
+        d: `M ${centreX} ${centreY} L ${endX} ${endY}`,
+        level: i / radialCount,
+      });
+    }
+
+    // Concentric rings create the familiar spider-web pattern.
+    const ringCount = 18;
+
+    for (let i = 1; i <= ringCount; i += 1) {
+      const radius = (maxRadius * i) / ringCount;
+      const points = [];
+
+      for (let j = 0; j <= 72; j += 1) {
+        const angle = (Math.PI * 2 * j) / 72;
+        const x = centreX + Math.cos(angle) * radius;
+        const y = centreY + Math.sin(angle) * radius;
+        points.push(`${j === 0 ? 'M' : 'L'} ${x} ${y}`);
+      }
+
+      result.push({
+        id: `ring-${i}`,
+        d: points.join(' '),
+        level: i / ringCount,
+      });
+    }
+
+    return result;
+  }, []);
+
+  const handlePointerDown = React.useCallback((event) => {
+    startPointRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      distance: 0,
+    };
+
+    setSwipeProgress({
+      x: event.clientX,
+      y: event.clientY,
+    });
+
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture is not available in every browser.
+    }
+  }, []);
+
+  const handlePointerMove = React.useCallback((event) => {
+    if (!startPointRef.current) return;
+
+    const dx = event.clientX - startPointRef.current.x;
+    const dy = event.clientY - startPointRef.current.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    startPointRef.current.distance = Math.max(
+      startPointRef.current.distance,
+      distance
+    );
+
+    setSwipeProgress({
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }, []);
+
+  const handlePointerUp = React.useCallback(async () => {
+    const swipeDistance = startPointRef.current?.distance || 0;
+
+    startPointRef.current = null;
+    setSwipeProgress(null);
+
+    if (swipeDistance < 45 || isClearing) return;
+
+    setLocalHidden(true);
+
+    try {
+      await onClear();
+    } catch {
+      setLocalHidden(false);
+    }
+  }, [isClearing, onClear]);
+
+  if (!enabled || growth <= 0 || localHidden) return null;
+
+  // More strands become visible as the 30-day period progresses.
+  const visibleLevel = Math.max(0.12, growth);
+  const opacity = 0.15 + growth * 0.42;
+
+  return (
+    <svg
+      className="fixed inset-0 z-30 h-full w-full overflow-hidden"
+      viewBox="0 0 1000 1000"
+      preserveAspectRatio="none"
+      aria-label="Spider web showing time since the couple's last interaction. Swipe across a strand to clear it."
+      style={{
+        pointerEvents: 'none',
+        overflow: 'hidden',
+      }}
+    >
+      {strands
+        .filter((strand) => strand.level <= visibleLevel)
+        .map((strand) => (
+          <path
+            key={strand.id}
+            d={strand.d}
+            fill="none"
+            stroke="#64748b"
+            strokeWidth={0.9 + growth * 0.8}
+            strokeOpacity={opacity}
+            strokeLinecap="round"
+            style={{
+              pointerEvents: 'stroke',
+              touchAction: 'none',
+              cursor: 'grab',
+            }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+          />
+        ))}
+
+      {swipeProgress && (
+        <circle
+          cx={swipeProgress.x}
+          cy={swipeProgress.y}
+          r="7"
+          fill="#94a3b8"
+          fillOpacity="0.45"
+          style={{ pointerEvents: 'none' }}
+        />
+      )}
+    </svg>
   );
 }
 
@@ -269,6 +461,7 @@ export default function Home() {
   const fileInputRef = React.useRef(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
   const [avatarPreviewOpen, setAvatarPreviewOpen] = React.useState(false);
+  const [isClearingSpiderWeb, setIsClearingSpiderWeb] = React.useState(false);
 
   const notifyAudioRef = React.useRef(null);
   const lastInvitationIdRef = React.useRef(null);
@@ -285,60 +478,6 @@ export default function Home() {
   const openPhotoPicker = React.useCallback(() => {
     fileInputRef.current?.click();
   }, []);
-
-  const handleProfilePhotoUpload = React.useCallback(
-    async (e) => {
-      const file = e.target.files?.[0];
-      e.target.value = '';
-
-      if (!file) return;
-
-      setIsUploadingPhoto(true);
-
-      try {
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
-
-        if (authError) throw authError;
-        if (!user) throw new Error('User not authenticated');
-
-        const fileExt = file.name.split('.').pop();
-        const filePath = `${user.id}/${Date.now()}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('profile-photos')
-          .upload(filePath, file, { upsert: true });
-
-        if (uploadError) throw uploadError;
-
-        const { data } = supabase.storage
-          .from('profile-photos')
-          .getPublicUrl(filePath);
-
-        const publicUrl = data.publicUrl;
-
-        const payload = {
-          id: user.id,
-          email: user.email,
-          profile_photo: publicUrl,
-          updated_at: new Date().toISOString(),
-        };
-
-        await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
-        await supabase.from('users').upsert(payload, { onConflict: 'id' });
-
-        await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-      } catch (err) {
-        console.error(err);
-        alert(err.message || 'Upload failed');
-      } finally {
-        setIsUploadingPhoto(false);
-      }
-    },
-    [queryClient]
-  );
 
   const [nowTick, setNowTick] = React.useState(Date.now());
 
@@ -367,16 +506,21 @@ export default function Home() {
 
       if (!profile) {
         const fallbackProfile = {
-      id: authUser.id,
-      email: authUser.email,
-      full_name: '',
-      relationship_status: 'single',
-      onboarding_completed: false,
-      profile_completed: false,
-    };
+          id: authUser.id,
+          email: authUser.email,
+          full_name: '',
+          relationship_status: 'single',
+          onboarding_completed: false,
+          profile_completed: false,
+        };
 
-        await supabase.from('profiles').upsert(fallbackProfile, { onConflict: 'id' });
-        await supabase.from('users').upsert(fallbackProfile, { onConflict: 'id' });
+        await supabase
+          .from('profiles')
+          .upsert(fallbackProfile, { onConflict: 'id' });
+
+        await supabase
+          .from('users')
+          .upsert(fallbackProfile, { onConflict: 'id' });
 
         profile = fallbackProfile;
       }
@@ -397,28 +541,88 @@ export default function Home() {
     }
   }, [location.pathname, refetchUser]);
 
-  const profileComplete =
-  user?.full_name?.trim() &&
-  user?.date_of_birth &&
-  user?.gender &&
-  user?.location;
+  const profileComplete = Boolean(
+    user?.full_name?.trim() &&
+      user?.date_of_birth &&
+      user?.gender &&
+      user?.location
+  );
 
-React.useEffect(() => {
-  if (!user) return;
+  React.useEffect(() => {
+    if (!user) return;
 
-  if (!profileComplete) {
-    navigate(createPageUrl('Onboarding'), { replace: true });
-    return;
-  }
+    if (!profileComplete) {
+      navigate(createPageUrl('Onboarding'), { replace: true });
+      return;
+    }
 
-  if (user.legalAccepted === false) {
-    navigate(createPageUrl('Consent'), { replace: true });
-  }
-}, [user, profileComplete, navigate]);
+    if (user.legalAccepted === false) {
+      navigate(createPageUrl('Consent'), { replace: true });
+    }
+  }, [user, profileComplete, navigate]);
 
   const coupleId = user?.couple_profile_id || null;
   const myEmail = user?.email || null;
   const isDateLocked = user?.relationship_status === 'date_locked';
+
+  const {
+    data: coupleProfile,
+    refetch: refetchCoupleProfile,
+  } = useQuery({
+    queryKey: ['coupleProfile', coupleId],
+    enabled: !!coupleId,
+    retry: 1,
+    staleTime: 0,
+    refetchInterval: 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('couple_profiles')
+        .select('*')
+        .eq('id', coupleId)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      return data || null;
+    },
+  });
+
+  /*
+   * Saves the clear timestamp on the shared couple_profiles row.
+   * Both partners read this same row, so the clear is shared.
+   */
+  const handleClearSpiderWeb = React.useCallback(async () => {
+    if (!coupleId) return;
+
+    setIsClearingSpiderWeb(true);
+
+    try {
+      const clearedAt = new Date().toISOString();
+
+      const { error } = await supabase
+        .from('couple_profiles')
+        .update({
+          spider_web_cleared_at: clearedAt,
+        })
+        .eq('id', coupleId);
+
+      if (error) throw error;
+
+      await queryClient.invalidateQueries({
+        queryKey: ['coupleProfile', coupleId],
+      });
+
+      await refetchCoupleProfile();
+    } catch (error) {
+      console.error('Unable to clear spider web:', error);
+      alert(
+        'The spider web could not be cleared. Please check your connection and try again.'
+      );
+      throw error;
+    } finally {
+      setIsClearingSpiderWeb(false);
+    }
+  }, [coupleId, queryClient, refetchCoupleProfile]);
 
   React.useEffect(() => {
     if (!user?.id) return;
@@ -442,14 +646,31 @@ React.useEffect(() => {
         {
           event: '*',
           schema: 'public',
+          table: 'couple_profiles',
+          filter: coupleId ? `id=eq.${coupleId}` : undefined,
+        },
+        () => {
+          queryClient.invalidateQueries({
+            queryKey: ['coupleProfile', coupleId],
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
           table: 'couple_goals',
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ['homeGoalsData'] });
           queryClient.invalidateQueries({ queryKey: ['homeEventsCount'] });
+          queryClient.invalidateQueries({
+            queryKey: ['unreadNotificationCount'],
+          });
         }
       )
-            .on(
+      .on(
         'postgres_changes',
         {
           event: '*',
@@ -522,26 +743,13 @@ React.useEffect(() => {
     playNotify();
   }, [pendingInvitation?.id, playNotify]);
 
-  const { data: coupleProfile } = useQuery({
-    queryKey: ['coupleProfile', coupleId],
-    enabled: !!coupleId,
-    retry: 1,
-    staleTime: 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('couple_profiles')
-        .select('*')
-        .eq('id', coupleId)
-        .limit(1);
-
-      if (error) throw error;
-
-      return data?.[0] || null;
-    },
-  });
-
-    const { data: unreadNotificationCount = 0 } = useQuery({
-    queryKey: ['unreadNotificationCount', user?.id, user?.email, coupleProfile?.id],
+  const { data: unreadNotificationCount = 0 } = useQuery({
+    queryKey: [
+      'unreadNotificationCount',
+      user?.id,
+      user?.email,
+      coupleProfile?.id,
+    ],
     enabled: !!user?.id && !!user?.email,
     queryFn: async () => {
       const currentEmail = user.email;
@@ -562,7 +770,9 @@ React.useEffect(() => {
         coupleProfile?.id
           ? supabase
               .from('couple_goals')
-              .select('id, title, invitation_status, invited_by, created_at, updated_at')
+              .select(
+                'id, title, invitation_status, invited_by, created_at, updated_at'
+              )
               .eq('couple_profile_id', coupleProfile.id)
               .eq('type', 'event')
               .limit(20)
@@ -576,10 +786,7 @@ React.useEffect(() => {
       const notificationIds = [];
 
       (receivedResult.data || []).forEach((inv) => {
-        if (inv.status === 'pending') {
-          notificationIds.push(String(inv.id));
-        }
-
+        if (inv.status === 'pending') notificationIds.push(String(inv.id));
         if (inv.status === 'accepted') {
           notificationIds.push(`${inv.id}_accepted`);
         }
@@ -589,7 +796,6 @@ React.useEffect(() => {
         if (inv.status === 'accepted') {
           notificationIds.push(`${inv.id}_partner_accepted`);
         }
-
         if (inv.status === 'pending') {
           notificationIds.push(`${inv.id}_pending`);
         }
@@ -618,9 +824,7 @@ React.useEffect(() => {
         }
       });
 
-      if (notificationIds.length === 0) {
-        return 0;
-      }
+      if (notificationIds.length === 0) return 0;
 
       const { data: readRows, error: readError } = await supabase
         .from('notification_reads')
@@ -649,11 +853,11 @@ React.useEffect(() => {
           ? coupleProfile?.partner2_email
           : coupleProfile?.partner1_email;
 
-      return await tryProfileTablesByEmail(partnerEmail);
+      return tryProfileTablesByEmail(partnerEmail);
     },
   });
 
-    const { data: eventsCount = 0 } = useQuery({
+  const { data: eventsCount = 0 } = useQuery({
     queryKey: ['homeEventsCount', coupleId, user?.id],
     enabled: !!user?.id,
     retry: 1,
@@ -661,14 +865,11 @@ React.useEffect(() => {
     queryFn: async () => {
       let query = supabase.from('couple_goals').select('*');
 
-      if (coupleId) {
-        query = query.eq('couple_profile_id', coupleId);
-      } else {
-        query = query.eq('owner_id', user.id);
-      }
+      query = coupleId
+        ? query.eq('couple_profile_id', coupleId)
+        : query.eq('owner_id', user.id);
 
       const { data, error } = await query;
-
       if (error) throw error;
 
       const today = new Date();
@@ -676,33 +877,26 @@ React.useEffect(() => {
 
       return (data || []).filter((item) => {
         if (item?.type !== 'event') return false;
-
         if (item?.invitation_status === 'declined') return false;
-
-        if (item?.invitation_status !== 'accepted') {
-        return false;
-        }
+        if (item?.invitation_status !== 'accepted') return false;
 
         const rawDate =
-          item?.event_datetime ||
-          item?.target_date ||
-          item?.event_date;
+          item?.event_datetime || item?.target_date || item?.event_date;
 
         if (!rawDate) return true;
 
         const parsedDate = parseSafeDate(rawDate);
-
         if (!parsedDate) return true;
 
         parsedDate.setHours(0, 0, 0, 0);
-
         return parsedDate >= today;
       }).length;
     },
   });
 
-  const { data: goalsData = { count: 0, eventsCount: 0, countdownGoal: null } } =
-  useQuery({
+  const {
+    data: goalsData = { count: 0, eventsCount: 0, countdownGoal: null },
+  } = useQuery({
     queryKey: ['homeGoalsData', coupleId, user?.id],
     enabled: !!user?.id,
     retry: 1,
@@ -711,18 +905,14 @@ React.useEffect(() => {
     queryFn: async () => {
       let query = supabase.from('couple_goals').select('*');
 
-      if (coupleId) {
-        query = query.eq('couple_profile_id', coupleId);
-      } else {
-        query = query.eq('owner_id', user.id);
-      }
+      query = coupleId
+        ? query.eq('couple_profile_id', coupleId)
+        : query.eq('owner_id', user.id);
 
       const { data, error } = await query;
-
       if (error) throw error;
 
       const rows = Array.isArray(data) ? data : [];
-
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -737,48 +927,47 @@ React.useEffect(() => {
         if (!rawDate) return true;
 
         const parsedDate = parseSafeDate(rawDate);
-
         if (!parsedDate) return true;
 
         parsedDate.setHours(0, 0, 0, 0);
-
         return parsedDate >= today;
       });
 
-      const goalItems = cleanItems.filter((g) => g.type === 'goal');
+      const goalItems = cleanItems.filter((item) => item.type === 'goal');
 
       const eventItems = cleanItems.filter(
-        (g) => g.type === 'event' && g.invitation_status === 'accepted'
+        (item) =>
+          item.type === 'event' && item.invitation_status === 'accepted'
       );
 
       const countdownGoal =
-  cleanItems
-    .filter((item) => {
-      if (
-        item.type === 'event' &&
-        item.invitation_status !== 'accepted'
-      ) {
-        return false;
-      }
+        cleanItems
+          .filter((item) => {
+            if (
+              item.type === 'event' &&
+              item.invitation_status !== 'accepted'
+            ) {
+              return false;
+            }
 
-      return (
-        item.target_date ||
-        item.event_datetime ||
-        item.event_date
-      );
-    })
-    .map((item) => {
-      const rawDate =
-        item.event_datetime || item.target_date || item.event_date;
+            return (
+              item.target_date ||
+              item.event_datetime ||
+              item.event_date
+            );
+          })
+          .map((item) => {
+            const rawDate =
+              item.event_datetime || item.target_date || item.event_date;
 
-      const parsedDate = parseSafeDate(rawDate);
-      const dateMs = parsedDate ? parsedDate.getTime() : null;
+            const parsedDate = parseSafeDate(rawDate);
+            const dateMs = parsedDate ? parsedDate.getTime() : null;
 
-      return dateMs ? { ...item, _dateMs: dateMs } : null;
-    })
-    .filter(Boolean)
-    .filter((item) => item._dateMs >= Date.now())
-    .sort((a, b) => a._dateMs - b._dateMs)[0] || null;
+            return dateMs ? { ...item, _dateMs: dateMs } : null;
+          })
+          .filter(Boolean)
+          .filter((item) => item._dateMs >= Date.now())
+          .sort((a, b) => a._dateMs - b._dateMs)[0] || null;
 
       return {
         count: goalItems.length,
@@ -787,25 +976,20 @@ React.useEffect(() => {
       };
     },
   });
-      
+
   const { data: memoriesCount = 0 } = useQuery({
     queryKey: ['homeMemoriesCount', coupleId, user?.id],
     enabled: !!user?.id,
     retry: 1,
     staleTime: 60 * 1000,
     queryFn: async () => {
-      let query = supabase
-        .from('memories')
-        .select('*', { count: 'exact', head: false });
+      let query = supabase.from('memories').select('*');
 
-      if (coupleId) {
-        query = query.eq('couple_profile_id', coupleId);
-      } else {
-        query = query.eq('created_by', user.id);
-      }
+      query = coupleId
+        ? query.eq('couple_profile_id', coupleId)
+        : query.eq('created_by', user.id);
 
       const { data, error } = await query;
-
       if (error) throw error;
 
       return Array.isArray(data) ? data.length : 0;
@@ -829,14 +1013,6 @@ React.useEffect(() => {
     },
   });
 
-  const { total: interactionScore, level: interactionLevel } =
-    calculateInteractionScore({
-      chats: chatsCount,
-      goals: goalsData.count,
-      memories: memoriesCount,
-      dates: eventsCount,
-    });
-
   const countdownGoal = goalsData.countdownGoal;
   const countdownText = React.useMemo(
     () => formatCountdown(countdownGoal?._dateMs, nowTick),
@@ -850,7 +1026,9 @@ React.useEffect(() => {
     if (nowTick >= countdownGoal._dateMs) {
       playNotify();
       lastCountdownAlertIdRef.current = countdownGoal.id;
-      queryClient.invalidateQueries({ queryKey: ['homeGoalsData', coupleId] });
+      queryClient.invalidateQueries({
+        queryKey: ['homeGoalsData', coupleId],
+      });
     }
   }, [
     nowTick,
@@ -861,18 +1039,8 @@ React.useEffect(() => {
     coupleId,
   ]);
 
-  const handleOpenCountdownGoal = React.useCallback(() => {
-    if (!countdownGoal?.id) {
-      navigate(createPageUrl('Goals'));
-      return;
-    }
-
-    navigate(`${createPageUrl('Goals')}?goal=${countdownGoal.id}`);
-  }, [countdownGoal?.id, navigate]);
-
   const daysTogether = React.useMemo(() => {
     const lockedAt = coupleProfile?.date_locked_at;
-
     if (!lockedAt) return 0;
 
     const lockedDate = new Date(lockedAt);
@@ -883,24 +1051,92 @@ React.useEffect(() => {
 
     return Math.max(
       0,
-      Math.floor((today.getTime() - lockedDate.getTime()) / (1000 * 60 * 60 * 24))
+      Math.floor(
+        (today.getTime() - lockedDate.getTime()) / (1000 * 60 * 60 * 24)
+      )
     );
   }, [coupleProfile?.date_locked_at]);
 
-  const canEdit =
-    !!user &&
-    user.relationship_status !== 'pending_verification' &&
-    user.relationship_status !== 'single';
+  const handleProfilePhotoUpload = React.useCallback(
+    async (event) => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+
+      if (!file) return;
+
+      setIsUploadingPhoto(true);
+
+      try {
+        const {
+          data: { user: authUser },
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError) throw authError;
+        if (!authUser) throw new Error('User not authenticated');
+
+        const fileExt = file.name.split('.').pop();
+        const filePath = `${authUser.id}/${Date.now()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('profile-photos')
+          .upload(filePath, file, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage
+          .from('profile-photos')
+          .getPublicUrl(filePath);
+
+        const payload = {
+          id: authUser.id,
+          email: authUser.email,
+          profile_photo: data.publicUrl,
+          updated_at: new Date().toISOString(),
+        };
+
+        await supabase
+          .from('profiles')
+          .upsert(payload, { onConflict: 'id' });
+
+        await supabase
+          .from('users')
+          .upsert(payload, { onConflict: 'id' });
+
+        await queryClient.invalidateQueries({
+          queryKey: ['currentUser'],
+        });
+      } catch (error) {
+        console.error(error);
+        alert(error.message || 'Upload failed');
+      } finally {
+        setIsUploadingPhoto(false);
+      }
+    },
+    [queryClient]
+  );
+
+  const handleOpenCountdownGoal = React.useCallback(() => {
+    if (!countdownGoal?.id) {
+      navigate(createPageUrl('Goals'));
+      return;
+    }
+
+    navigate(`${createPageUrl('Goals')}?goal=${countdownGoal.id}`);
+  }, [countdownGoal?.id, navigate]);
 
   const handleAcceptInvitation = React.useCallback(async () => {
     if (!pendingInvitation?.invitation_token) return;
 
     try {
-      const { error } = await supabase.functions.invoke('acceptInvitationByToken', {
-        body: {
-          invitation_token: pendingInvitation.invitation_token,
-        },
-      });
+      const { error } = await supabase.functions.invoke(
+        'acceptInvitationByToken',
+        {
+          body: {
+            invitation_token: pendingInvitation.invitation_token,
+          },
+        }
+      );
 
       if (error) throw error;
 
@@ -908,9 +1144,11 @@ React.useEffect(() => {
       await queryClient.invalidateQueries({ queryKey: ['coupleProfile'] });
 
       navigate('/home', { replace: true });
-    } catch (e) {
-      console.error('Error accepting invitation:', e);
-      alert(e?.message || 'Failed to accept invitation. Please try again.');
+    } catch (error) {
+      console.error('Error accepting invitation:', error);
+      alert(
+        error?.message || 'Failed to accept invitation. Please try again.'
+      );
     }
   }, [pendingInvitation?.invitation_token, navigate, queryClient]);
 
@@ -922,16 +1160,6 @@ React.useEffect(() => {
     );
   }
 
-  if (user && !profileComplete) {
-  navigate("/onboarding", { replace: true });
-
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-[#f3edf1]">
-      <Loader2 className="h-8 w-8 animate-spin text-[#5e9cff]" />
-    </div>
-  );
-}
-
   if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f3edf1] px-4">
@@ -939,7 +1167,6 @@ React.useEffect(() => {
           <p className="mb-4 text-sm text-slate-600">
             Please sign in to continue.
           </p>
-
           <Button
             onClick={() => navigate('/login', { replace: true })}
             className="bg-[#2f6df0] hover:bg-[#2f6df0]"
@@ -947,6 +1174,14 @@ React.useEffect(() => {
             Go to Login
           </Button>
         </Card>
+      </div>
+    );
+  }
+
+  if (!profileComplete) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f3edf1]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#5e9cff]" />
       </div>
     );
   }
@@ -960,7 +1195,6 @@ React.useEffect(() => {
               <p className="mb-4 text-slate-600">
                 Unable to load your profile
               </p>
-
               <Button
                 onClick={() => window.location.reload()}
                 className="bg-rose-500 hover:bg-rose-600"
@@ -970,19 +1204,10 @@ React.useEffect(() => {
             </Card>
           </div>
         </div>
-
         <BottomNav />
       </>
     );
   }
-
-  if (user && !profileComplete) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-[#f3edf1]">
-      <Loader2 className="h-8 w-8 animate-spin text-[#5e9cff]" />
-    </div>
-  );
-}
 
   const hasProfilePhoto = Boolean(user?.profile_photo);
 
@@ -1010,7 +1235,6 @@ React.useEffect(() => {
               >
                 <X className="h-5 w-5" />
               </button>
-
               <AvatarImage
                 src={user.profile_photo}
                 alt="Profile"
@@ -1047,7 +1271,7 @@ React.useEffect(() => {
 
                   <button
                     type="button"
-                    onClick={openPhotoPicker}
+                    onClick={() => fileInputRef.current?.click()}
                     disabled={isUploadingPhoto}
                     className="absolute -bottom-1 -right-1 flex h-[36px] w-[36px] items-center justify-center rounded-full bg-white text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.16)] active:scale-95"
                     aria-label="Upload profile photo"
@@ -1068,52 +1292,53 @@ React.useEffect(() => {
               </div>
 
               <div className="flex gap-3 pt-1">
-  <Button
-    variant="ghost"
-    size="icon"
-    className="h-10 w-10 rounded-full text-white hover:bg-white/15"
-    onClick={() => navigate(createPageUrl("Notifications"))}
-  >
-    <div className="relative">
-      <Bell className="h-5 w-5" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-full text-white hover:bg-white/15"
+                  onClick={() => navigate(createPageUrl('Notifications'))}
+                >
+                  <div className="relative">
+                    <Bell className="h-5 w-5" />
+                    {unreadNotificationCount > 0 && (
+                      <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                        {unreadNotificationCount}
+                      </span>
+                    )}
+                  </div>
+                </Button>
 
-      {unreadNotificationCount > 0 && (
-        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-          {unreadNotificationCount}
-        </span>
-      )}
-    </div>
-  </Button>
-
-  <Button
-    variant="ghost"
-    size="icon"
-    className="h-10 w-10 rounded-full text-white hover:bg-white/15"
-    onClick={() => navigate(createPageUrl("Settings"))}
-  >
-    <Settings className="h-5 w-5" />
-  </Button>
-  </div>
-  </div>  
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-full text-white hover:bg-white/15"
+                  onClick={() => navigate(createPageUrl('Settings'))}
+                >
+                  <Settings className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
 
             <div className="mt-4 rounded-[18px] bg-white/95 px-3 py-3 shadow-[0_8px_18px_rgba(15,23,42,0.10)] backdrop-blur-sm">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="mb-1.5 text-[12px] text-slate-500">Your Status</p>
+                  <p className="mb-1.5 text-[12px] text-slate-500">
+                    Your Status
+                  </p>
                   <StatusPill relationshipStatus={user?.relationship_status} />
                 </div>
 
                 <div className="text-right">
                   <p className="text-[11px] text-slate-500">Together for</p>
                   <p className="text-[20px] font-bold leading-none text-rose-500">
-                  {isDateLocked ? daysTogether : 0} Days
+                    {isDateLocked ? daysTogether : 0} Days
                   </p>
-                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="-mt-10 px-4 pt-5 pb-6">
+          <div className="-mt-10 px-4 pb-6 pt-5">
             <div className="mb-5 grid grid-cols-3 gap-2.5">
               <Link to={createPageUrl('Goals')} className="block">
                 <StatCard
@@ -1143,11 +1368,9 @@ React.useEffect(() => {
                   <div className="mb-2.5 flex h-10 w-10 items-center justify-center rounded-full bg-amber-50">
                     <Clock className="h-4.5 w-4.5 text-amber-400" />
                   </div>
-
                   <p className="text-[16px] font-bold leading-none text-slate-900">
                     {countdownText}
                   </p>
-
                   <p className="mt-2 truncate text-[11px] font-medium text-slate-500">
                     {getGoalDisplayTitle(countdownGoal)}
                   </p>
@@ -1164,18 +1387,17 @@ React.useEffect(() => {
                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
                           <Heart className="h-5 w-5 text-amber-600" />
                         </div>
-
                         <div>
                           <p className="font-semibold text-slate-800">
                             Relationship Invitation
                           </p>
-
                           <p className="text-sm text-slate-500">
-                            From {pendingInvitation.sender_name || pendingInvitation.sender_email}
+                            From{' '}
+                            {pendingInvitation.sender_name ||
+                              pendingInvitation.sender_email}
                           </p>
                         </div>
                       </div>
-
                       <Button
                         onClick={handleAcceptInvitation}
                         className="w-full bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600"
@@ -1194,7 +1416,9 @@ React.useEffect(() => {
                 <Button
                   type="button"
                   onClick={() =>
-                    navigate(`${createPageUrl('InvitePartner')}?mode=email-invite`)
+                    navigate(
+                      `${createPageUrl('InvitePartner')}?mode=email-invite`
+                    )
                   }
                   className="flex h-[42px] w-full items-center justify-center gap-2 rounded-[14px] bg-white px-3 text-[13px] font-medium text-rose-500 shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
                 >
@@ -1205,7 +1429,9 @@ React.useEffect(() => {
                 <Button
                   type="button"
                   onClick={() =>
-                    navigate(`${createPageUrl('InvitePartner')}?mode=email-accept`)
+                    navigate(
+                      `${createPageUrl('InvitePartner')}?mode=email-accept`
+                    )
                   }
                   className="flex h-[42px] w-full items-center justify-center rounded-[14px] bg-rose-500 px-3 text-[13px] font-medium text-white shadow-[0_6px_14px_rgba(15,23,42,0.08)]"
                 >
@@ -1215,32 +1441,35 @@ React.useEffect(() => {
             )}
 
             <InteractionGauge
-  chats={isDateLocked ? chatsCount : 0}
-  goals={isDateLocked ? goalsData.count : 0}
-  memories={isDateLocked ? memoriesCount : 0}
-  dates={isDateLocked ? eventsCount : 0}
-/>
+              chats={isDateLocked ? chatsCount : 0}
+              goals={isDateLocked ? goalsData.count : 0}
+              memories={isDateLocked ? memoriesCount : 0}
+              dates={isDateLocked ? eventsCount : 0}
+            />
 
             <div className="mt-3 space-y-3">
               <Link to={createPageUrl('Memories')} className="block">
                 <div className="flex items-center justify-between rounded-[26px] bg-white px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
                   <div className="flex items-center gap-4">
                     <div className="flex h-[58px] w-[58px] items-center justify-center rounded-[20px] bg-[#fdecef]">
-                      <Plus className="h-7 w-7 text-[#ff4d6d]" strokeWidth={2.1} />
+                      <Plus
+                        className="h-7 w-7 text-[#ff4d6d]"
+                        strokeWidth={2.1}
+                      />
                     </div>
-
                     <div>
                       <p className="text-[15px] font-semibold leading-none text-[#172033]">
                         Add a Memory
                       </p>
-
                       <p className="mt-3 text-[12px] font-medium leading-none text-[#64748b]">
                         Capture your special moments
                       </p>
                     </div>
                   </div>
-
-                  <ChevronRight className="h-6 w-6 text-[#94a3b8]" strokeWidth={2.2} />
+                  <ChevronRight
+                    className="h-6 w-6 text-[#94a3b8]"
+                    strokeWidth={2.2}
+                  />
                 </div>
               </Link>
 
@@ -1248,27 +1477,38 @@ React.useEffect(() => {
                 <div className="flex items-center justify-between rounded-[26px] bg-white px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
                   <div className="flex items-center gap-4">
                     <div className="flex h-[58px] w-[58px] items-center justify-center rounded-[20px] bg-[#eaf1ff]">
-                      <Target className="h-7 w-7 text-[#3b82f6]" strokeWidth={2.1} />
+                      <Target
+                        className="h-7 w-7 text-[#3b82f6]"
+                        strokeWidth={2.1}
+                      />
                     </div>
-
                     <div>
                       <p className="text-[15px] font-semibold leading-none text-[#172033]">
                         Set a Goal
                       </p>
-
                       <p className="mt-3 text-[12px] font-medium leading-none text-[#64748b]">
                         Plan your future together
                       </p>
                     </div>
                   </div>
-
-                  <ChevronRight className="h-6 w-6 text-[#94a3b8]" strokeWidth={2.2} />
+                  <ChevronRight
+                    className="h-6 w-6 text-[#94a3b8]"
+                    strokeWidth={2.2}
+                  />
                 </div>
               </Link>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Spider web appears only for couples who are Date-Locked. */}
+      <SpiderWebOverlay
+        coupleProfile={coupleProfile}
+        enabled={Boolean(isDateLocked && coupleId)}
+        onClear={handleClearSpiderWeb}
+        isClearing={isClearingSpiderWeb}
+      />
 
       <BottomNav />
     </>
