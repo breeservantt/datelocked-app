@@ -28,22 +28,22 @@ try {
 };
 
 return (
-<div className="min-h-screen overflow-x-hidden bg-[#f8f2f5] text-[#342633]">
-{/* Header */}
-<header className="border-b border-[#eadce5] bg-[#fffafd]">
-<div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
-<a href="#home" className="flex min-w-0 items-center gap-2">
-<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#f2dce8] text-[#a53c70]">
-<img
-  src="/Datelocked%20Logo.png"
-  alt="Date-Locked Logo"
-  className="h-[22px] w-[22px] object-contain"
-/>
-</div>
-<span className="truncate text-lg font-extrabold tracking-tight sm:text-xl">
-Date-Locked
-</span>
-</a>
+  <div className="min-h-screen overflow-x-hidden bg-[#f8f2f5] text-[#342633]">
+    {/* Header */}
+    <header className="border-b border-[#eadce5] bg-white">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
+        <a href="#home" className="flex min-w-0 items-center gap-2">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white">
+            <img
+              src="/Datelocked%20Logo.png"
+              alt="Date-Locked Logo"
+              className="h-full w-full object-contain"
+            />
+          </div>
+          <span className="truncate text-lg font-extrabold tracking-tight sm:text-xl">
+            Date-Locked
+          </span>
+        </a>
 
       <nav className="flex shrink-0 items-center gap-3 text-sm font-semibold sm:gap-6">
         <a href="#home" className="hidden hover:text-[#a53c70] sm:inline">
@@ -138,40 +138,40 @@ Date-Locked
         </div>
       </div>
 
-      {/* Hero image */}
-  <div className="mx-auto w-full max-w-md">
-    <div className="rounded-[2rem] border border-white bg-white p-3 shadow-[0_20px_60px_rgba(115,61,91,0.12)]">
-      <div className="overflow-hidden rounded-[1.5rem] bg-[#f4e6ee]">
-        <img
-  src="/datelocked-couple.jpg"
-  alt="Couple"
-  className="mx-auto block h-auto max-h-[480px] w-full object-contain"
-/>
-</div>
+            {/* Hero image */}
+      <div className="mx-auto w-full max-w-md">
+        <div className="rounded-[2rem] border border-white bg-white p-3 shadow-[0_20px_60px_rgba(115,61,91,0.12)]">
+          <div className="relative aspect-[4/5] overflow-hidden rounded-[1.5rem] bg-[#f4e6ee]">
+            <img
+              src="/datelocked-couple.jpg"
+              alt="Couple"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          </div>
 
-      <div className="px-3 pb-3 pt-5 text-center">
-        <div className="flex items-center justify-center gap-2 text-[#b34d80]">
-          <img
-            src="/Datelocked%20Logo.png"
-            alt="Date-Locked Logo"
-            className="h-6 w-6 object-contain"
-          />
-          <span className="text-xs font-bold uppercase tracking-[0.2em]">
-            Date-Locked
-          </span>
-          <img
-            src="/Datelocked%20Logo.png"
-            alt="Date-Locked Logo"
-            className="h-6 w-6 object-contain"
-          />
+          <div className="px-3 pb-3 pt-5 text-center">
+            <div className="flex items-center justify-center gap-2 text-[#b34d80]">
+              <img
+                src="/Datelocked%20Logo.png"
+                alt="Date-Locked Logo"
+                className="h-6 w-6 object-contain"
+              />
+              <span className="text-xs font-bold uppercase tracking-[0.2em]">
+                Date-Locked
+              </span>
+              <img
+                src="/Datelocked%20Logo.png"
+                alt="Date-Locked Logo"
+                className="h-6 w-6 object-contain"
+              />
+            </div>
+
+            <p className="mt-2 text-xl font-bold sm:text-2xl">
+              Your story. Your space. The two of you.
+            </p>
+          </div>
         </div>
-
-        <p className="mt-2 text-xl font-bold sm:text-2xl">
-          Your story. Your space. The two of you.
-        </p>
       </div>
-    </div>
-  </div>
 </section>
 
 {/* About */}
@@ -203,20 +203,22 @@ Date-Locked
       </div>
 
       <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <article className="rounded-3xl border border-[#eadce5] bg-white p-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f8e7f0] text-[#b34d80]">
-            <img
-            src="/Datelocked%20Logo.png"
-            alt="Date-Locked Logo"
-            className="h-[15px] w-[15px] object-contain"
-           />
-          </div>
-          <h3 className="mt-4 text-lg font-bold">Your shared space</h3>
-          <p className="mt-2 text-sm leading-6 text-[#74616f]">
-            Create a couple identity and build a space for the experiences
-            you share together.
-          </p>
-        </article>
+  <article className="rounded-3xl border border-[#eadce5] bg-white p-6">
+    <div className="h-12 w-12 overflow-hidden rounded-2xl">
+      <img
+        src="/Datelocked%20Logo.png"
+        alt="Date-Locked Logo"
+        className="h-full w-full object-cover"
+      />
+    </div>
+
+    <h3 className="mt-4 text-lg font-bold">Your shared space</h3>
+    <p className="mt-2 text-sm leading-6 text-[#74616f]">
+      Create a couple identity and build a space for the experiences
+      you share together.
+    </p>
+  </article>
+</div>
 
         <article className="rounded-3xl border border-[#eadce5] bg-white p-6">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f8e7f0] text-[#b34d80]">
