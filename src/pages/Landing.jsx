@@ -1,259 +1,295 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Heart, ShieldCheck } from "lucide-react";
+import { ArrowRight, Heart, ShieldCheck, LockKeyhole, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function Landing() {
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+const [loading, setLoading] = useState(false);
+const [errorMessage, setErrorMessage] = useState("");
 
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
-    setErrorMessage("");
+const handleGoogleSignIn = async () => {
+setLoading(true);
+setErrorMessage("");
 
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: {
-            prompt: "select_account",
-          },
-        },
-      });
+try {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    },
+  });
 
-      if (error) {
-        setErrorMessage(error.message);
-        setLoading(false);
-      }
-    } catch {
-      setErrorMessage(
-        "Unable to start Google sign-in. Please try again."
-      );
-      setLoading(false);
-    }
-  };
+  if (error) throw error;
+} catch (error) {
+  setErrorMessage(error.message || "Unable to sign in with Google. Please try again.");
+  setLoading(false);
+}
 
-  return (
-    <div
-      id="top"
-      className="min-h-screen overflow-x-hidden bg-[#dfd0cc] px-4 py-5 text-[#342b30] sm:px-8 sm:py-8"
-    >
-      <div className="mx-auto w-full max-w-[1120px]">
+};
 
-        {/* App header */}
-        <header className="flex min-h-[76px] items-center justify-between gap-3 rounded-t-2xl border-b border-[#eadbd7] bg-[#f8f2ef] px-5 sm:px-9">
-          <a
-            href="#top"
-            aria-label="Date-Locked home"
-            className="flex items-center gap-2.5"
+return (
+<div className="min-h-screen overflow-x-hidden bg-[#f8f2f5] text-[#342633]">
+{/* Header */}
+<header className="border-b border-[#eadce5] bg-[#fffafd]">
+<div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
+<a href="#home" className="flex min-w-0 items-center gap-2">
+<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#f2dce8] text-[#a53c70]">
+<img
+  src="/Datelocked%20Logo.png"
+  alt="Date-Locked Logo"
+  className="h-[22px] w-[22px] object-contain"
+/>
+</div>
+<span className="truncate text-lg font-extrabold tracking-tight sm:text-xl">
+Date-Locked
+</span>
+</a>
+
+      <nav className="flex shrink-0 items-center gap-3 text-sm font-semibold sm:gap-6">
+        <a href="#home" className="hidden hover:text-[#a53c70] sm:inline">
+          Home
+        </a>
+        <a href="#features" className="hidden hover:text-[#a53c70] sm:inline">
+          Features
+        </a>
+        <Link
+          to="/login"
+          className="rounded-full border border-[#dfb8cd] px-4 py-2 hover:bg-[#f8eaf1]"
+        >
+          Log In
+        </Link>
+      </nav>
+    </div>
+  </header>
+
+  <main id="home">
+    {/* Hero */}
+    <section className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-10 sm:px-6 sm:py-16 lg:grid-cols-2 lg:gap-12 lg:py-20">
+      <div className="text-center lg:text-left">
+        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#ead3e0] bg-white px-4 py-2 text-xs font-semibold text-[#985078] sm:text-sm">
+          <img
+          src="/Datelocked%20Logo.png"
+          alt="Date-Locked Logo"
+          className="h-[15px] w-[15px] object-contain"
+          />
+          A space for two
+        </div>
+
+        <h1 className="text-center text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
+  Two hearts.
+  <span className="mt-1 block text-[#b34d80]">
+    One locked-in journey.
+  </span>
+    </h1>
+
+        <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-[#74616f] sm:text-lg lg:mx-0">
+          Build your connection, keep your memories, plan meaningful
+          moments, and create a relationship that belongs to the two of you.
+        </p>
+
+        <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            className="flex min-h-12 items-center justify-center gap-3 rounded-full bg-[#b34d80] px-6 py-3 font-bold text-white shadow-sm transition hover:bg-[#963b69] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f0d9d8]">
-              <Heart
-                size={24}
-                strokeWidth={1.8}
-                fill="#d85b78"
-                className="text-[#b83f60]"
-              />
-            </div>
-
-            <span className="text-lg font-bold tracking-tight text-[#49343c] sm:text-xl">
-              Date-Locked
-            </span>
-          </a>
-
-          <div className="flex items-center gap-3 sm:gap-5">
-            <Link
-              to="/login"
-              className="text-sm font-semibold text-[#59464c] transition hover:text-[#c9436d]"
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 48 48"
+              className="h-5 w-5 rounded-full bg-white p-0.5"
             >
-              Sign In
-            </Link>
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 3.01 13.22l7.98 6.19C12.88 13.72 17.99 9.5 24 9.5Z" />
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.76 7.18l7.73 6C44.42 38.01 46.98 31.93 46.98 24.55Z" />
+              <path fill="#FBBC05" d="M10.99 28.59A14.5 14.5 0 0 1 10.23 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.88.93 7.55 3.01 10.78l7.98-6.19Z" />
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.91-5.8l-7.73-6c-2.15 1.45-4.9 2.3-8.18 2.3-6.01 0-11.12-4.22-13.01-9.91l-7.98 6.19C6.51 43.62 14.62 48 24 48Z" />
+            </svg>
+            {loading ? "Connecting..." : "Continue with Google"}
+            {!loading && <ArrowRight size={18} />}
+          </button>
 
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={loading}
-              className="rounded-full bg-[#c95a76] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#b94a67] disabled:cursor-not-allowed disabled:opacity-60 sm:px-5"
-            >
-              {loading ? "Connecting..." : "Register"}
-            </button>
-          </div>
-        </header>
-
-        {/* Main page */}
-        <main className="overflow-hidden rounded-b-2xl bg-[#f8f2ef] shadow-[0_12px_35px_rgba(65,42,42,0.12)]">
-
-          {/* Centred introduction */}
-          <section className="relative px-5 pb-8 pt-10 text-center sm:px-10 sm:pb-10 sm:pt-14">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#f0d9d8]">
-              <Heart
-                size={25}
-                fill="#d85b78"
-                className="text-[#b83f60]"
-              />
-            </div>
-
-            <h1 className="text-3xl font-bold tracking-tight text-[#49343c] sm:text-5xl">
-              Love with intention.
-            </h1>
-
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#79666c] sm:text-base">
-              Love, trust and commitment — build your connection,
-              celebrate your memories, and choose each other every day.
-            </p>
-
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={loading}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#c95a76] px-7 py-3 text-sm font-bold text-white shadow-md transition hover:bg-[#b94a67] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {loading ? "Connecting..." : "Start Your Journey"}
-                {!loading && <ArrowRight size={17} />}
-              </button>
-
-              <a
-                href="#features"
-                className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#e4ceca] px-6 py-3 text-sm font-semibold text-[#59464c] transition hover:bg-white"
-              >
-                Explore Features
-              </a>
-            </div>
-
-            {errorMessage && (
-              <p
-                role="alert"
-                className="mx-auto mt-4 max-w-md break-words text-sm text-red-600"
-              >
-                {errorMessage}
-              </p>
-            )}
-
-            <p className="mt-4 text-xs text-[#8a737b]">
-              Already together?{" "}
-              <Link
-                to="/login"
-                className="font-bold text-[#b94a67] underline underline-offset-2"
-              >
-                Sign in
-              </Link>
-            </p>
-          </section>
-
-          {/* Attached couple image */}
-          <section className="px-4 pb-8 sm:px-8 sm:pb-12">
-            <div className="relative mx-auto max-w-[920px] overflow-hidden rounded-2xl border border-[#eadbd7] bg-white shadow-sm">
-              <img
-                src="/datelocked-couple.png"
-                alt="A couple enjoying their connection while using their phones at home"
-                className="block h-[340px] w-full object-cover object-center sm:h-[460px] md:h-[520px]"
-                loading="eager"
-              />
-
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#302329]/65 via-[#302329]/20 to-transparent px-5 pb-6 pt-16 sm:px-8 sm:pb-8">
-                <div className="flex items-center gap-2 text-white">
-                  <Heart
-                    size={19}
-                    fill="#f5b6c5"
-                    className="text-[#f5b6c5]"
-                  />
-                  <p className="text-sm font-semibold sm:text-base">
-                    Made for two. Built on trust.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Features */}
-          <section
-            id="features"
-            className="border-t border-[#eadbd7] bg-[#f4e9e5] px-5 py-9 sm:px-10 sm:py-12"
+          <Link
+            to="/login"
+            className="flex min-h-12 items-center justify-center rounded-full border border-[#dfb8cd] bg-white px-6 py-3 font-bold text-[#8f3b68] transition hover:bg-[#fff2f8]"
           >
-            <div className="mx-auto grid max-w-[850px] grid-cols-1 gap-8 sm:grid-cols-3 sm:gap-7">
+            Log In
+          </Link>
+        </div>
 
-              <div className="flex flex-col items-center text-center">
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white">
-                  <ShieldCheck
-                    size={24}
-                    className="text-[#c95a76]"
-                  />
-                </div>
-                <h2 className="text-base font-bold text-[#49343c]">
-                  Verify
-                </h2>
-                <p className="mt-2 max-w-[230px] text-sm leading-6 text-[#79666c]">
-                  Encourage trust and transparency in your relationship.
-                </p>
-              </div>
+        {errorMessage && (
+          <p role="alert" className="mt-4 text-sm text-red-700">
+            {errorMessage}
+          </p>
+        )}
 
-              <div className="flex flex-col items-center text-center">
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white">
-                  <Heart
-                    size={24}
-                    fill="#e58aa0"
-                    className="text-[#c95a76]"
-                  />
-                </div>
-                <h2 className="text-base font-bold text-[#49343c]">
-                  Connect
-                </h2>
-                <p className="mt-2 max-w-[230px] text-sm leading-6 text-[#79666c]">
-                  Keep your shared memories and meaningful moments together.
-                </p>
-              </div>
+        <p className="mt-4 text-xs leading-5 text-[#8b7786]">
+          Sign in securely with your Google account to get started.
+        </p>
 
-              <div className="flex flex-col items-center text-center">
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white">
-                  <ShieldCheck
-                    size={24}
-                    className="text-[#c95a76]"
-                  />
-                </div>
-                <h2 className="text-base font-bold text-[#49343c]">
-                  Commit
-                </h2>
-                <p className="mt-2 max-w-[230px] text-sm leading-6 text-[#79666c]">
-                  Lock your relationship when both partners are ready.
-                </p>
-              </div>
+        <div className="mt-7 flex flex-wrap items-center justify-center gap-x-5 gap-y-3 text-sm text-[#74616f] lg:justify-start">
+          <span className="inline-flex items-center gap-2">
+            <ShieldCheck size={17} className="text-[#b34d80]" />
+            Privacy-minded
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <LockKeyhole size={16} className="text-[#b34d80]" />
+            Made for two
+          </span>
+        </div>
+      </div>
 
-            </div>
-          </section>
+      {/* Hero image */}
+  <div className="mx-auto w-full max-w-md">
+    <div className="rounded-[2rem] border border-white bg-white p-3 shadow-[0_20px_60px_rgba(115,61,91,0.12)]">
+      <div className="overflow-hidden rounded-[1.5rem] bg-[#f4e6ee]">
+        <img
+  src="/datelocked-couple.jpg"
+  alt="Couple"
+  className="mx-auto block h-auto max-h-[480px] w-full object-contain"
+/>
+</div>
 
-          {/* Footer */}
-          <footer className="border-t border-[#eadbd7] bg-[#f8f2ef] px-5 py-6">
-            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-xs text-[#79666c]">
-              <Link
-                to="/privacy"
-                className="transition hover:text-[#b94a67]"
-              >
-                Privacy Policy
-              </Link>
+      <div className="px-3 pb-3 pt-5 text-center">
+        <div className="flex items-center justify-center gap-2 text-[#b34d80]">
+          <img
+            src="/Datelocked%20Logo.png"
+            alt="Date-Locked Logo"
+            className="h-6 w-6 object-contain"
+          />
+          <span className="text-xs font-bold uppercase tracking-[0.2em]">
+            Date-Locked
+          </span>
+          <img
+            src="/Datelocked%20Logo.png"
+            alt="Date-Locked Logo"
+            className="h-6 w-6 object-contain"
+          />
+        </div>
 
-              <Link
-                to="/terms"
-                className="transition hover:text-[#b94a67]"
-              >
-                Terms &amp; Conditions
-              </Link>
-
-              <a
-                href="mailto:support@datelocked.app"
-                className="transition hover:text-[#b94a67]"
-              >
-                Contact Support
-              </a>
-            </div>
-
-            <p className="mt-4 text-center text-[10px] text-[#a28d93]">
-              © 2026 Date-Locked. All rights reserved.
-            </p>
-          </footer>
-        </main>
+        <p className="mt-2 text-xl font-bold sm:text-2xl">
+          Your story. Your space. The two of you.
+        </p>
       </div>
     </div>
-  );
+  </div>
+</section>
+
+{/* About */}
+    <section className="border-y border-[#eadce5] bg-white px-4 py-14 sm:px-6 sm:py-16">
+      <div className="mx-auto max-w-3xl text-center">
+        <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#b34d80]">
+          About Date-Locked
+        </p>
+        <h2 className="mt-3 text-3xl font-extrabold sm:text-4xl">
+          Make room for your relationship.
+        </h2>
+        <p className="mx-auto mt-4 max-w-2xl leading-7 text-[#74616f]">
+          Date-Locked gives couples a dedicated place to share memories,
+          work towards goals, plan time together, and nurture their
+          connection in one private couple-focused experience.
+        </p>
+      </div>
+    </section>
+
+    {/* Features */}
+    <section id="features" className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-16">
+      <div className="text-center">
+        <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#b34d80]">
+          Built for connection
+        </p>
+        <h2 className="mt-3 text-3xl font-extrabold sm:text-4xl">
+          Grow closer, one moment at a time.
+        </h2>
+      </div>
+
+      <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <article className="rounded-3xl border border-[#eadce5] bg-white p-6">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f8e7f0] text-[#b34d80]">
+            <img
+            src="/Datelocked%20Logo.png"
+            alt="Date-Locked Logo"
+            className="h-[15px] w-[15px] object-contain"
+           />
+          </div>
+          <h3 className="mt-4 text-lg font-bold">Your shared space</h3>
+          <p className="mt-2 text-sm leading-6 text-[#74616f]">
+            Create a couple identity and build a space for the experiences
+            you share together.
+          </p>
+        </article>
+
+        <article className="rounded-3xl border border-[#eadce5] bg-white p-6">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f8e7f0] text-[#b34d80]">
+            <CheckCircle2 size={23} />
+          </div>
+          <h3 className="mt-4 text-lg font-bold">Goals together</h3>
+          <p className="mt-2 text-sm leading-6 text-[#74616f]">
+            Set relationship goals, plan meaningful dates, and keep track
+            of the moments that matter.
+          </p>
+        </article>
+
+        <article className="rounded-3xl border border-[#eadce5] bg-white p-6 sm:col-span-2 lg:col-span-1">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f8e7f0] text-[#b34d80]">
+            <ShieldCheck size={23} />
+          </div>
+          <h3 className="mt-4 text-lg font-bold">Memories and verification</h3>
+          <p className="mt-2 text-sm leading-6 text-[#74616f]">
+            Keep shared memories in one place and use the app's couple
+            verification features as you build your shared space.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    {/* How it works */}
+    <section className="bg-[#f0e2eb] px-4 py-14 sm:px-6 sm:py-16">
+      <div className="mx-auto max-w-3xl text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#b34d80]">
+          <ShieldCheck size={24} />
+        </div>
+        <h2 className="mt-4 text-3xl font-extrabold">
+          Simple, secure sign-in.
+        </h2>
+        <p className="mt-4 leading-7 text-[#74616f]">
+          Use Google to sign in. Date-Locked uses its authentication
+          system to manage your session and return you to the app.
+          Only share personal information you are comfortable providing.
+        </p>
+        <button
+          type="button"
+          onClick={handleGoogleSignIn}
+          disabled={loading}
+          className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#b34d80] px-6 py-3 font-bold text-white transition hover:bg-[#963b69] disabled:opacity-60"
+        >
+          {loading ? "Connecting..." : "Get Started"}
+          {!loading && <ArrowRight size={18} />}
+        </button>
+      </div>
+    </section>
+  </main>
+
+  {/* Footer */}
+  <footer className="border-t border-[#eadce5] bg-[#fffafd] px-4 py-7 sm:px-6">
+    <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
+      <p className="text-sm font-bold">Date-Locked</p>
+      <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm text-[#74616f]">
+        <Link to="/privacy" className="hover:text-[#b34d80]">
+          Privacy Policy
+        </Link>
+        <Link to="/terms" className="hover:text-[#b34d80]">
+          Terms of Service
+        </Link>
+        <a href="mailto:support@datelocked.app" className="hover:text-[#b34d80]">
+          Support
+        </a>
+      </div>
+      <p className="text-xs text-[#8b7786]">
+        © {new Date().getFullYear()} Date-Locked
+      </p>
+    </div>
+  </footer>
+</div>
+
+);
 }
