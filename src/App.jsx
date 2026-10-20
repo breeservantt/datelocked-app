@@ -1,12 +1,16 @@
-import React, { Suspense, lazy } from "react";
+
+import React, { Suspense, lazy, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   useLocation,
+  useNavigate,
   Navigate,
 } from "react-router-dom";
+import { App as CapacitorApp } from "@capacitor/app";
+import { supabase } from "@/lib/supabase";
 import Layout from "./components/Layout";
 import PinLock from "./components/PinLock";
 
@@ -48,6 +52,88 @@ function NotFound() {
 
 function AppRoutes() {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    let active = true;
+
+    const listener = CapacitorApp.addListener("appUrlOpen", async ({ url }) => {
+      try {
+        const callbackUrl = new URL(url);
+
+        if (
+          callbackUrl.protocol !== "com.datelocked.app:" ||
+          callbackUrl.hostname !== "auth"
+        ) {
+          return;
+        }
+
+        const code = callbackUrl.searchParams.get("code");
+
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+        } else {
+          const errorDescription = callbackUrl.searchParams.get("error_description");
+          if (errorDescription) throw new Error(errorDescription);
+
+          const accessToken = callbackUrl.hash.match(/access_token=([^&]+)/)?.[1];
+          const refreshToken = callbackUrl.hash.match(/refresh_token=([^&]+)/)?.[1];
+
+          if (accessToken && refreshToken) {
+            const { error } = await supabase.auth.setSession({
+              access_token: decodeURIComponent(accessToken),
+              refresh_token: decodeURIComponent(refreshToken),
+            });
+            if (error) throw error;
+          }
+        }
+
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+
+        if (error || !user) throw error || new Error("Google sign-in did not create a session.");
+
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("full_name, date_of_birth, gender, location, account_status, deactivated_at")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (profileError) throw profileError;
+
+        if (
+          profile?.account_status === "deactivated" ||
+          profile?.deactivated_at
+        ) {
+          await supabase.auth.signOut();
+          throw new Error("This account has been deactivated.");
+        }
+
+        if (active) {
+          navigate(
+            profile?.full_name?.trim() &&
+              profile?.date_of_birth &&
+              profile?.gender &&
+              profile?.location
+              ? "/home"
+              : "/onboarding",
+            { replace: true }
+          );
+        }
+      } catch (error) {
+        console.error("Google deep-link sign-in failed:", error);
+        if (active) navigate("/login", { replace: true });
+      }
+    });
+
+    return () => {
+      active = false;
+      listener.then((handle) => handle.remove());
+    };
+  }, [navigate]);
 
   const noLayoutRoutes = [
     "/",
@@ -57,6 +143,7 @@ function AppRoutes() {
     "/memories",
     "/verifystatus",
     "/onboarding",
+    "/auth/callback",
   ];
 
   const shouldUseLayout = !noLayoutRoutes.includes(location.pathname);

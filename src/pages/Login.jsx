@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
@@ -24,75 +25,101 @@ export default function Login() {
 
       routingRef.current = true;
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select(
-          "full_name, date_of_birth, gender, location, account_status, deactivated_at"
-        )
-        .eq("id", currentUser.id)
-        .maybeSingle();
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select(
+            "full_name, date_of_birth, gender, location, account_status, deactivated_at"
+          )
+          .eq("id", currentUser.id)
+          .maybeSingle();
 
-      const isDeactivated =
-        profile?.account_status === "deactivated" ||
-        Boolean(profile?.deactivated_at);
+        if (profileError) throw profileError;
 
-      if (isDeactivated) {
-        await supabase.auth.signOut();
+        if (
+          profile?.account_status === "deactivated" ||
+          Boolean(profile?.deactivated_at)
+        ) {
+          await supabase.auth.signOut();
+          setError("This account has been deactivated.");
+          routingRef.current = false;
+          return;
+        }
+
+        const profileComplete =
+          profile?.full_name?.trim() &&
+          profile?.date_of_birth &&
+          profile?.gender &&
+          profile?.location;
+
+        navigate(profileComplete ? "/home" : "/onboarding", {
+          replace: true,
+        });
+      } catch (err) {
+        setError(err.message || "Could not load your account.");
         routingRef.current = false;
-        navigate("/login", { replace: true });
-        return;
       }
-
-      const profileComplete =
-        profile?.full_name?.trim() &&
-        profile?.date_of_birth &&
-        profile?.gender &&
-        profile?.location;
-
-      navigate(profileComplete ? "/home" : "/onboarding", { replace: true });
     },
     [navigate]
   );
 
   React.useEffect(() => {
-  let mounted = true;
+    let mounted = true;
 
-  const checkSession = async () => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    if (!mounted) return;
+      if (mounted && session?.user) {
+        await routeLoggedInUser(session.user);
+      }
+    };
 
-    if (session?.user) {
-      await routeLoggedInUser(session.user);
-    }
-  };
+    checkSession();
 
-  checkSession();
-
-  return () => {
-    mounted = false;
-  };
-}, [routeLoggedInUser]);
+    return () => {
+      mounted = false;
+    };
+  }, [routeLoggedInUser]);
 
   const handleGoogleLogin = async () => {
+    if (isGoogleLoading || isEmailLoading) return;
+
     setError("");
     setMessage("");
     setIsGoogleLoading(true);
 
-    const { error: googleError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
-          prompt: "select_account",
-      },
-      },
-    });
+    try {
+      const { Capacitor } = await import("@capacitor/core");
+      const isNative = Capacitor.isNativePlatform();
 
-    if (googleError) {
-      setError(googleError.message || "Could not continue with Google.");
+      const { data, error: googleError } =
+        await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: isNative
+              ? "com.datelocked.app://auth"
+              : `${window.location.origin}/auth/callback`,
+            queryParams: {
+              prompt: "select_account",
+            },
+            ...(isNative ? { skipBrowserRedirect: true } : {}),
+          },
+        });
+
+      if (googleError) throw googleError;
+
+      if (isNative) {
+        if (!data?.url) {
+          throw new Error("Google sign-in did not return a login URL.");
+        }
+
+        const { Browser } = await import("@capacitor/browser");
+        await Browser.open({ url: data.url });
+      }
+    } catch (err) {
+      setError(err.message || "Could not continue with Google.");
       setIsGoogleLoading(false);
     }
   };
