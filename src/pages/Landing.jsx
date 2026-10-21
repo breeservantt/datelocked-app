@@ -97,7 +97,7 @@ export default function Landing() {
     </div> 
 
     <div className="text-center lg:text-left">
- <span className="mb-2 block text-4xl text-[#b34d80]">
+ <span className="mb-2 block text-4xl font-bold text-[#b34d80]">
   ONE LOCKED-IN JOURNEY.
 </span>
 
