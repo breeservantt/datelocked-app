@@ -93,27 +93,31 @@ export default function Landing() {
 
       <main id="home">
         <section className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-10 sm:px-6 sm:py-16 lg:grid-cols-2 lg:gap-12 lg:py-20">
-          <div className="text-center lg:text-left">
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#ead3e0] bg-white px-4 py-2 text-xs font-semibold text-[#985078] sm:text-sm">
-              <img
-                src="/Datelocked%20Logo.png"
-                alt="Date-Locked Logo"
-                className="h-[15px] w-[15px] object-contain"
-              />
-              A space for two
-            </div>
+      <div>
+    </div> 
 
-            <h1 className="text-center text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl lg:text-left lg:text-6xl">
-              Two hearts.
-              <span className="mt-1 block text-[#b34d80]">
-                One locked-in journey.
-              </span>
-            </h1>
+    <div className="text-center lg:text-left">
+ <span className="mb-2 block text-4xl text-[#b34d80]">
+  ONE LOCKED-IN JOURNEY.
+</span>
 
-            <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-[#74616f] sm:text-lg lg:mx-0">
-              Build your connection, keep your memories, plan meaningful
-              moments, and create a relationship that belongs to the two of you.
-            </p>
+  <h1 className="text-center text-base font-extrabold leading-tight tracking-tight sm:text-lg lg:text-left">
+  TWO HEARTS.
+</h1>
+
+  <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#ead3e0] bg-white px-4 py-2 text-xs font-semibold text-[#985078] sm:text-sm">
+    <img
+      src="/Datelocked%20Logo.png"
+      alt="Date-Locked Logo"
+      className="h-[15px] w-[15px] object-contain"
+    />
+    A space for two
+  </div>
+
+  <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-[#74616f] sm:text-lg lg:mx-0">
+    Build your connection, keep your memories, plan meaningful
+    moments, and create a relationship that belongs to the two of you.
+  </p>
 
             <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
               <button
@@ -179,14 +183,14 @@ export default function Landing() {
           </div>
 
           <div className="mx-auto w-full max-w-md">
-            <div className="rounded-[2rem] border border-white bg-white p-3 shadow-[0_20px_60px_rgba(115,61,91,0.12)]">
-              <div className="relative aspect-[4/5] overflow-hidden rounded-[1.5rem] bg-[#f4e6ee]">
-                <img
-                  src="/datelocked-couple.jpg"
-                  alt="Couple"
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              </div>
+  <div className="overflow-hidden rounded-[2rem] border border-white bg-white shadow-[0_20px_60px_rgba(115,61,91,0.12)]">
+    <div className="relative aspect-[4/5] overflow-hidden bg-[#f4e6ee]">
+      <img
+        src="/datelocked-couple.jpg"
+        alt="Couple"
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+    </div>
 
               <div className="px-3 pb-3 pt-5 text-center">
                 <div className="flex items-center justify-center gap-2 text-[#b34d80]">

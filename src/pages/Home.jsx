@@ -1299,14 +1299,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Spider web appears only for couples who are Date-Locked. */}
-      <SpiderWebOverlay
-        coupleProfile={coupleProfile}
-        enabled={Boolean(isDateLocked && coupleId)}
-        onClear={handleClearSpiderWeb}
-        isClearing={isClearingSpiderWeb}
-      />
-
       <BottomNav />
     </>
   );

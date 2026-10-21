@@ -68,6 +68,23 @@ function AppRoutes() {
           return;
         }
 
+        // Close the external authentication browser when Date-Locked
+// receives the Google sign-in redirect.
+try {
+  const { Browser } = await import("@capacitor/browser");
+  await Browser.close();
+} catch {
+  // Continue authentication if the browser is already closed.
+}
+
+const oauthError =
+  callbackUrl.searchParams.get("error_description") ||
+  callbackUrl.searchParams.get("error");
+
+if (oauthError) {
+  throw new Error(oauthError);
+}
+
         const code = callbackUrl.searchParams.get("code");
 
         if (code) {
