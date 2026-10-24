@@ -1,6 +1,12 @@
-import { loginWithGoogle } from "./googleSignIn";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { supabase } from "./supabase";
+import { loginWithGoogle } from "./googleSignIn";
 
 const AuthContext = createContext(null);
 
@@ -11,20 +17,11 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getUser().then(({ data, error }) => {
-      if (!mounted) return;
-
-      if (error) {
-        console.error("getUser error:", error);
-      }
-
-      setUser(data?.user ?? null);
-      setIsLoadingAuth(false);
-    });
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+
       setUser(session?.user ?? null);
       setIsLoadingAuth(false);
     });
@@ -36,10 +33,11 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { data, error } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
     if (error) throw error;
     return data;
@@ -55,20 +53,9 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  const loginWithGoogle = async () => {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/signup`,
-      },
-    });
-
-    if (error) throw error;
-    return data;
-  };
-
   const logout = async () => {
     const { error } = await supabase.auth.signOut();
+
     if (error) throw error;
   };
 
@@ -84,7 +71,11 @@ export function AuthProvider({ children }) {
     [user, isLoadingAuth]
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

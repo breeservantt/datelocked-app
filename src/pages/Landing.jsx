@@ -23,15 +23,15 @@ export default function Landing() {
     const data = await loginWithGoogle();
 
     // Native Android login returns a Supabase session.
-    if (data?.session?.user) {
-      navigate("/home", { replace: true });
-      return;
-    }
+if (data && "session" in data && data.session?.user) {
+  navigate("/home", { replace: true });
+  return;
+}
 
-    // Website login continues through Google's OAuth redirect.
-    if (data?.url) {
-      return;
-    }
+// Website login continues through Google's OAuth redirect.
+if (data && "url" in data && data.url) {
+  return;
+}
 
     throw new Error("Google sign-in did not return a session.");
   } catch (error) {

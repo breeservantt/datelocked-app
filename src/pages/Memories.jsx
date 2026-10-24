@@ -2,7 +2,6 @@ import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowLeft,
   Plus,
   Image as ImageIcon,
   Calendar,
@@ -512,7 +511,18 @@ export default function Memories() {
   });
 
   const createMemoryMutation = useMutation({
-    mutationFn: async (payload) => {
+  /**
+   * @param {{
+   *   title: string,
+   *   description: string,
+   *   date: string,
+   *   location: string,
+   *   category: string,
+   *   photos: any[],
+   *   videos: any[]
+   * }} payload
+   */
+  mutationFn: async (payload) => {
       const currentUser = await getCurrentProfileUser();
 
       if (!currentUser?.id) {
@@ -898,7 +908,7 @@ export default function Memories() {
       });
 
       try {
-        await awardCouplePoints?.("MEMORY_UPLOAD", 5);
+        await awardCouplePoints?.("MEMORY_UPLOAD", "Memory uploaded");
       } catch {
         // Points must never block saving.
       }

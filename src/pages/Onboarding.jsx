@@ -5,7 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Loader2, Search, MapPin, CheckCircle, Lock } from "lucide-react";
+import {
+  Loader2,
+  Search,
+  MapPin,
+  CheckCircle,
+  Lock,
+  ArrowLeft,
+} from "lucide-react";
 import { motion } from "framer-motion";
 
 const LOCATION_OPTIONS = [
@@ -26,6 +33,27 @@ const LOCATION_OPTIONS = [
 
 export default function Onboarding() {
   const navigate = useNavigate();
+
+  const [isLeaving, setIsLeaving] = React.useState(false);
+
+const handleBackToLogin = async () => {
+  if (isLeaving || isSaving) return;
+
+  setIsLeaving(true);
+
+  try {
+    const { error } = await supabase.auth.signOut({ scope: "local" });
+
+    if (error) throw error;
+
+    navigate("/login", { replace: true });
+  } catch (error) {
+    console.error("Unable to change account:", error);
+    alert("Unable to switch accounts. Please try again.");
+  } finally {
+    setIsLeaving(false);
+  }
+};
 
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
@@ -228,6 +256,19 @@ export default function Onboarding() {
     <div className="min-h-screen bg-[#f3edf1] px-4 py-5">
       <div className="mx-auto flex min-h-[calc(100vh-2.5rem)] w-full max-w-[390px] flex-col overflow-hidden rounded-[30px] border border-[#e8e2e7] bg-[#f8f4f7] shadow-[0_16px_40px_rgba(15,23,42,0.10)]">
         <div className="bg-gradient-to-r from-[#5e9cff] via-[#2f6df0] to-[#6aa7ff] px-5 pb-8 pt-7 text-center">
+          <button
+  type="button"
+  onClick={handleBackToLogin}
+  disabled={isLeaving || isSaving}
+  className="mb-4 flex items-center gap-2 rounded-xl px-2 py-2 text-sm font-semibold text-white transition hover:bg-white/15 disabled:opacity-50"
+>
+  {isLeaving ? (
+    <Loader2 className="h-4 w-4 animate-spin" />
+  ) : (
+    <ArrowLeft className="h-4 w-4" />
+  )}
+  Back to Login
+</button>
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[20px] bg-white/20 shadow-[0_8px_20px_rgba(15,23,42,0.12)] backdrop-blur">
             <Lock className="h-7 w-7 text-white" />
           </div>
@@ -361,6 +402,17 @@ export default function Onboarding() {
                   </div>
                 </div>
 
+                                {/* Change Google Account */}
+                <button
+                  type="button"
+                  onClick={handleBackToLogin}
+                  disabled={isLeaving || isSaving}
+                  className="w-full rounded-xl py-3 text-center text-sm font-semibold text-[#2f6df0] hover:underline disabled:opacity-50"
+                >
+                  Use a different Google account
+                </button>
+
+                {/* Complete Setup */}
                 <Button
                   type="button"
                   onClick={handleCompleteOnboarding}

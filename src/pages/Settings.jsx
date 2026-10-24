@@ -3,7 +3,6 @@ import React from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -24,7 +23,6 @@ import {
   KeyRound,
   ChevronRight,
   Lock,
-  FileText,
   Home as HomeIcon,
   Heart,
   Image,
@@ -34,7 +32,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import StatusBadge from "@/components/ui/StatusBadge";
-import format from "date-fns/format";
+import { format } from "date-fns/format";
 import { parseSafeDate } from "@/components/utils/dateHelpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,7 +74,7 @@ function AppHeader({ title }) {
   );
 }
 
-function AppCard({ children, className = "", onClick }) {
+function AppCard({ children, className = "", onClick = undefined }) {
   const isClickable = typeof onClick === "function";
 
   return (

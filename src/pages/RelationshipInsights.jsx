@@ -11,7 +11,6 @@ import {
   TrendingUp,
   Heart,
   Target,
-  MapPin,
   CheckCircle,
   AlertCircle,
   Sparkles,
@@ -23,7 +22,7 @@ import {
   CalendarDays,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import format from "date-fns/format";
+import { format } from "date-fns/format";
 
 async function tryProfileTablesById(userId) {
   for (const table of ['profiles', 'users']) {

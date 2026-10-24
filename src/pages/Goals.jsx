@@ -375,17 +375,29 @@ function EmptyState() {
   );
 }
 
-const GoalItem = React.memo(function GoalItem({
-  item,
-  currentUserId,
-  openActionsId,
-  onToggleActions,
-  onEdit,
-  onDelete,
-  onAccept,
-  onDecline,
-}) {
-  const isInviteSender = item.type === "event" && item.owner_id === currentUserId;
+const GoalItem = React.memo(
+  /** @param {{
+   * item: any,
+   * currentUserId: string | null,
+   * openActionsId: string | null,
+   * onToggleActions: Function,
+   * onEdit: Function,
+   * onDelete: Function,
+   * onAccept: Function,
+   * onDecline: Function
+   * }} props */
+  function GoalItem({
+    item,
+    currentUserId,
+    openActionsId,
+    onToggleActions,
+    onEdit,
+    onDelete,
+    onAccept,
+    onDecline,
+  }) {
+    const isInviteSender =
+      item.type === "event" && item.owner_id === currentUserId;
 
   const canRespondToInvite =
     item.type === "event" &&

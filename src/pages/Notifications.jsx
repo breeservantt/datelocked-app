@@ -16,7 +16,7 @@ import {
   X as XIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import formatDistanceToNow from "date-fns/formatDistanceToNow";
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { parseSafeDate } from "@/components/utils/dateHelpers";
 
 export default function Notifications() {

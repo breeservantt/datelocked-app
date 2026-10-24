@@ -8,9 +8,9 @@ import {
   CheckCheck,
   Image as ImageIcon,
 } from "lucide-react";
-import format from "date-fns/format";
-import isToday from "date-fns/isToday";
-import isYesterday from "date-fns/isYesterday";
+import { format } from "date-fns/format";
+import { isToday } from "date-fns/isToday";
+import { isYesterday } from "date-fns/isYesterday";
 import { supabase } from "@/lib/supabase";
 import { parseSafeDate } from "@/components/utils/dateHelpers";
 
@@ -83,7 +83,9 @@ function getDateSeparatorLabel(date) {
   return format(date, "d MMMM yyyy");
 }
 
-const ChatBubble = React.memo(function ChatBubble({ msg, isMe }) {
+const ChatBubble = React.memo(
+  /** @param {{ msg: any, isMe: boolean }} props */
+  function ChatBubble({ msg, isMe }) {
   const createdDate = parseSafeDate(msg.created_date || msg.created_at);
   const text = msg.content || msg.body || "";
   const isImage = text.startsWith("📷 ");

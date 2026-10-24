@@ -2,7 +2,6 @@ import React from 'react';
 import { supabase } from '@/lib/supabase';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { calculateInteractionScore } from '@/components/utils/interactionScore';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AvatarImage } from '@/components/ui/avatar';
@@ -1032,7 +1031,7 @@ export default function Home() {
               >
                 <X className="h-5 w-5" />
               </button>
-              <AvatarImage
+              <img
                 src={user.profile_photo}
                 alt="Profile"
                 className="h-full w-full object-cover object-center"
