@@ -33,6 +33,7 @@ import {
   Crown,
   Check,
   Shield,
+  Zap,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -1399,8 +1400,8 @@ export default function Dating() {
 
       try {
         await awardCouplePoints?.(
-        "DATING_WALL_POST",
-        "Dating wall post"
+          "DATING_WALL_POST",
+          5
         );
       } catch {
         // Points must never block posting.

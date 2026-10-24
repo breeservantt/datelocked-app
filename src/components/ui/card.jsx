@@ -25,14 +25,11 @@ const CardHeader = ({ children }) => (
 );
 
 // Card Content
-const CardContent = ({ children, className = "" }) => (
-  <div
-    className={`card-content ${className}`}
-    style={{
-      fontSize: "1em",
-      color: "#333",
-    }}
-  >
+const CardContent = ({ children }) => (
+  <div className="card-content" style={{
+    fontSize: "1em",
+    color: "#333"
+  }}>
     {children}
   </div>
 );

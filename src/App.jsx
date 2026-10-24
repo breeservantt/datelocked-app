@@ -155,39 +155,6 @@ function AppRoutes() {
   const navigate = useNavigate();
 
   useEffect(() => {
-  const listener = CapacitorApp.addListener("backButton", async () => {
-    if (location.pathname === "/onboarding") {
-      const { error } = await supabase.auth.signOut({
-        scope: "local",
-      });
-
-      if (error) {
-        console.error("Back navigation sign-out failed:", error);
-        return;
-      }
-
-      navigate("/login", { replace: true });
-      return;
-    }
-
-    if (location.pathname === "/login") {
-      navigate("/", { replace: true });
-      return;
-    }
-
-    if (location.pathname === "/") {
-      return;
-    }
-
-    navigate(-1);
-  });
-
-  return () => {
-    listener.then((handle) => handle.remove());
-  };
-}, [location.pathname, navigate]);
-
-  useEffect(() => {
     let active = true;
 
     const listener = CapacitorApp.addListener("appUrlOpen", async ({ url }) => {
@@ -278,6 +245,7 @@ if (oauthError) {
 
   if (active) {
     navigate("/login", { replace: true });
+    setProcessingGoogleAuth(false);
   }
 }
 });

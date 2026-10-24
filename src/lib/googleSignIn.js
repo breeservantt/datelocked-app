@@ -45,10 +45,7 @@ export async function loginWithGoogle() {
     options: {},
   });
 
-  const idToken =
-  response?.result && "idToken" in response.result
-    ? response.result.idToken
-    : null;
+  const idToken = response?.result?.idToken;
 
   if (!idToken) {
     throw new Error("Google did not return an ID token.");

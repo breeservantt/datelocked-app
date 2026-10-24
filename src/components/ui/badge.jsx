@@ -1,5 +1,3 @@
-export const Badge = ({ children, className = "", variant = "default" }) => (
-  <span className={className} data-variant={variant}>
-    {children}
-  </span>
+export const Badge = ({ children, className = "" }) => (
+  <span className={className}>{children}</span>
 );
