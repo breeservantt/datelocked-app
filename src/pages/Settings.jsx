@@ -616,11 +616,21 @@ export default function Settings() {
 
       if (error) throw error;
 
-      queryClient.clear();
-      setShowDeactivateDialog(false);
-      localStorage.removeItem("settings.user");
+      // Clear the authentication session after successful deletion.
+  const { error: signOutError } = await supabase.auth.signOut({
+  scope: "local",
+  });
 
-      navigate("/login", { replace: true });
+if (signOutError) {
+  console.error("Sign-out after deactivation:", signOutError);
+}
+
+  queryClient.clear();
+  setShowDeactivateDialog(false);
+  localStorage.removeItem("settings.user");
+
+  // Return to the public landing page.
+  navigate("/", { replace: true });
     } catch (e) {
       console.error("Deactivate failed:", e);
       alert(e?.message || "Could not deactivate account.");

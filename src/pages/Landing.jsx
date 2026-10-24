@@ -1,64 +1,59 @@
-
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   ShieldCheck,
   LockKeyhole,
   CheckCircle2,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { loginWithGoogle } from "@/lib/googleSignIn";
 
 export default function Landing() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const handleGoogleSignIn = async () => {
-    if (loading) return;
+  if (loading) return;
 
-    setLoading(true);
-    setErrorMessage("");
+  setLoading(true);
+  setErrorMessage("");
 
-    try {
-      const { Capacitor } = await import("@capacitor/core");
-      const isNative = Capacitor.isNativePlatform();
+  try {
+    const data = await loginWithGoogle();
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: isNative
-            ? "com.datelocked.app://auth"
-            : `${window.location.origin}/auth/callback`,
-          queryParams: {
-            prompt: "select_account",
-          },
-          ...(isNative ? { skipBrowserRedirect: true } : {}),
-        },
-      });
-
-      if (error) throw error;
-
-      if (isNative) {
-        if (!data?.url) {
-          throw new Error("Google sign-in did not return a login URL.");
-        }
-
-        const { Browser } = await import("@capacitor/browser");
-        await Browser.open({ url: data.url });
-      }
-    } catch (error) {
-      setErrorMessage(
-        error.message || "Unable to sign in with Google. Please try again."
-      );
-      setLoading(false);
+    // Native Android login returns a Supabase session.
+    if (data?.session?.user) {
+      navigate("/home", { replace: true });
+      return;
     }
-  };
+
+    // Website login continues through Google's OAuth redirect.
+    if (data?.url) {
+      return;
+    }
+
+    throw new Error("Google sign-in did not return a session.");
+  } catch (error) {
+    console.error("Google sign-in failed:", error);
+    setErrorMessage(
+      error?.message ||
+        "Unable to sign in with Google. Please try again."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#f8f2f5] text-[#342633]">
+      {/* Header */}
       <header className="border-b border-[#eadce5] bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
-          <a href="#home" className="flex min-w-0 items-center gap-2">
+          <a
+            href="#home"
+            className="flex min-w-0 items-center gap-2"
+          >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white">
               <img
                 src="/Datelocked%20Logo.png"
@@ -66,21 +61,27 @@ export default function Landing() {
                 className="h-full w-full object-contain"
               />
             </div>
+
             <span className="truncate text-lg font-extrabold tracking-tight sm:text-xl">
               Date-Locked
             </span>
           </a>
 
           <nav className="flex shrink-0 items-center gap-3 text-sm font-semibold sm:gap-6">
-            <a href="#home" className="hidden hover:text-[#a53c70] sm:inline">
+            <a
+              href="#home"
+              className="hidden hover:text-[#a53c70] sm:inline"
+            >
               Home
             </a>
+
             <a
               href="#features"
               className="hidden hover:text-[#a53c70] sm:inline"
             >
               Features
             </a>
+
             <Link
               to="/login"
               className="rounded-full border border-[#dfb8cd] px-4 py-2 hover:bg-[#f8eaf1]"
@@ -91,34 +92,36 @@ export default function Landing() {
         </div>
       </header>
 
+      {/* Main */}
       <main id="home">
+        {/* Hero Section */}
         <section className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-10 sm:px-6 sm:py-16 lg:grid-cols-2 lg:gap-12 lg:py-20">
-      <div>
-    </div> 
+          {/* Hero Text */}
+          <div className="text-center lg:text-left">
+            <span className="mb-2 block text-4xl font-bold text-[#b34d80]">
+              ONE LOCKED-IN JOURNEY.
+            </span>
 
-    <div className="text-center lg:text-left">
- <span className="mb-2 block text-4xl font-bold text-[#b34d80]">
-  ONE LOCKED-IN JOURNEY.
-</span>
+            <h1 className="text-center text-base font-extrabold leading-tight tracking-tight sm:text-lg lg:text-left">
+              TWO HEARTS.
+            </h1>
 
-  <h1 className="text-center text-base font-extrabold leading-tight tracking-tight sm:text-lg lg:text-left">
-  TWO HEARTS.
-</h1>
+            <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#ead3e0] bg-white px-4 py-2 text-xs font-semibold text-[#985078] sm:text-sm">
+              <img
+                src="/Datelocked%20Logo.png"
+                alt="Date-Locked Logo"
+                className="h-[15px] w-[15px] object-contain"
+              />
+              A space for two
+            </div>
 
-  <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#ead3e0] bg-white px-4 py-2 text-xs font-semibold text-[#985078] sm:text-sm">
-    <img
-      src="/Datelocked%20Logo.png"
-      alt="Date-Locked Logo"
-      className="h-[15px] w-[15px] object-contain"
-    />
-    A space for two
-  </div>
+            <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-[#74616f] sm:text-lg lg:mx-0">
+              Build your connection, keep your memories, plan
+              meaningful moments, and create a relationship that
+              belongs to the two of you.
+            </p>
 
-  <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-[#74616f] sm:text-lg lg:mx-0">
-    Build your connection, keep your memories, plan meaningful
-    moments, and create a relationship that belongs to the two of you.
-  </p>
-
+            {/* Authentication Buttons */}
             <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
               <button
                 type="button"
@@ -148,7 +151,11 @@ export default function Landing() {
                     d="M24 48c6.48 0 11.93-2.13 15.91-5.8l-7.73-6c-2.15 1.45-4.9 2.3-8.18 2.3-6.01 0-11.12-4.22-13.01-9.91l-7.98 6.19C6.51 43.62 14.62 48 24 48Z"
                   />
                 </svg>
-                {loading ? "Connecting..." : "Continue with Google"}
+
+                {loading
+                  ? "Connecting..."
+                  : "Continue with Google"}
+
                 {!loading && <ArrowRight size={18} />}
               </button>
 
@@ -160,37 +167,50 @@ export default function Landing() {
               </Link>
             </div>
 
+            {/* Authentication Error */}
             {errorMessage && (
-              <p role="alert" className="mt-4 text-sm text-red-700">
+              <p
+                role="alert"
+                className="mt-4 text-sm text-red-700"
+              >
                 {errorMessage}
               </p>
             )}
 
             <p className="mt-4 text-xs leading-5 text-[#8b7786]">
-              Sign in securely with your Google account to get started.
+              Sign in securely with your Google account to get
+              started.
             </p>
 
             <div className="mt-7 flex flex-wrap items-center justify-center gap-x-5 gap-y-3 text-sm text-[#74616f] lg:justify-start">
               <span className="inline-flex items-center gap-2">
-                <ShieldCheck size={17} className="text-[#b34d80]" />
+                <ShieldCheck
+                  size={17}
+                  className="text-[#b34d80]"
+                />
                 Privacy-minded
               </span>
+
               <span className="inline-flex items-center gap-2">
-                <LockKeyhole size={16} className="text-[#b34d80]" />
+                <LockKeyhole
+                  size={16}
+                  className="text-[#b34d80]"
+                />
                 Made for two
               </span>
             </div>
           </div>
 
+          {/* Hero Image */}
           <div className="mx-auto w-full max-w-md">
-  <div className="overflow-hidden rounded-[2rem] border border-white bg-white shadow-[0_20px_60px_rgba(115,61,91,0.12)]">
-    <div className="relative aspect-[4/5] overflow-hidden bg-[#f4e6ee]">
-      <img
-        src="/datelocked-couple.jpg"
-        alt="Couple"
-        className="absolute inset-0 h-full w-full object-cover"
-      />
-    </div>
+            <div className="overflow-hidden rounded-[2rem] border border-white bg-white shadow-[0_20px_60px_rgba(115,61,91,0.12)]">
+              <div className="relative aspect-[4/5] overflow-hidden bg-[#f4e6ee]">
+                <img
+                  src="/datelocked-couple.jpg"
+                  alt="Couple"
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              </div>
 
               <div className="px-3 pb-3 pt-5 text-center">
                 <div className="flex items-center justify-center gap-2 text-[#b34d80]">
@@ -199,9 +219,11 @@ export default function Landing() {
                     alt="Date-Locked Logo"
                     className="h-6 w-6 object-contain"
                   />
+
                   <span className="text-xs font-bold uppercase tracking-[0.2em]">
                     Date-Locked
                   </span>
+
                   <img
                     src="/Datelocked%20Logo.png"
                     alt="Date-Locked Logo"
@@ -217,22 +239,27 @@ export default function Landing() {
           </div>
         </section>
 
+        {/* About Section */}
         <section className="border-y border-[#eadce5] bg-white px-4 py-14 sm:px-6 sm:py-16">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#b34d80]">
               About Date-Locked
             </p>
+
             <h2 className="mt-3 text-3xl font-extrabold sm:text-4xl">
               Make room for your relationship.
             </h2>
+
             <p className="mx-auto mt-4 max-w-2xl leading-7 text-[#74616f]">
-              Date-Locked gives couples a dedicated place to share memories,
-              work towards goals, plan time together, and nurture their
-              connection in one private couple-focused experience.
+              Date-Locked gives couples a dedicated place to share
+              memories, work towards goals, plan time together,
+              and nurture their connection in one private
+              couple-focused experience.
             </p>
           </div>
         </section>
 
+        {/* Features Section */}
         <section
           id="features"
           className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-16"
@@ -241,12 +268,14 @@ export default function Landing() {
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#b34d80]">
               Built for connection
             </p>
+
             <h2 className="mt-3 text-3xl font-extrabold sm:text-4xl">
               Grow closer, one moment at a time.
             </h2>
           </div>
 
           <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Feature 1 */}
             <article className="rounded-3xl border border-[#eadce5] bg-white p-6">
               <div className="h-12 w-12 overflow-hidden rounded-2xl">
                 <img
@@ -255,52 +284,70 @@ export default function Landing() {
                   className="h-full w-full object-cover"
                 />
               </div>
-              <h3 className="mt-4 text-lg font-bold">Your shared space</h3>
+
+              <h3 className="mt-4 text-lg font-bold">
+                Your shared space
+              </h3>
+
               <p className="mt-2 text-sm leading-6 text-[#74616f]">
-                Create a couple identity and build a space for the experiences
-                you share together.
+                Create a couple identity and build a space for
+                the experiences you share together.
               </p>
             </article>
 
+            {/* Feature 2 */}
             <article className="rounded-3xl border border-[#eadce5] bg-white p-6">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f8e7f0] text-[#b34d80]">
                 <CheckCircle2 size={23} />
               </div>
-              <h3 className="mt-4 text-lg font-bold">Goals together</h3>
+
+              <h3 className="mt-4 text-lg font-bold">
+                Goals together
+              </h3>
+
               <p className="mt-2 text-sm leading-6 text-[#74616f]">
-                Set relationship goals, plan meaningful dates, and keep track
-                of the moments that matter.
+                Set relationship goals, plan meaningful dates,
+                and keep track of the moments that matter.
               </p>
             </article>
 
+            {/* Feature 3 */}
             <article className="rounded-3xl border border-[#eadce5] bg-white p-6 sm:col-span-2 lg:col-span-1">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f8e7f0] text-[#b34d80]">
                 <ShieldCheck size={23} />
               </div>
+
               <h3 className="mt-4 text-lg font-bold">
                 Memories and verification
               </h3>
+
               <p className="mt-2 text-sm leading-6 text-[#74616f]">
-                Keep shared memories in one place and use the app's couple
-                verification features as you build your shared space.
+                Keep shared memories in one place and use the
+                app's couple verification features as you build
+                your shared space.
               </p>
             </article>
           </div>
         </section>
 
+        {/* Google Sign-In Section */}
         <section className="bg-[#f0e2eb] px-4 py-14 sm:px-6 sm:py-16">
           <div className="mx-auto max-w-3xl text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#b34d80]">
               <ShieldCheck size={24} />
             </div>
+
             <h2 className="mt-4 text-3xl font-extrabold">
               Simple, secure sign-in.
             </h2>
+
             <p className="mt-4 leading-7 text-[#74616f]">
-              Use Google to sign in. Date-Locked uses its authentication system
-              to manage your session and return you to the app. Only share
-              personal information you are comfortable providing.
+              Use Google to sign in. Date-Locked uses its
+              authentication system to manage your session and
+              return you to the app. Only share personal
+              information you are comfortable providing.
             </p>
+
             <button
               type="button"
               onClick={handleGoogleSignIn}
@@ -314,16 +361,26 @@ export default function Landing() {
         </section>
       </main>
 
+      {/* Footer */}
       <footer className="border-t border-[#eadce5] bg-[#fffafd] px-4 py-7 sm:px-6">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
           <p className="text-sm font-bold">Date-Locked</p>
+
           <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm text-[#74616f]">
-            <Link to="/privacy" className="hover:text-[#b34d80]">
+            <Link
+              to="/privacy"
+              className="hover:text-[#b34d80]"
+            >
               Privacy Policy
             </Link>
-            <Link to="/terms" className="hover:text-[#b34d80]">
+
+            <Link
+              to="/terms"
+              className="hover:text-[#b34d80]"
+            >
               Terms of Service
             </Link>
+
             <a
               href="mailto:support@datelocked.app"
               className="hover:text-[#b34d80]"
@@ -331,6 +388,7 @@ export default function Landing() {
               Support
             </a>
           </div>
+
           <p className="text-xs text-[#8b7786]">
             © {new Date().getFullYear()} Date-Locked
           </p>

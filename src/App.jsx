@@ -1,5 +1,4 @@
-
-import React, { Suspense, lazy, useEffect } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import {
   BrowserRouter as Router,
@@ -48,6 +47,107 @@ function NotFound() {
       <div className="text-sm text-slate-500">Page not found</div>
     </div>
   );
+}
+
+function StartupRoute() {
+  const navigate = useNavigate();
+  const [status, setStatus] = useState("checking");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function checkSession() {
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+
+        if (error) throw error;
+        if (!active) return;
+
+        console.info("[STARTUP] Saved session:", Boolean(session));
+
+        if (!session?.user) {
+          setStatus("guest");
+          return;
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select(
+            "full_name, date_of_birth, gender, location, account_status, deactivated_at"
+          )
+          .eq("id", session.user.id)
+          .maybeSingle();
+
+        if (profileError) throw profileError;
+        if (!active) return;
+
+        if (
+          profile?.account_status === "deactivated" ||
+          profile?.deactivated_at
+        ) {
+          await supabase.auth.signOut();
+          if (active) {
+            setErrorMessage("This account has been deactivated.");
+            setStatus("error");
+          }
+          return;
+        }
+
+        const complete = Boolean(
+          profile?.full_name?.trim() &&
+          profile?.date_of_birth &&
+          profile?.gender &&
+          profile?.location
+        );
+
+        navigate(complete ? "/home" : "/onboarding", {
+          replace: true,
+        });
+      } catch (err) {
+        console.error("[STARTUP] Session restoration failed:", err);
+
+        if (active) {
+          setErrorMessage("Unable to restore your session.");
+          setStatus("error");
+        }
+      }
+    }
+
+    checkSession();
+
+    return () => {
+      active = false;
+    };
+  }, [navigate]);
+
+  if (status === "checking") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f1f4]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#5e9cff]" />
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-5 text-center">
+        <p className="text-sm text-red-600">{errorMessage}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="rounded-xl bg-[#2f6df0] px-5 py-3 text-white"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  return <Landing />;
 }
 
 function AppRoutes() {
@@ -141,10 +241,14 @@ if (oauthError) {
           );
         }
       } catch (error) {
-        console.error("Google deep-link sign-in failed:", error);
-        if (active) navigate("/login", { replace: true });
-      }
-    });
+  console.error("Google deep-link sign-in failed:", error);
+
+  if (active) {
+    navigate("/login", { replace: true });
+    setProcessingGoogleAuth(false);
+  }
+}
+});
 
     return () => {
       active = false;
@@ -168,7 +272,7 @@ if (oauthError) {
   const routes = (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route path="/" element={<Landing />} />
+        <Route path="/" element={<StartupRoute />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/login" element={<Login />} />
         <Route path="/home" element={<Home />} />

@@ -1,0 +1,132 @@
+﻿
+  full-android-log.txt:4770:10-22 23:39:01.969 I/ActivityManager( 1321): No activity to handle assist action.
+> full-android-log.txt:4771:10-22 23:39:01.969 I/ActivityManager( 1321): android.util.AndroidRuntimeException: Activity 
+could not be started for Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10000000 
+xflg=0x4 pkg=instagram.video.downloader.story.saver.ig 
+cmp=instagram.video.downloader.story.saver.ig/instasaver.instagram.video.downloader.photo.ui.startup.StartupActivity }
+  full-android-log.txt:4772:10-22 23:39:01.969 I/ActivityManager( 1321): 	at 
+android.app.Instrumentation.checkStartActivityResult(Instrumentation.java:2536)
+  full-android-log.txt:4773:10-22 23:39:01.969 I/ActivityManager( 1321): 	at 
+android.app.Instrumentation.execStartActivity(Instrumentation.java:2035)
+  full-android-log.txt:9473:10-22 23:39:08.875 E/cr_ChromiumAndroidLinker(26041): AndroidDlopenExt: android_dlopen_ext: 
+dlopen failed: reserved address space 6148096 smaller than 207474688 bytes needed for 
+"/data/app/~~fqIvRT9VIAjL8mnWEoVaDg==/com.android.chrome-HQEA4bJWKwzvIgQXHjpcaQ==/base.apk!/lib/arm64-v8a/libchrome.so"
+> full-android-log.txt:9474:10-22 23:39:08.875 E/cr_ChromiumAndroidLinker(26041): LoadWithDlopenExt: 
+android_dlopen_ext() error
+  full-android-log.txt:9475:10-22 23:39:08.875 E/cr_ChromiumAndroidLinker(26041): LoadLibrary: Failed to load native 
+library: libchrome.so
+  full-android-log.txt:9476:10-22 23:39:08.875 E/cr_Linker(26041): Unable to load with Linker, using the system linker 
+instead
+  full-android-log.txt:12692:10-22 23:39:11.834 I/GSC     (26096): SID[7] : 775edd47bcf2dab4, Kind: 0, time : 3.639 ms
+> full-android-log.txt:12693:10-22 23:39:11.840 E/chromium(26096): 
+[ERROR:components/page_load_metrics/browser/page_load_metrics_update_dispatcher.cc:187] Invalid first_paint (unset) for 
+first_contentful_paint 0.427 s
+> full-android-log.txt:12694:10-22 23:39:11.841 E/chromium(26096): 
+[ERROR:components/page_load_metrics/browser/page_load_metrics_update_dispatcher.cc:187] Invalid first_paint (unset) for 
+first_contentful_paint 0.427 s
+  full-android-log.txt:12695:10-22 23:39:11.848 W/chromium(26041): 
+[WARNING:components/gcm_driver/instance_id/instance_id_android.cc:98] Non-zero TTL requested for InstanceID token, 
+while TTLs are not supported by Android Firebase IID API.
+  full-android-log.txt:12696:10-22 23:39:11.852 D/PowerManagerService( 1321): displayReady: false groupId=0
+  full-android-log.txt:12718:10-22 23:39:11.882 I/cr_SmsProviderGms(26041): construction successfull zkp@55ac0fe, 
+wkp@e5c05f
+> full-android-log.txt:12719:10-22 23:39:11.884 E/cr_ChromiumAndroidLinker(26261): LoadWithDlopenExt: 
+android_dlopen_ext() error
+  full-android-log.txt:12720:10-22 23:39:11.884 E/cr_ChromiumAndroidLinker(26261): LoadLibrary: Failed to load native 
+library: libchrome.so
+  full-android-log.txt:12721:10-22 23:39:11.884 E/cr_Linker(26261): Unable to load library: libchrome.so
+  full-android-log.txt:13633:10-22 23:39:17.726 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778378, pluginId: Browser, methodName: open
+> full-android-log.txt:13634:10-22 23:39:17.726 V/Capacitor(26096): callback: 105778378, pluginId: Browser, methodName: 
+open, methodData: {"url":"https:\/\/sojegdlihahzofwdrnza.supabase.co\/auth\/v1\/authorize?provider=google&redirect_to=co
+m.datelocked.app%3A%2F%2Fauth&prompt=select_account"}
+  full-android-log.txt:13635:10-22 23:39:17.728 D/ActivityTaskManager( 1321): startActivityAsUser: callingPid=26096, 
+callingUid=10266, caller=com.android.server.wm.ActivityTaskManagerService.startActivity:123 
+android.app.IActivityTaskManager$Stub.onTransact:2230 com.android.server.wm.ActivityTaskManagerService.onTransact:1 
+android.os.Binder.execTransactInternal:1509 android.os.Binder.execTransact:1454 <bottom of call stack> <bottom of call 
+stack> 
+  full-android-log.txt:13636:10-22 23:39:17.730 V/WindowManager( 1321): DesktopModeLaunchParamsModifier: phase= 0 
+task=null activity=null display-area-from-source=DefaultTaskDisplayArea_d0@54894438 display-id=0 
+task-display-area-windowing-mode=1 suggested-display-area=DefaultTaskDisplayArea_d0@54894438 task null, skipping
+  full-android-log.txt:13775:10-22 23:39:17.803 I/Pageboost( 1321): stop alp
+> full-android-log.txt:13776:10-22 23:39:17.804 I/ActivityTaskManager( 1321): START u0 {act=android.intent.action.VIEW 
+dat=https://sojegdlihahzofwdrnza.supabase.co/... xflg=0x4 pkg=com.android.chrome 
+cmp=com.android.chrome/com.google.android.apps.chrome.IntentDispatcher (has extras)} with LAUNCH_MULTIPLE from uid 
+10266 (com.datelocked.app) (rr=68522240) (BAL_ALLOW_VISIBLE_WINDOW) result code=0
+  full-android-log.txt:13777:10-22 23:39:17.804 E/pageboostd( 3257): Received HALT command code 2
+  full-android-log.txt:13778:10-22 23:39:17.807 I/DecorView(26096): setWindowBackground: isPopOver=false color=0 
+d=android.graphics.drawable.ColorDrawable@eb0aff1
+  full-android-log.txt:14088:10-22 23:39:17.901 I/Pageboost( 1321): stop alp
+> full-android-log.txt:14089:10-22 23:39:17.901 I/ActivityTaskManager( 1321): START u0 {act=android.intent.action.VIEW 
+dat=https://sojegdlihahzofwdrnza.supabase.co/... flg=0x2800000 xflg=0x4 pkg=com.android.chrome 
+cmp=com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity (has extras)} with LAUNCH_MULTIPLE from 
+uid 10258 (com.android.chrome) (sr=139730760) (BAL_ALLOW_VISIBLE_WINDOW) result code=0
+  full-android-log.txt:14090:10-22 23:39:17.901 I/SurfaceFlinger(  993): destroyed [Gesture Monitor] clo#546
+  full-android-log.txt:14091:10-22 23:39:17.901 I/SurfaceFlinger(  993): [ActivityRecord{93287916 u0 
+com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabActivity t9329}#547] attach to parent 
+LayerHierarchy{RequestedLayerState{Task=9329#519 parentId=10 z=3} 4 children}
+  full-android-log.txt:26939:10-22 23:41:34.165 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+> full-android-log.txt:26940:10-22 23:41:34.167 E/Capacitor/Console(26096): File: https://localhost/dating - Line 0 - 
+Msg: Access to fetch at 'https://sojegdlihahzofwdrnza.supabase.co/functions/v1/createPayPalPayment' from origin 
+'https://localhost' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: 
+It does not have HTTP ok status.
+> full-android-log.txt:26941:10-22 23:41:34.168 E/Capacitor/Console(26096): File: 
+https://localhost/assets/Dating-LnuAG4uZ.js - Line 16 - Msg: Payment error: FunctionsFetchError: Failed to send a 
+request to the Edge Function
+  full-android-log.txt:26942:10-22 23:41:34.173 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+  full-android-log.txt:26943:10-22 23:41:34.181 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+  full-android-log.txt:27116:10-22 23:41:36.170 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+> full-android-log.txt:27117:10-22 23:41:36.174 E/Capacitor/Console(26096): File: https://localhost/dating - Line 0 - 
+Msg: Access to fetch at 'https://sojegdlihahzofwdrnza.supabase.co/functions/v1/createPayPalPayment' from origin 
+'https://localhost' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: 
+It does not have HTTP ok status.
+> full-android-log.txt:27118:10-22 23:41:36.174 E/Capacitor/Console(26096): File: 
+https://localhost/assets/Dating-LnuAG4uZ.js - Line 16 - Msg: Payment error: FunctionsFetchError: Failed to send a 
+request to the Edge Function
+  full-android-log.txt:27119:10-22 23:41:36.179 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+  full-android-log.txt:27120:10-22 23:41:36.187 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+  full-android-log.txt:27210:10-22 23:41:37.376 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+> full-android-log.txt:27211:10-22 23:41:37.378 E/Capacitor/Console(26096): File: https://localhost/dating - Line 0 - 
+Msg: Access to fetch at 'https://sojegdlihahzofwdrnza.supabase.co/functions/v1/createPayPalPayment' from origin 
+'https://localhost' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: 
+It does not have HTTP ok status.
+> full-android-log.txt:27212:10-22 23:41:37.378 E/Capacitor/Console(26096): File: 
+https://localhost/assets/Dating-LnuAG4uZ.js - Line 16 - Msg: Payment error: FunctionsFetchError: Failed to send a 
+request to the Edge Function
+  full-android-log.txt:27213:10-22 23:41:37.385 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+  full-android-log.txt:27214:10-22 23:41:37.398 I/RILClient( 2132): processUnsolicited(): resp_id (11103), len(48)
+  full-android-log.txt:28330:10-22 23:41:57.159 D/CloLog  ( 1321): CloGroStateMachine: handleApDataReceived: 2026,10,22,
+23,41,57,158,0,0,/0,0,0,0,0,0,0,0,1950000,538560,27,2304000,533000,20,2304000,2304000,79,35,28,31,32,31,44,45,47,2,/ 
+> full-android-log.txt:28331:10-22 23:41:57.182 W/chromium(26041): 
+[WARNING:components/sync/engine/syncer_proto_util.cc:439] Error posting from syncer: Response Code (bogus on error): -1 
+Content-Length (bogus on error): -1 Server Status: CONNECTION_UNAVAILABLE
+  full-android-log.txt:28332:10-22 23:41:57.183 W/chromium(26041): [WARNING:components/sync/engine/commit.cc:183] Post 
+commit failed
+  full-android-log.txt:28333:10-22 23:41:57.194 I/SoundDoseManager(  974): getIdForAudioDevice: could not find port id 
+for device AUDIO_DEVICE_OUT_TELEPHONY_TX, @:
+
+

@@ -1,4 +1,4 @@
-
+import { loginWithGoogle } from "@/lib/googleSignIn";
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
@@ -83,46 +83,23 @@ export default function Login() {
     };
   }, [routeLoggedInUser]);
 
+
   const handleGoogleLogin = async () => {
-    if (isGoogleLoading || isEmailLoading) return;
+  if (isGoogleLoading || isEmailLoading) return;
 
-    setError("");
-    setMessage("");
-    setIsGoogleLoading(true);
+  setError("");
+  setMessage("");
+  setIsGoogleLoading(true);
 
-    try {
-      const { Capacitor } = await import("@capacitor/core");
-      const isNative = Capacitor.isNativePlatform();
-
-      const { data, error: googleError } =
-        await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: {
-            redirectTo: isNative
-              ? "com.datelocked.app://auth"
-              : `${window.location.origin}/auth/callback`,
-            queryParams: {
-              prompt: "select_account",
-            },
-            ...(isNative ? { skipBrowserRedirect: true } : {}),
-          },
-        });
-
-      if (googleError) throw googleError;
-
-      if (isNative) {
-        if (!data?.url) {
-          throw new Error("Google sign-in did not return a login URL.");
-        }
-
-        const { Browser } = await import("@capacitor/browser");
-        await Browser.open({ url: data.url });
-      }
-    } catch (err) {
-      setError(err.message || "Could not continue with Google.");
-      setIsGoogleLoading(false);
-    }
-  };
+  try {
+    await loginWithGoogle();
+  } catch (err) {
+    console.error("Google sign-in failed:", err);
+    setError(err.message || "Could not continue with Google.");
+  } finally {
+    setIsGoogleLoading(false);
+  }
+};
 
   const handleEmailAuth = async (e) => {
     e.preventDefault();

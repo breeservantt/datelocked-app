@@ -1,0 +1,350 @@
+﻿
+  full-android-log.txt:4612:10-22 23:39:01.652 D/ConnectivityManager(25762): StackLog: 
+[android.net.ConnectivityManager.sendRequestForNetwork(ConnectivityManager.java:4698)] 
+[android.net.ConnectivityManager.sendRequestForNetwork(ConnectivityManager.java:4867)] 
+[android.net.ConnectivityManager.sendRequestForNetwork(ConnectivityManager.java:4873)] 
+[android.net.ConnectivityManager.registerNetworkCallback(ConnectivityManager.java:5288)] 
+[kz$$ExternalSyntheticApiModelOutline0.m(D8$$SyntheticClass:47)] 
+[org.chromium.net.ConnectivityManagerWrapper.registerNetworkCallback(PG:7)] 
+[org.chromium.net.NetworkChangeNotifierAutoDetect.registerNetworkCallback(PG:69)] 
+[org.chromium.net.NetworkChangeNotifierAutoDetect.register(PG:59)] 
+[org.chromium.net.NetworkChangeNotifierAutoDetect$RegistrationPolicy.register(PG:3)] 
+[org.chromium.net.RegistrationPolicyAlwaysRegister.init(PG:4)] 
+[org.chromium.net.NetworkChangeNotifierAutoDetect.<init>(PG:88)] 
+[org.chromium.net.NetworkChangeNotifier.setAutoDetectConnectivityStateInternal(PG:22)] 
+[org.chromium.net.NetworkChangeNotifier.setAutoDetectConnectivityState(PG:14)] [gjj.run(PG:45)]
+  full-android-log.txt:4613:10-22 23:39:01.655 D/nativeloader(25762): Load /data/app/~~c4sbbM0FfFmMxoizpjMk9Q==/com.goog
+le.android.apps.youtube.music-238P0f4yl9BIWxCidNFNVg==/base.apk!/lib/arm64-v8a/libcronet.155.0.8059.30.so using class 
+loader ns clns-9 (caller=/data/app/~~c4sbbM0FfFmMxoizpjMk9Q==/com.google.android.apps.youtube.music-238P0f4yl9BIWxCidNFN
+Vg==/base.apk!classes2.dex): ok
+> full-android-log.txt:4614:10-22 23:39:01.656 I/AppWidgetServiceImpl( 1321): getInstalledProvidersForProfiles lock in 
+com.google.android.apps.youtube.music
+  full-android-log.txt:4615:10-22 23:39:01.657 D/WifiNetworkFactory( 1321): got request NetworkRequest [ REQUEST 
+id=708, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10321 
+RequestorUid: 10321 RequestorPkg: com.google.android.apps.youtube.music UnderlyingNetworks: Null] ]
+> full-android-log.txt:4616:10-22 23:39:01.657 I/AppWidgetServiceImpl( 1321): getInstalledProvidersForProfiles lock 
+exit 3
+  full-android-log.txt:4617:10-22 23:39:01.658 D/UntrustedWifiNetworkFactory( 1321): got request NetworkRequest [ 
+REQUEST id=708, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10321 
+RequestorUid: 10321 RequestorPkg: com.google.android.apps.youtube.music UnderlyingNetworks: Null] ]
+  full-android-log.txt:4618:10-22 23:39:01.658 D/OemPaidWifiNetworkFactory( 1321): got request NetworkRequest [ REQUEST 
+id=708, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10321 
+RequestorUid: 10321 RequestorPkg: com.google.android.apps.youtube.music UnderlyingNetworks: Null] ]
+  full-android-log.txt:4619:10-22 23:39:01.659 D/MultiInternetWifiNetworkFactory( 1321): got request NetworkRequest [ 
+REQUEST id=708, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10321 
+RequestorUid: 10321 RequestorPkg: com.google.android.apps.youtube.music UnderlyingNetworks: Null] ]
+  full-android-log.txt:4620:10-22 23:39:01.659 D/ConnectivityService( 1321): Rematched networks [computed 0ms] [applied 
+2ms] [issued 6]
+  full-android-log.txt:4621:10-22 23:39:01.659 D/ConnectivityService( 1321): NetworkReassignment :
+  full-android-log.txt:13170:10-22 23:39:13.020 I/Capacitor/Console(26096): File:  - Line 349 - Msg: [object Object]
+  full-android-log.txt:13171:10-22 23:39:13.022 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778377, pluginId: App, methodName: addListener
+> full-android-log.txt:13172:10-22 23:39:13.022 V/Capacitor(26096): callback: 105778377, pluginId: App, methodName: 
+addListener, methodData: {"eventName":"appUrlOpen"}
+  full-android-log.txt:13173:10-22 23:39:13.026 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+  full-android-log.txt:13174:10-22 23:39:13.027 I/RILClient( 2132): processUnsolicited(): resp_id (11103), len(48)
+  full-android-log.txt:13175:10-22 23:39:13.028 I/iNTCLog ( 2186): CpInterface<0>: onIPCReceived()
+  full-android-log.txt:13176:10-22 23:39:13.028 I/iNTCLog ( 2186): CpInterface<0>: [Rx]: (M)IPC_MISC_CMD 
+(S)IPC_MISC_CP_METRIC (T)NOTI l:48
+  full-android-log.txt:13177:10-22 23:39:13.030 I/iNTCLog ( 2186): GroHelper<0>: onCPMetricNoti : xxxxxx
+  full-android-log.txt:16715:10-22 23:39:21.089 I/cr_ChildProcLH(26041): ScopedServiceBindingBatch.tryActivate: false
+  full-android-log.txt:16716:10-22 23:39:21.089 I/cr_BindingManager(26041): Visible binding enabled: maxSize=-1
+> full-android-log.txt:16717:10-22 23:39:21.091 I/AppWidgetServiceImpl( 1321): getInstalledProvidersForProfiles lock in 
+com.android.chrome
+> full-android-log.txt:16718:10-22 23:39:21.091 I/AppWidgetServiceImpl( 1321): getInstalledProvidersForProfiles lock 
+exit 4
+  full-android-log.txt:16719:10-22 23:39:21.093 I/AppWidgetServiceImpl( 1321): handleSaveMessage 0
+  full-android-log.txt:16720:10-22 23:39:21.097 W/System  (26448): A resource failed to call close. 
+  full-android-log.txt:16721:10-22 23:39:21.097 W/fb4a.fFf(26448): AsyncDrawable with url 
+https://lookaside.facebook.com/ras/v2/?id=AQAE7nOm7mhr&cfg=d$2.62x wasn't hidden before it was GC'd. Please call 
+setVisible(false, ___ ) in View.onDetachedFromWindow()
+  full-android-log.txt:16722:10-22 23:39:21.105 W/fb4a.MultiSignalANRDetectorLacrima(26448): Pausing error state checks
+> full-android-log.txt:16723:10-22 23:39:21.106 I/AppWidgetServiceImpl( 1321): getInstalledProvidersForProfiles lock in 
+com.android.chrome
+> full-android-log.txt:16724:10-22 23:39:21.106 I/AppWidgetServiceImpl( 1321): getInstalledProvidersForProfiles lock 
+exit 4
+  full-android-log.txt:16725:10-22 23:39:21.112 W/PackageConfigPersister( 1321): App-specific configuration not found 
+for packageName: com.android.chrome and userId: 0
+  full-android-log.txt:16726:10-22 23:39:21.116 I/cr_A11yState(26041): Enabled accessibility services list updated. []
+  full-android-log.txt:16727:10-22 23:39:21.117 I/cr_A11yState(26041): New AccessibilityState: 
+State{isComplexUserInteractionServiceEnabled=false, isTouchExplorationEnabled=false, isPerformGesturesEnabled=false, 
+isAnyAccessibilityServiceEnabled=false, isAccessibilityToolPresent=false, isTextShowPasswordEnabled=false, 
+isOnlyAutofillRunning=false, isOnlyPasswordManagersEnabled=false, isKnownScreenReaderEnabled=false, 
+isSamsungTalkBackEnabled=false}
+  full-android-log.txt:16728:10-22 23:39:21.117 I/AppWidgetServiceImpl( 1321): handleSaveMessage 0
+  full-android-log.txt:16729:10-22 23:39:21.123 D/NetdEventListenerService( 1321): DNS Requested by 100, 
+10265(com.facebook.katana), SUCCESS, 1ms
+  full-android-log.txt:17459:10-22 23:39:25.434 D/LocalDisplayAdapter( 1321): updateActiveModeLocked for 
+d=4633128672291735943, mActiveModeId=1, mActiveSfDisplayMode=DisplayMode{id=0, width=1080, height=2340, xDpi=386.3662, 
+yDpi=388.47058, peakRefreshRate=120.00001, vsyncRate=120.00001, appVsyncOffsetNanos=0, 
+presentationDeadlineNanos=9333333, supportedHdrTypes=[2, 3, 4], group=0}
+  full-android-log.txt:17460:10-22 23:39:25.434 I/Pageboost( 1321): stop alp
+> full-android-log.txt:17461:10-22 23:39:25.434 I/ActivityTaskManager( 1321): START u0 {act=android.intent.action.VIEW 
+cat=[android.intent.category.BROWSABLE] dat=com.datelocked.app://auth/... flg=0x14000000 xflg=0x4 
+pkg=com.datelocked.app cmp=com.datelocked.app/.MainActivity (has extras)} with LAUNCH_SINGLE_TASK from uid 10258 
+(com.android.chrome) (sr=93287916) (BAL_ALLOW_VISIBLE_WINDOW) result code=3
+  full-android-log.txt:17462:10-22 23:39:25.435 I/DisplayDeviceRepository( 1321): Display device changed render 
+timings: "Built-in Screen", renderFrameRate=120.00001, presentationDeadlineNanos=9333333, appVsyncOffsetNanos=0, 
+frameRateOverrides=[{uid=10273 frameRateHz=30.000002}]
+  full-android-log.txt:17463:10-22 23:39:25.435 I/SurfaceFlinger(  993): com.android.chrome/ChromeChildSurface#567 Max 
+(can't resolve refresh rate)
+  full-android-log.txt:17464:10-22 23:39:25.435 I/SurfaceFlinger(  993): ba34a4a 
+SurfaceView[com.google.android.youtube/com.google.android.youtube.app.honeycomb.Shell$HomeActivity]@0(BLAST)#367 voted 
+ExplicitExactOrMultiple (30.00 Hz)
+  full-android-log.txt:17465:10-22 23:39:25.435 I/SurfaceFlinger(  993): scored - choose 120.00 Hz
+  full-android-log.txt:17466:10-22 23:39:25.436 D/SurfaceFlinger(  993): initiateModeChange 4633128672291735943 
+{mode={fps=120.00 Hz, modePtr={id=0, vsyncRate=120.00 Hz, peakRefreshRate=120.00 Hz}}, emitEvent=false, force=false}
+  full-android-log.txt:17546:10-22 23:39:25.473 I/ActivityManager( 1321): Changes in 99006 15 to 3, 256 to 440
+  full-android-log.txt:17547:10-22 23:39:25.473 I/ActivityManager( 1321): Changes in 10266 15 to 2, 256 to 511
+> full-android-log.txt:17548:10-22 23:39:25.474 V/Capacitor/AppPlugin(26096): Notifying listeners for event appUrlOpen
+  full-android-log.txt:17549:10-22 23:39:25.474 I/SurfaceFlinger(  993): 
+[LayerHierarchy{RequestedLayerState{ImeContainer#15 parentId=547 relativeParentId=547 z=1} 1 children}] RelativeParent 
+to null
+  full-android-log.txt:17550:10-22 23:39:25.474 I/SurfaceFlinger(  993): [LayerHierarchy{RequestedLayerState{Input 
+Consumer pip_input_consumer#450 parentId=10 z=2147483646} no children}] reparent to 
+LayerHierarchy{RequestedLayerState{DefaultTaskDisplayArea_d0#10 parentId=9} 8 children}
+  full-android-log.txt:17551:10-22 23:39:25.475 D/Capacitor/AppPlugin(26096): Firing change: true
+  full-android-log.txt:17552:10-22 23:39:25.475 V/Capacitor/AppPlugin(26096): Notifying listeners for event 
+appStateChange
+  full-android-log.txt:17553:10-22 23:39:25.475 D/Capacitor/AppPlugin(26096): No listeners found for event 
+appStateChange
+  full-android-log.txt:17597:10-22 23:39:25.495 D/SGM:SemGameManager( 1321): isForegroundGame(), ret=false
+  full-android-log.txt:17598:10-22 23:39:25.495 D/NetworkPolicy( 1321): already checked 10266
+> full-android-log.txt:17599:10-22 23:39:25.495 I/Capacitor/Console(26096): File:  - Line 333 - Msg: {"url":"com.dateloc
+ked.app://auth#access_token=eyJhbGciOiJFUzI1NiIsImtpZCI6IjViMjU0ZjAzLWJkNzQtNGY4MS1hZTczLTYyOGMyZmFiOWZiMCIsInR5cCI6IkpX
+VCJ9.eyJpc3MiOiJodHRwczovL3NvamVnZGxpaGFoem9md2RybnphLnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiI1ZjBmODg5MC1mNmYwLTRiZDAtOWU
+yNi1lYmQwNjY3ZjYyNWMiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzkyNzA4NzY1LCJpYXQiOjE3OTI3MDUxNjUsImVtYWlsIjoiYnJlZXNlcnZ
+hbnR0QGdtYWlsLmNvbSIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZ29vZ2xlIiwicHJvdmlkZXJzIjpbImdvb2dsZSJdfSwidXN
+lcl9tZXRhZGF0YSI6eyJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9saDMuZ29vZ2xldXNlcmNvbnRlbnQuY29tL2EvQUNnOG9jSW43QmxmMWtLaEdBd0hxcGdpU0Q
+0a1dwYm9CX3Z0MWRRY3l0RDZadE96TWZjRVdRTT1zOTYtYyIsImVtYWlsIjoiYnJlZXNlcnZhbnR0QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnV
+lLCJmdWxsX25hbWUiOiJCcmVlIFNlcnZhbnR0IiwiaXNzIjoiaHR0cHM6Ly9hY2NvdW50cy5nb29nbGUuY29tIiwibmFtZSI6IkJyZWUgU2VydmFudHQiLCJ
+waG9uZV92ZXJpZmllZCI6ZmFsc2UsInBpY3R1cmUiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NJbjdCbGYxa0toR0F3SHF
+wZ2lTRDRrV3Bib0JfdnQxZFFjeXRENlp0T3pNZmNFV1FNPXM5Ni1jIiwicHJvdmlkZXJfaWQiOiIxMDcwMzIzOTcwNzc3OTYxNjIwOTUiLCJzdWIiOiIxMDc
+wMzIzOTcwNzc3OTYxNjIwOTUifSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJvYXV0aCIsInRpbWVzdGF
+tcCI6MTc5MjcwNTE2NX1dLCJzZXNzaW9uX2lkIjoiMTg3YjBiYWMtNTQxNC00NTYyLWFjY2MtMGYxMjYxYzgzYWMzIiwiaXNfYW5vbnltb3VzIjpmYWxzZX0
+.29zLnWfxK9jnRm5gYuxwWkH5VLj_z_GumEKQhux5n99TDiN9ZjNhrS8g464oPSftUAWHmse1kWmgXtQsTmhzBQ&expires_at=1792708765&expires_in
+=3600&provider_token=ya29.a0AX07CmsWrmOgtFQcJPTfVne_dCcRR8_zlqpiYc5pdMBVoWyv7fnFOqCd1soHCmxkwz3T8_e0ktB40alAkrun2UAlxEsm
+rsd7rteDfu2exZwOqWMv5Jf1PxVhH0X6e-bfTBdLFzLx_EfMtHCakqcac6dJXRdLr4B0LL_npMTw430F3SSEfAPl2F1IkPY69nljUnHGA_20CGwMDUincs3a
+36lKrTJ9cIUgVD1BoonMu_GvNlYxzwArXi3t33Uht2xWnlZNEweN4paHcipjWigLaqQks2vVzfoaCgYKAcESARcSFQHGX2MiwYQROSWaLWKixy3Bn0WWjg02
+94&refresh_token=m6grgzqeyzr2&sb=&token_type=bearer"}
+  full-android-log.txt:17600:10-22 23:39:25.495 E/ActivityManager( 1321): Sending non-protected broadcast 
+sec.intent.action.networkdiagnostic.CLO_AI_GRO_PE from system 1321:system/1000 pkg android
+  full-android-log.txt:17601:10-22 23:39:25.495 E/ActivityManager( 1321): java.lang.Throwable
+  full-android-log.txt:17602:10-22 23:39:25.495 E/ActivityManager( 1321): 	at 
+com.android.server.am.BroadcastController.checkBroadcastFromSystem(qb/113656013 
+85aa0458893f1c68f63dc4cee3e8ccabd5bf9d057b4dbfd9f61c7e1fcf823960:252)
+  full-android-log.txt:17603:10-22 23:39:25.495 E/ActivityManager( 1321): 	at 
+com.android.server.am.BroadcastController.broadcastIntentLockedTraced(qb/113656013 
+85aa0458893f1c68f63dc4cee3e8ccabd5bf9d057b4dbfd9f61c7e1fcf823960:355)
+  full-android-log.txt:17604:10-22 23:39:25.495 E/ActivityManager( 1321): 	at 
+com.android.server.am.BroadcastController.broadcastIntentLocked(qb/113656013 
+85aa0458893f1c68f63dc4cee3e8ccabd5bf9d057b4dbfd9f61c7e1fcf823960:22)
+  full-android-log.txt:18595:10-22 23:39:28.288 D/Capacitor(26096): Handling local request: 
+https://localhost/Datelocked%20Logo.png
+  full-android-log.txt:18596:10-22 23:39:28.289 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778380, pluginId: App, methodName: addListener
+> full-android-log.txt:18597:10-22 23:39:28.289 V/Capacitor(26096): callback: 105778380, pluginId: App, methodName: 
+addListener, methodData: {"eventName":"appUrlOpen"}
+  full-android-log.txt:18598:10-22 23:39:28.291 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+  full-android-log.txt:18599:10-22 23:39:28.292 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778381, pluginId: App, methodName: removeListener
+> full-android-log.txt:18600:10-22 23:39:28.292 V/Capacitor(26096): callback: 105778381, pluginId: App, methodName: 
+removeListener, methodData: {"eventName":"appUrlOpen","callbackId":"105778377"}
+  full-android-log.txt:18601:10-22 23:39:28.296 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+  full-android-log.txt:18602:10-22 23:39:28.304 I/GSC     (26096): SID[48] : 9cdc8954bc991ab3, Kind: 1, time : 9.798 ms
+  full-android-log.txt:18603:10-22 23:39:28.308 I/GSC     (26096): SID[49] : fc668535a0a52d1f, Kind: 0, time : 4.387 ms
+  full-android-log.txt:18604:10-22 23:39:28.315 I/GSC     (26096): SID[50] : 89a70c2d31d766b9, Kind: 1, time : 4.996 ms
+  full-android-log.txt:18605:10-22 23:39:28.321 E/ashmem  (26136): readlink(/proc/self/fd/131) failed: Operation not 
+permitted
+  full-android-log.txt:22462:10-22 23:40:41.822 D/Capacitor(26096): Handling local request: 
+https://localhost/assets/shield-Db_md3tH.js
+  full-android-log.txt:22463:10-22 23:40:41.822 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778382, pluginId: App, methodName: addListener
+> full-android-log.txt:22464:10-22 23:40:41.822 V/Capacitor(26096): callback: 105778382, pluginId: App, methodName: 
+addListener, methodData: {"eventName":"appUrlOpen"}
+  full-android-log.txt:22465:10-22 23:40:41.823 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778383, pluginId: App, methodName: removeListener
+> full-android-log.txt:22466:10-22 23:40:41.823 V/Capacitor(26096): callback: 105778383, pluginId: App, methodName: 
+removeListener, methodData: {"eventName":"appUrlOpen","callbackId":"105778380"}
+  full-android-log.txt:22467:10-22 23:40:41.823 E/ashmem  (26136): readlink(/proc/self/fd/85) failed: Operation not 
+permitted
+  full-android-log.txt:22468:10-22 23:40:41.829 D/Capacitor(26096): Handling local request: 
+https://localhost/Datelocked%20Logo.png
+  full-android-log.txt:22469:10-22 23:40:41.831 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+  full-android-log.txt:22470:10-22 23:40:41.837 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+  full-android-log.txt:22471:10-22 23:40:41.842 D/SatelliteController( 1912): isInCarrierRoamingNbIotNtn: satellite is 
+disabled
+  full-android-log.txt:24570:10-22 23:41:13.930 I/Capacitor/Console(26096): File:  - Line 349 - Msg: [object Object]
+  full-android-log.txt:24571:10-22 23:41:13.931 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778384, pluginId: App, methodName: addListener
+> full-android-log.txt:24572:10-22 23:41:13.931 V/Capacitor(26096): callback: 105778384, pluginId: App, methodName: 
+addListener, methodData: {"eventName":"appUrlOpen"}
+  full-android-log.txt:24573:10-22 23:41:13.932 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778385, pluginId: App, methodName: removeListener
+> full-android-log.txt:24574:10-22 23:41:13.932 V/Capacitor(26096): callback: 105778385, pluginId: App, methodName: 
+removeListener, methodData: {"eventName":"appUrlOpen","callbackId":"105778382"}
+  full-android-log.txt:24575:10-22 23:41:13.935 E/ashmem  (26136): readlink(/proc/self/fd/115) failed: Operation not 
+permitted
+  full-android-log.txt:24576:10-22 23:41:13.935 E/ashmem  (26136): readlink(/proc/self/fd/135) failed: Operation not 
+permitted
+  full-android-log.txt:24577:10-22 23:41:13.936 E/ashmem  (26136): readlink(/proc/self/fd/136) failed: Operation not 
+permitted
+  full-android-log.txt:24578:10-22 23:41:13.941 D/Capacitor(26096): Handling local request: 
+https://localhost/Datelocked%20Logo.png
+  full-android-log.txt:24579:10-22 23:41:13.941 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+  full-android-log.txt:29699:10-22 23:42:17.027 D/Capacitor(26096): Handling local request: 
+https://localhost/assets/input-B-tRxq_N.js
+  full-android-log.txt:29700:10-22 23:42:17.028 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778386, pluginId: App, methodName: addListener
+> full-android-log.txt:29701:10-22 23:42:17.028 V/Capacitor(26096): callback: 105778386, pluginId: App, methodName: 
+addListener, methodData: {"eventName":"appUrlOpen"}
+  full-android-log.txt:29702:10-22 23:42:17.028 D/Capacitor(26096): Handling local request: 
+https://localhost/assets/refresh-cw-kVitfEIy.js
+  full-android-log.txt:29703:10-22 23:42:17.029 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778387, pluginId: App, methodName: removeListener
+> full-android-log.txt:29704:10-22 23:42:17.029 V/Capacitor(26096): callback: 105778387, pluginId: App, methodName: 
+removeListener, methodData: {"eventName":"appUrlOpen","callbackId":"105778384"}
+  full-android-log.txt:29705:10-22 23:42:17.031 I/SDHMS:LOAD( 4038): type: LoadsFreqs, value: 
+110:96:3:2327039:2688000:2304000:581660:1728000:533000:455:544:450
+  full-android-log.txt:29706:10-22 23:42:17.032 E/ashmem  (26136): readlink(/proc/self/fd/129) failed: Operation not 
+permitted
+  full-android-log.txt:29707:10-22 23:42:17.032 E/ashmem  (26136): readlink(/proc/self/fd/140) failed: Operation not 
+permitted
+  full-android-log.txt:29708:10-22 23:42:17.033 E/ashmem  (26136): readlink(/proc/self/fd/135) failed: Operation not 
+permitted
+  full-android-log.txt:29709:10-22 23:42:17.034 D/Capacitor(26096): Handling local request: 
+https://localhost/Datelocked%20Logo.png
+  full-android-log.txt:30219:10-22 23:42:18.812 I/SamsungAccount(26931): [MobileServiceStateImpl] serviceName : 
+AuthService
+  full-android-log.txt:30220:10-22 23:42:18.812 I/SamsungAccount(26931): [MobileServiceStateProxy] 
+registerServiceState, AuthService is added
+> full-android-log.txt:30221:10-22 23:42:18.812 I/SamsungAccount(26931): [MobileServiceStateImpl] serviceName : 
+ProfileService
+> full-android-log.txt:30222:10-22 23:42:18.812 I/SamsungAccount(26931): [MobileServiceStateProxy] 
+registerServiceState, ProfileService is added
+  full-android-log.txt:30223:10-22 23:42:18.812 I/SamsungAccount(26931): [MobileServiceStateImpl] serviceName : 
+PlaceService
+  full-android-log.txt:30224:10-22 23:42:18.812 I/SamsungAccount(26931): [MobileServiceStateProxy] 
+registerServiceState, PlaceService is added
+  full-android-log.txt:30225:10-22 23:42:18.813 I/SamsungAccount(26931): [QrHelper] read supported QR Countries from 
+asset
+  full-android-log.txt:30226:10-22 23:42:18.813 I/SamsungAccount(26931): [SignatureInfoDbHelper] searchOnUser(fromDb) - 
+[10/6k11j][android.samsungpass.][64/3291d] => matched
+  full-android-log.txt:30227:10-22 23:42:18.813 I/SamsungAccount(26931): [AccountManagerProvider] This is the access of 
+the allowed application
+  full-android-log.txt:32613:10-22 23:42:38.647 W/AutofillSession( 1321): handleLogContextCommitted(): last response is 
+null
+  full-android-log.txt:32614:10-22 23:42:38.649 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778388, pluginId: App, methodName: addListener
+> full-android-log.txt:32615:10-22 23:42:38.649 V/Capacitor(26096): callback: 105778388, pluginId: App, methodName: 
+addListener, methodData: {"eventName":"appUrlOpen"}
+  full-android-log.txt:32616:10-22 23:42:38.650 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778389, pluginId: App, methodName: removeListener
+> full-android-log.txt:32617:10-22 23:42:38.650 V/Capacitor(26096): callback: 105778389, pluginId: App, methodName: 
+removeListener, methodData: {"eventName":"appUrlOpen","callbackId":"105778386"}
+  full-android-log.txt:32618:10-22 23:42:38.650 V/InlineSuggestionRenderService( 3124): handleDestroySuggestionViews 
+called for 0:1642779676
+  full-android-log.txt:32619:10-22 23:42:38.651 E/ashmem  (26136): readlink(/proc/self/fd/115) failed: Operation not 
+permitted
+  full-android-log.txt:32620:10-22 23:42:38.651 E/ashmem  (26136): readlink(/proc/self/fd/135) failed: Operation not 
+permitted
+  full-android-log.txt:32621:10-22 23:42:38.654 D/Capacitor(26096): Handling local request: 
+https://localhost/Datelocked%20Logo.png
+  full-android-log.txt:32622:10-22 23:42:38.654 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+  full-android-log.txt:33103:10-22 23:42:43.511 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778390, pluginId: App, methodName: addListener
+  full-android-log.txt:33104:10-22 23:42:43.511 E/ashmem  (26136): readlink(/proc/self/fd/115) failed: Operation not 
+permitted
+> full-android-log.txt:33105:10-22 23:42:43.511 V/Capacitor(26096): callback: 105778390, pluginId: App, methodName: 
+addListener, methodData: {"eventName":"appUrlOpen"}
+  full-android-log.txt:33106:10-22 23:42:43.512 E/ashmem  (26136): readlink(/proc/self/fd/135) failed: Operation not 
+permitted
+  full-android-log.txt:33107:10-22 23:42:43.512 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778391, pluginId: App, methodName: removeListener
+> full-android-log.txt:33108:10-22 23:42:43.512 V/Capacitor(26096): callback: 105778391, pluginId: App, methodName: 
+removeListener, methodData: {"eventName":"appUrlOpen","callbackId":"105778388"}
+  full-android-log.txt:33109:10-22 23:42:43.515 D/Capacitor(26096): Handling local request: 
+https://localhost/Datelocked%20Logo.png
+  full-android-log.txt:33110:10-22 23:42:43.518 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+  full-android-log.txt:33111:10-22 23:42:43.518 D/PowerManagerService( 1321): displayReady: false groupId=0
+  full-android-log.txt:33112:10-22 23:42:43.519 D/DisplayPowerController[0]( 1321): animateScreenStateChange: 
+target=ON, mIsEnabled=true
+  full-android-log.txt:33113:10-22 23:42:43.519 D/PowerManagerService( 1321): displayReady: true groupId=0
+  full-android-log.txt:34229:10-22 23:42:55.370 I/Capacitor/Console(26096): File:  - Line 349 - Msg: [object Object]
+  full-android-log.txt:34230:10-22 23:42:55.370 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778392, pluginId: App, methodName: addListener
+> full-android-log.txt:34231:10-22 23:42:55.370 V/Capacitor(26096): callback: 105778392, pluginId: App, methodName: 
+addListener, methodData: {"eventName":"appUrlOpen"}
+  full-android-log.txt:34232:10-22 23:42:55.371 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778393, pluginId: App, methodName: removeListener
+> full-android-log.txt:34233:10-22 23:42:55.371 V/Capacitor(26096): callback: 105778393, pluginId: App, methodName: 
+removeListener, methodData: {"eventName":"appUrlOpen","callbackId":"105778390"}
+  full-android-log.txt:34234:10-22 23:42:55.371 E/ashmem  (26136): readlink(/proc/self/fd/115) failed: Operation not 
+permitted
+  full-android-log.txt:34235:10-22 23:42:55.372 E/ashmem  (26136): readlink(/proc/self/fd/135) failed: Operation not 
+permitted
+  full-android-log.txt:34236:10-22 23:42:55.372 E/ashmem  (26136): readlink(/proc/self/fd/129) failed: Operation not 
+permitted
+  full-android-log.txt:34237:10-22 23:42:55.374 D/Capacitor(26096): Handling local request: 
+https://localhost/Datelocked%20Logo.png
+  full-android-log.txt:34238:10-22 23:42:55.376 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+  full-android-log.txt:35282:10-22 23:43:02.423 I/Capacitor/Console(26096): File:  - Line 349 - Msg: [object Object]
+  full-android-log.txt:35283:10-22 23:43:02.425 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778394, pluginId: App, methodName: addListener
+> full-android-log.txt:35284:10-22 23:43:02.425 V/Capacitor(26096): callback: 105778394, pluginId: App, methodName: 
+addListener, methodData: {"eventName":"appUrlOpen"}
+  full-android-log.txt:35285:10-22 23:43:02.427 E/ashmem  (26136): readlink(/proc/self/fd/115) failed: Operation not 
+permitted
+  full-android-log.txt:35286:10-22 23:43:02.427 E/ashmem  (26136): readlink(/proc/self/fd/135) failed: Operation not 
+permitted
+  full-android-log.txt:35287:10-22 23:43:02.427 E/ashmem  (26136): readlink(/proc/self/fd/142) failed: Operation not 
+permitted
+  full-android-log.txt:35288:10-22 23:43:02.428 V/Capacitor/Plugin(26096): To native (Capacitor plugin): callbackId: 
+105778395, pluginId: App, methodName: removeListener
+> full-android-log.txt:35289:10-22 23:43:02.429 V/Capacitor(26096): callback: 105778395, pluginId: App, methodName: 
+removeListener, methodData: {"eventName":"appUrlOpen","callbackId":"105778392"}
+  full-android-log.txt:35290:10-22 23:43:02.430 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+  full-android-log.txt:35291:10-22 23:43:02.431 D/Capacitor(26096): Handling local request: 
+https://localhost/Datelocked%20Logo.png
+  full-android-log.txt:35292:10-22 23:43:02.442 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+  full-android-log.txt:35293:10-22 23:43:02.461 I/View    (26096): setRequestedFrameRate frameRate=-4.0, 
+this=com.getcapacitor.CapacitorWebView{ac7e5f6 VFEDHVC.. .F...... 0,101-1080,2214 #7f0800c7 app:id/webview 
+aid=1073741824}, caller=android.view.ViewGroup.setRequestedFrameRate:10045 WV.zd.p:1 WV.xe.h:117 WV.xe.onDraw:7 
+com.android.webview.chromium.WebViewChromium.onDraw:19 
+  full-android-log.txt:35294:10-22 23:43:02.476 E/ashmem  (26136): readlink(/proc/self/fd/129) failed: Operation not 
+permitted
+
+
