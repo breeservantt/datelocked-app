@@ -1,4 +1,8 @@
 import { supabase } from "@/lib/supabase";
+import {
+  isBiometricAvailable,
+  verifyBiometric,
+} from "@/lib/biometrics";
 import React from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -235,6 +239,9 @@ export default function Settings() {
 
   const [authPref, setAuthPref] = React.useState("PASSWORD");
   const [pinEnabled, setPinEnabled] = React.useState(false);
+  const [biometricEnabled, setBiometricEnabled] = React.useState(false);
+  const [biometricAvailable, setBiometricAvailable] = React.useState(false);
+  const [biometricBusy, setBiometricBusy] = React.useState(false);
   const [pinNew, setPinNew] = React.useState("");
   const [pinConfirm, setPinConfirm] = React.useState("");
 
@@ -331,6 +338,71 @@ export default function Settings() {
       alive = false;
     };
   }, [loadUserProfile]);
+
+  React.useEffect(() => {
+  let active = true;
+
+  isBiometricAvailable().then((available) => {
+    if (active) {
+      setBiometricAvailable(available);
+    }
+  });
+
+  return () => {
+    active = false;
+  };
+}, []);
+
+const handleToggleBiometric = async (checked) => {
+  if (biometricBusy) return;
+
+  setBiometricBusy(true);
+
+  try {
+    if (checked) {
+      const available = await isBiometricAvailable();
+
+      if (!available) {
+        alert(
+          "Android biometric authentication is unavailable. Check that fingerprint or supported face authentication is configured on your phone."
+        );
+        return;
+      }
+
+      await verifyBiometric();
+    }
+
+    if (!user?.id) {
+      throw new Error("No signed-in user found.");
+    }
+
+    const storageKey = `datelocked.biometricEnabled.${user.id}`;
+
+    localStorage.setItem(storageKey, String(checked));
+    setBiometricEnabled(checked);
+
+    alert(
+      checked
+        ? "Biometric unlocking enabled."
+        : "Biometric unlocking disabled."
+    );
+  } catch (error) {
+    console.error("Biometric verification failed:", error);
+    alert(error?.message || "Biometric verification failed.");
+  } finally {
+    setBiometricBusy(false);
+  }
+};
+
+  React.useEffect(() => {
+  if (!user?.id) return;
+
+  const storageKey = `datelocked.biometricEnabled.${user.id}`;
+
+  setBiometricEnabled(
+    localStorage.getItem(storageKey) === "true"
+  );
+}, [user?.id]);
 
   const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -555,8 +627,7 @@ export default function Settings() {
       setShowUnlockDialog(false);
       await loadUserProfile();
 
-      queryClient.invalidateQueries();
-      navigate("/login", { replace: true });
+      await queryClient.invalidateQueries();
     } catch (e) {
       console.error("Unlock failed:", e);
       alert(e?.message || "Could not unlock relationship.");
@@ -1135,13 +1206,41 @@ if (signOutError) {
               <AppCard className="p-4">
                 <div className="space-y-4">
                   <div className="rounded-[10px] border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-sm font-semibold text-slate-800">
-                      Biometric Login
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Biometric login will be handled later in native Android.
-                    </p>
-                  </div>
+  <div className="flex items-center justify-between gap-3">
+    <div className="flex items-center gap-3">
+      <Fingerprint className="h-5 w-5 text-slate-700" />
+
+      <div>
+        <p className="text-sm font-semibold text-slate-800">
+          Biometric Login
+        </p>
+
+        <p className="text-xs text-slate-500">
+          {biometricAvailable
+            ? "Use fingerprint or supported face authentication."
+            : "Biometric authentication unavailable on this device."}
+        </p>
+      </div>
+    </div>
+
+    <button
+  type="button"
+  disabled={biometricBusy}
+  onClick={() => handleToggleBiometric(!biometricEnabled)}
+  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] border transition ${
+    biometricEnabled
+      ? "border-[#77aef7] bg-[#77aef7]"
+      : "border-slate-400 bg-white"
+  } disabled:opacity-60`}
+>
+  {biometricEnabled && (
+    <span className="text-[13px] font-bold leading-none text-white">
+      ✓
+    </span>
+  )}
+  </button>
+  </div>
+  </div>
 
                   <Separator />
 

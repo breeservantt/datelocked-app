@@ -668,154 +668,6 @@ export default function Dating() {
     };
   }, [user?.email, premiumActive]);
 
-  React.useEffect(() => {
-    const urlParams =
-      new URLSearchParams(
-        window.location.search
-      );
-
-    const status =
-      urlParams.get("status");
-
-    const token =
-      urlParams.get("token");
-
-    const plan =
-      urlParams.get("plan");
-
-    if (
-      status === "success" &&
-      token &&
-      plan
-    ) {
-      capturePayment(token, plan);
-    } else if (
-      status === "cancelled"
-    ) {
-      toast.error(
-        "Payment was cancelled."
-      );
-
-      window.history.replaceState(
-        {},
-        "",
-        createPageUrl("Dating")
-      );
-    }
-  }, []);
-
-  const handlePayPalPayment =
-    async (plan) => {
-      setProcessingPlan(plan);
-
-      try {
-        const { data, error } =
-          await supabase.functions.invoke(
-            "createPayPalPayment",
-            {
-              body: {
-                plan,
-                returnPage: "Dating",
-              },
-            }
-          );
-
-        if (error) {
-          throw error;
-        }
-
-        if (
-          data?.success &&
-          data?.approvalUrl
-        ) {
-          window.location.href =
-            data.approvalUrl;
-
-          return;
-        }
-
-        toast.error(
-          "Payment initialization failed. Please try again."
-        );
-
-        setProcessingPlan(null);
-      } catch (error) {
-        console.error(
-          "Payment error:",
-          error
-        );
-
-        toast.error(
-          error?.message ||
-            "Payment failed. Please try again."
-        );
-
-        setProcessingPlan(null);
-      }
-    };
-
-  const capturePayment = async (
-    token,
-    plan
-  ) => {
-    setProcessingPlan(plan);
-
-    try {
-      const { data, error } =
-        await supabase.functions.invoke(
-          "capturePayPalPayment",
-          {
-            body: {
-              orderId: token,
-              plan,
-            },
-          }
-        );
-
-      if (error) {
-        throw error;
-      }
-
-      if (data?.success) {
-        toast.success(
-          "Subscription activated successfully"
-        );
-
-        const refreshedUser =
-          await getCurrentDatingUser();
-
-        setUser(refreshedUser);
-
-        window.history.replaceState(
-          {},
-          "",
-          createPageUrl("Dating")
-        );
-
-        setShowSubscriptionModal(
-          false
-        );
-
-        return;
-      }
-
-      toast.error(
-        "Payment capture failed. Please contact support."
-      );
-    } catch (error) {
-      console.error(
-        "Capture error:",
-        error
-      );
-
-      toast.error(
-        error?.message ||
-          "Payment processing failed."
-      );
-    } finally {
-      setProcessingPlan(null);
-    }
-  };
 
   React.useEffect(() => {
     const channel = supabase
@@ -2110,64 +1962,36 @@ export default function Dating() {
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Button
-                type="button"
-                onClick={() =>
-                  handlePayPalPayment(
-                    "monthly"
-                  )
-                }
-                disabled={
-                  !!processingPlan
-                }
-                className="h-11 w-full rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
-              >
-                {processingPlan ===
-                "monthly" ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  "Subscribe Monthly - R39"
-                )}
-              </Button>
+            
+           
+<div className="space-y-2">
+  <Button
+    type="button"
+    disabled={true}
+    className="h-11 w-full rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+  >
+    Subscribe Monthly - R39
+  </Button>
 
-              <Button
-                type="button"
-                onClick={() =>
-                  handlePayPalPayment(
-                    "yearly"
-                  )
-                }
-                disabled={
-                  !!processingPlan
-                }
-                variant="outline"
-                className="h-11 w-full rounded-[14px] border-purple-200 bg-white"
-              >
-                {processingPlan ===
-                "yearly" ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  "Subscribe Yearly - R397.80"
-                )}
-              </Button>
+  <Button
+    type="button"
+    disabled={true}
+    variant="outline"
+    className="h-11 w-full rounded-[14px] border-purple-200 bg-white"
+  >
+    Subscribe Yearly - R397.80
+  </Button>
 
-              <p className="flex items-center justify-center gap-1 text-xs text-slate-500">
-                <Shield className="h-3 w-3" />
-                Secured by PayPal
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </Modal>
+  <p className="flex items-center justify-center gap-1 text-xs text-slate-500">
+    <Shield className="h-3 w-3" />
+    Payments via Google Play
+  </p>
+</div>
+</CardContent>
+</Card>
+</Modal>
 
-      <BottomNav />
-    </>
-  );
+<BottomNav />
+</>
+);
 }

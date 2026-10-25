@@ -359,7 +359,6 @@ export default function Memories() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isUploadingMedia, setIsUploadingMedia] = React.useState(false);
   const [uploadingCount, setUploadingCount] = React.useState(0);
-  const [processingPlan, setProcessingPlan] = React.useState(null);
   const [limitInfo, setLimitInfo] = React.useState(null);
   const [newMemory, setNewMemory] = React.useState(emptyMemory);
   const [locationSuggestions, setLocationSuggestions] = React.useState([]);
@@ -399,87 +398,6 @@ export default function Memories() {
       mounted = false;
     };
   }, [user?.email, premiumActive]);
-
-  React.useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const status = urlParams.get("status");
-    const token = urlParams.get("token");
-    const plan = urlParams.get("plan");
-
-    if (status === "success" && token && plan) {
-      capturePayment(token, plan);
-    } else if (status === "cancelled") {
-      toast.error("Payment was cancelled.");
-      window.history.replaceState({}, "", createPageUrl("Memories"));
-    }
-  }, []);
-
-  const handlePayPalPayment = async (plan) => {
-    setProcessingPlan(plan);
-
-    try {
-      const { data, error } = await supabase.functions.invoke(
-        "createPayPalPayment",
-        {
-          body: {
-            plan,
-            returnPage: "Memories",
-          },
-        }
-      );
-
-      if (error) throw error;
-
-      if (data?.success && data?.approvalUrl) {
-        window.location.href = data.approvalUrl;
-        return;
-      }
-
-      toast.error("Payment initialization failed. Please try again.");
-      setProcessingPlan(null);
-    } catch (error) {
-      console.error("Payment error:", error);
-      toast.error(error?.message || "Payment failed. Please try again.");
-      setProcessingPlan(null);
-    }
-  };
-
-  const capturePayment = async (token, plan) => {
-    setProcessingPlan(plan);
-
-    try {
-      const { data, error } = await supabase.functions.invoke(
-        "capturePayPalPayment",
-        {
-          body: {
-            orderId: token,
-            plan,
-          },
-        }
-      );
-
-      if (error) throw error;
-
-      if (data?.success) {
-        toast.success("Subscription activated successfully");
-
-        const refreshedUser = await getCurrentProfileUser();
-        queryClient.setQueryData(["user"], refreshedUser);
-        await queryClient.invalidateQueries({ queryKey: ["user"] });
-
-        window.history.replaceState({}, "", createPageUrl("Memories"));
-        setShowSubscriptionModal(false);
-        return;
-      }
-
-      toast.error("Payment capture failed. Please contact support.");
-    } catch (error) {
-      console.error("Capture error:", error);
-      toast.error(error?.message || "Payment processing failed.");
-    } finally {
-      setProcessingPlan(null);
-    }
-  };
 
   const {
     data: memories = [],
@@ -1049,13 +967,13 @@ export default function Memories() {
       </AppShell>
 
       <Modal
-        open={showAddModal}
-        onClose={() => {
-          if (isSubmitting || isUploadingMedia) return;
-          setShowAddModal(false);
-        }}
-        title="Add a Memory"
-      >
+  open={showAddModal}
+  onClose={() => {
+    if (isSubmitting || isUploadingMedia) return;
+    setShowAddModal(false);
+  }}
+  title="Add a Memory"
+>
         <AppCard className="p-4">
           <label className="mb-2 block text-sm font-medium text-slate-700">
             Title
@@ -1345,13 +1263,10 @@ export default function Memories() {
       </Modal>
 
       <Modal
-        open={showSubscriptionModal}
-        onClose={() => {
-          if (processingPlan) return;
-          setShowSubscriptionModal(false);
-        }}
-        title="Date-Locked Plus"
-      >
+  open={showSubscriptionModal}
+  onClose={() => setShowSubscriptionModal(false)}
+  title="Date-Locked Plus"
+>
         <AppCard className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 p-5">
           <div className="mb-5 flex items-start gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600">
@@ -1397,43 +1312,28 @@ export default function Memories() {
             </p>
           </div>
 
+          
           <div className="space-y-2">
             <Button
               type="button"
-              onClick={() => handlePayPalPayment("monthly")}
-              disabled={!!processingPlan}
-              className="h-11 w-full rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
+              disabled={true}
+              className="h-11 w-full rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600 text-white"
             >
-              {processingPlan === "monthly" ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                "Subscribe Monthly - R39"
-              )}
+              Subscribe Monthly - R39
             </Button>
 
             <Button
               type="button"
-              onClick={() => handlePayPalPayment("yearly")}
-              disabled={!!processingPlan}
+              disabled={true}
               variant="outline"
               className="h-11 w-full rounded-[14px] border-purple-200 bg-white"
             >
-              {processingPlan === "yearly" ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                "Subscribe Yearly - R397.80"
-              )}
+              Subscribe Yearly - R397.80
             </Button>
 
             <p className="flex items-center justify-center gap-1 text-xs text-slate-500">
               <Shield className="h-3 w-3" />
-              Secured by PayPal
+              Payments via Google Play
             </p>
           </div>
         </AppCard>

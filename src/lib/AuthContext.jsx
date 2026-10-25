@@ -1,5 +1,11 @@
 import { loginWithGoogle } from "./googleSignIn";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { supabase } from "./supabase";
 
 const AuthContext = createContext(null);
@@ -11,23 +17,41 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getUser().then(({ data, error }) => {
-      if (!mounted) return;
+    // Restore the locally persisted session first.
+    const restoreSession = async () => {
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
 
-      if (error) {
-        console.error("getUser error:", error);
+        if (!mounted) return;
+
+        if (error) {
+          console.error("Session restoration error:", error);
+        }
+
+        setUser(session?.user ?? null);
+      } catch (error) {
+        console.error("Authentication initialization error:", error);
+      } finally {
+        if (mounted) {
+          setIsLoadingAuth(false);
+        }
       }
+    };
 
-      setUser(data?.user ?? null);
-      setIsLoadingAuth(false);
-    });
-
+    // Keep authentication synchronized after login, logout or refresh.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+
       setUser(session?.user ?? null);
       setIsLoadingAuth(false);
     });
+
+    restoreSession();
 
     return () => {
       mounted = false;
@@ -55,18 +79,6 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  const loginWithGoogle = async () => {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/signup`,
-      },
-    });
-
-    if (error) throw error;
-    return data;
-  };
-
   const logout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
@@ -84,7 +96,11 @@ export function AuthProvider({ children }) {
     [user, isLoadingAuth]
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

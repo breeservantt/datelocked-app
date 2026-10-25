@@ -33,6 +33,17 @@ const VerifyStatus = lazy(() => import("./pages/VerifyStatus"));
 const Login = lazy(() => import("./pages/Login"));
 const Landing = lazy(() => import("./pages/Landing"));
 
+const preloadMainPages = () => {
+  Promise.allSettled([
+    import("./pages/Chat"),
+    import("./pages/Dating"),
+    import("./pages/Goals"),
+    import("./pages/Memories"),
+    import("./pages/NightIn"),
+    import("./pages/VerifyStatus"),
+  ]);
+};
+
 function PageLoader() {
   return (
     <div className="flex min-h-[50vh] items-center justify-center">
@@ -154,6 +165,47 @@ function AppRoutes() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  React.useEffect(() => {
+  let listener;
+  let cancelled = false;
+
+  const setupBackButton = async () => {
+    const handle = await CapacitorApp.addListener("backButton", async () => {
+      const path = window.location.pathname;
+
+      if (path === "/onboarding") {
+        await supabase.auth.signOut({ scope: "local" });
+        navigate("/login", { replace: true });
+        return;
+      }
+
+      if (path === "/login") {
+        navigate("/", { replace: true });
+        return;
+      }
+
+      if (path === "/") {
+        return;
+      }
+
+      navigate(-1);
+    });
+
+    if (cancelled) {
+      await handle.remove();
+    } else {
+      listener = handle;
+    }
+  };
+
+  setupBackButton();
+
+  return () => {
+    cancelled = true;
+    listener?.remove();
+  };
+}, [navigate]);
+
   useEffect(() => {
     let active = true;
 
@@ -268,6 +320,16 @@ if (oauthError) {
   ];
 
   const shouldUseLayout = !noLayoutRoutes.includes(location.pathname);
+
+  React.useEffect(() => {
+  if (location.pathname !== "/home") return;
+
+  const timer = setTimeout(() => {
+    preloadMainPages();
+  }, 2000);
+
+  return () => clearTimeout(timer);
+}, [location.pathname]);
 
   const routes = (
     <Suspense fallback={<PageLoader />}>
