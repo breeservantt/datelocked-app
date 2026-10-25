@@ -44,6 +44,9 @@ const navItems = [
 ];
 
 async function tryProfileTablesById(userId) {
+  let firstError = null;
+  let successfulLookup = false;
+
   for (const table of ['profiles', 'users']) {
     const { data, error } = await supabase
       .from(table)
@@ -51,7 +54,23 @@ async function tryProfileTablesById(userId) {
       .eq('id', userId)
       .maybeSingle();
 
-    if (!error && data) return data;
+    if (error) {
+      console.error(`[HOME] ${table} lookup failed:`, error);
+      firstError ??= error;
+      continue;
+    }
+
+    successfulLookup = true;
+
+    if (data) return data;
+  }
+
+  if (firstError) {
+    throw firstError;
+  }
+
+  if (!successfulLookup) {
+    throw new Error('Profile lookup could not be completed.');
   }
 
   return null;
