@@ -85,17 +85,28 @@ export default function Login() {
 
 
   const handleGoogleLogin = async () => {
-  if (isGoogleLoading || isEmailLoading) return;
+  if (isGoogleLoading || isEmailLoading || routingRef.current) return;
 
   setError("");
   setMessage("");
   setIsGoogleLoading(true);
 
   try {
-    await loginWithGoogle();
+    const data = await loginWithGoogle();
+
+    // Web OAuth redirects to the callback page.
+    // Native Google login returns a Supabase session directly.
+    if (data?.user) {
+      await routeLoggedInUser(data.user);
+    } else if (data?.session?.user) {
+      await routeLoggedInUser(data.session.user);
+    } else if (!data?.url) {
+      throw new Error("Google login did not return a valid session.");
+    }
   } catch (err) {
     console.error("Google sign-in failed:", err);
     setError(err.message || "Could not continue with Google.");
+    routingRef.current = false;
   } finally {
     setIsGoogleLoading(false);
   }

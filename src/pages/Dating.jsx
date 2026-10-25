@@ -1460,8 +1460,7 @@ export default function Dating() {
                             </button>
                           )}
 
-                          {content.owner_email !==
-                          user?.email ? (
+                          {String(content.owner_id) !== String(user?.id) ? (
                             <div
                               className="absolute right-3 top-3 z-20"
                               onClick={(e) =>

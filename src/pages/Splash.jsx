@@ -1,55 +1,7 @@
-import { useEffect } from "react";
-import { supabase } from "@/lib/supabase";
-import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Heart, LockKeyhole, UsersRound } from "lucide-react";
 
 export default function Splash() {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-  const timer = setTimeout(async () => {
-    try {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-
-      if (error || !user) {
-        navigate("/login", { replace: true });
-        return;
-      }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name, date_of_birth, gender, location, account_status, deactivated_at")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      const isDeactivated =
-        profile?.account_status === "deactivated" || Boolean(profile?.deactivated_at);
-
-      if (isDeactivated) {
-        await supabase.auth.signOut();
-        navigate("/login", { replace: true });
-        return;
-      }
-
-      const profileComplete =
-        profile?.full_name?.trim() &&
-        profile?.date_of_birth &&
-        profile?.gender &&
-        profile?.location;
-
-      navigate(profileComplete ? "/home" : "/onboarding", { replace: true });
-    } catch (err) {
-      console.error("Splash routing failed:", err);
-      navigate("/login", { replace: true });
-    }
-  }, 3200);
-
-  return () => clearTimeout(timer);
-}, [navigate]);
 
   return (
     <div className="min-h-screen bg-[#f7f1f4] px-2 py-2">
@@ -247,8 +199,8 @@ export default function Splash() {
     <motion.div
       className="h-full rounded-full bg-gradient-to-r from-[#ff197c] via-[#f2178f] to-[#d319d4]"
       initial={{ width: "8%" }}
-      animate={{ width: "64%" }}
-      transition={{ duration: 2.8, ease: "easeInOut" }}
+      animate={{ width: "100%" }}
+      transition={{ duration: 10, ease: "linear" }}
     />
   </div>
 </motion.div>

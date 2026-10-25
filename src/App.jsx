@@ -32,6 +32,7 @@ const Terms = lazy(() => import("./pages/Terms"));
 const VerifyStatus = lazy(() => import("./pages/VerifyStatus"));
 const Login = lazy(() => import("./pages/Login"));
 const Landing = lazy(() => import("./pages/Landing"));
+const Splash = lazy(() => import("./pages/Splash"));
 
 const preloadMainPages = () => {
   Promise.allSettled([
@@ -67,6 +68,18 @@ function StartupRoute() {
 
   useEffect(() => {
     let active = true;
+    const startedAt = Date.now();
+
+    async function waitForSplash() {
+      const elapsed = Date.now() - startedAt;
+      const remaining = Math.max(0, 10000 - elapsed);
+
+      if (remaining > 0) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, remaining)
+        );
+      }
+    }
 
     async function checkSession() {
       try {
@@ -81,7 +94,8 @@ function StartupRoute() {
         console.info("[STARTUP] Saved session:", Boolean(session));
 
         if (!session?.user) {
-          setStatus("guest");
+          await waitForSplash();
+          if (active) setStatus("guest");
           return;
         }
 
@@ -101,6 +115,8 @@ function StartupRoute() {
           profile?.deactivated_at
         ) {
           await supabase.auth.signOut();
+          await waitForSplash();
+
           if (active) {
             setErrorMessage("This account has been deactivated.");
             setStatus("error");
@@ -115,11 +131,17 @@ function StartupRoute() {
           profile?.location
         );
 
-        navigate(complete ? "/home" : "/onboarding", {
-          replace: true,
-        });
+        await waitForSplash();
+
+        if (active) {
+          navigate(complete ? "/home" : "/onboarding", {
+            replace: true,
+          });
+        }
       } catch (err) {
         console.error("[STARTUP] Session restoration failed:", err);
+
+        await waitForSplash();
 
         if (active) {
           setErrorMessage("Unable to restore your session.");
@@ -136,11 +158,7 @@ function StartupRoute() {
   }, [navigate]);
 
   if (status === "checking") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f7f1f4]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#5e9cff]" />
-      </div>
-    );
+    return <Splash />;
   }
 
   if (status === "error") {
@@ -180,8 +198,8 @@ function AppRoutes() {
       }
 
       if (path === "/login") {
-        navigate("/", { replace: true });
-        return;
+      navigate("/landing", { replace: true });
+      return;
       }
 
       if (path === "/") {
@@ -297,7 +315,6 @@ if (oauthError) {
 
   if (active) {
     navigate("/login", { replace: true });
-    setProcessingGoogleAuth(false);
   }
 }
 });
@@ -310,6 +327,7 @@ if (oauthError) {
 
   const noLayoutRoutes = [
     "/",
+    "/landing",
     "/login",
     "/chat",
     "/goals",
@@ -335,6 +353,7 @@ if (oauthError) {
     <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/" element={<StartupRoute />} />
+        <Route path="/landing" element={<Landing />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/login" element={<Login />} />
         <Route path="/home" element={<Home />} />
