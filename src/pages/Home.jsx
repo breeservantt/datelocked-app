@@ -44,38 +44,19 @@ const navItems = [
 ];
 
 async function tryProfileTablesById(userId) {
-  let firstError = null;
-  let successfulLookup = false;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
 
-  for (const table of ['profiles', 'users']) {
-    const { data, error } = await supabase
-      .from(table)
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (error) {
-      console.error(`[HOME] ${table} lookup failed:`, error);
-      firstError ??= error;
-      continue;
-    }
-
-    successfulLookup = true;
-
-    if (data) return data;
+  if (error) {
+    console.error('[HOME] Profile lookup failed:', error);
+    throw error;
   }
 
-  if (firstError) {
-    throw firstError;
-  }
-
-  if (!successfulLookup) {
-    throw new Error('Profile lookup could not be completed.');
-  }
-
-  return null;
+  return data;
 }
-
 async function tryProfileTablesByEmail(email) {
   if (!email) return null;
 
@@ -270,7 +251,11 @@ function InteractionGauge({ chats = 0, goals = 0, memories = 0, dates = 0 }) {
 
 
 export default function Home() {
+  console.log("[HOME] Component rendered");
   const navigate = useNavigate();
+  const homeStartRef = React.useRef(performance.now());
+  const loadingStartedRef = React.useRef(null);
+  const loadingLoggedRef = React.useRef(false);
   const location = useLocation();
   const queryClient = useQueryClient();
 
@@ -334,10 +319,6 @@ export default function Home() {
           .from('profiles')
           .upsert(fallbackProfile, { onConflict: 'id' });
 
-        await supabase
-          .from('users')
-          .upsert(fallbackProfile, { onConflict: 'id' });
-
         profile = fallbackProfile;
       }
 
@@ -350,12 +331,6 @@ export default function Home() {
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
-
-  React.useEffect(() => {
-    if (location.pathname.toLowerCase().includes('home')) {
-      refetchUser();
-    }
-  }, [location.pathname, refetchUser]);
 
   const profileComplete = Boolean(
     user?.full_name?.trim() &&
@@ -794,40 +769,43 @@ export default function Home() {
   });
 
   const { data: memoriesCount = 0 } = useQuery({
-    queryKey: ['homeMemoriesCount', coupleId, user?.id],
-    enabled: !!user?.id,
-    retry: 1,
-    staleTime: 60 * 1000,
-    queryFn: async () => {
-      let query = supabase.from('memories').select('*');
+  queryKey: ['homeMemoriesCount', coupleId, user?.id],
+  enabled: !!user?.id,
+  retry: 1,
+  staleTime: 60 * 1000,
+  queryFn: async () => {
+    let query = supabase
+      .from('memories')
+      .select('id', { count: 'exact', head: true });
 
-      query = coupleId
-        ? query.eq('couple_profile_id', coupleId)
-        : query.eq('created_by', user.id);
+    query = coupleId
+      ? query.eq('couple_profile_id', coupleId)
+      : query.eq('created_by', user.id);
 
-      const { data, error } = await query;
-      if (error) throw error;
+    const { count, error } = await query;
 
-      return Array.isArray(data) ? data.length : 0;
-    },
-  });
+    if (error) throw error;
+
+    return count ?? 0;
+  },
+});
 
   const { data: chatsCount = 0 } = useQuery({
-    queryKey: ['homeChatsCount', coupleId],
-    enabled: !!coupleId,
-    retry: 1,
-    staleTime: 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('couple_profile_id', coupleId);
+  queryKey: ['homeChatsCount', coupleId],
+  enabled: !!coupleId,
+  retry: 1,
+  staleTime: 60 * 1000,
+  queryFn: async () => {
+    const { count, error } = await supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('couple_profile_id', coupleId);
 
-      if (error) throw error;
+    if (error) throw error;
 
-      return Array.isArray(data) ? data.length : 0;
-    },
-  });
+    return count ?? 0;
+  },
+});
 
   const countdownGoal = goalsData.countdownGoal;
   const countdownText = React.useMemo(
@@ -968,11 +946,34 @@ export default function Home() {
     }
   }, [pendingInvitation?.invitation_token, navigate, queryClient]);
 
-  if (isLoading) {
+    if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f3edf1]">
         <Loader2 className="h-8 w-8 animate-spin text-[#5e9cff]" />
       </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <>
+        <div className="flex min-h-screen items-center justify-center bg-[#f7f1f4] px-3 py-3 pb-24">
+          <div className="mx-auto w-full max-w-[390px]">
+            <Card className="w-full p-6 text-center">
+              <p className="mb-4 text-slate-600">
+                Unable to load your profile
+              </p>
+              <Button
+                onClick={() => refetchUser()}
+                className="bg-rose-500 hover:bg-rose-600"
+              >
+                Retry
+              </Button>
+            </Card>
+          </div>
+        </div>
+        <BottomNav />
+      </>
     );
   }
 
@@ -999,29 +1000,6 @@ export default function Home() {
       <div className="flex min-h-screen items-center justify-center bg-[#f3edf1]">
         <Loader2 className="h-8 w-8 animate-spin text-[#5e9cff]" />
       </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <>
-        <div className="flex min-h-screen items-center justify-center bg-[#f7f1f4] px-3 py-3 pb-24">
-          <div className="mx-auto w-full max-w-[390px]">
-            <Card className="w-full p-6 text-center">
-              <p className="mb-4 text-slate-600">
-                Unable to load your profile
-              </p>
-              <Button
-                onClick={() => window.location.reload()}
-                className="bg-rose-500 hover:bg-rose-600"
-              >
-                Retry
-              </Button>
-            </Card>
-          </div>
-        </div>
-        <BottomNav />
-      </>
     );
   }
 

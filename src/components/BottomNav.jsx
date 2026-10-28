@@ -29,150 +29,164 @@ export default function BottomNav() {
   const pathname = location.pathname.toLowerCase();
 
   const [unreadChatCount, setUnreadChatCount] = React.useState(0);
-  const channelRef = React.useRef(null);
+  const [chatIdentity, setChatIdentity] = React.useState(null);
+
+  const unreadRequestRef = React.useRef(null);
 
   const shouldHideBottomNav = hiddenRoutes.some((route) =>
     pathname.startsWith(route)
   );
 
-  const loadUnreadChatCount = React.useCallback(async () => {
-    try {
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
+  // Resolve the authenticated user's couple only when the user changes.
+  React.useEffect(() => {
+    let active = true;
+    let generation = 0;
 
-      if (authError || !user) {
-        setUnreadChatCount(0);
-        return;
-      }
+    const resolveChatIdentity = async (session) => {
+      const requestGeneration = ++generation;
 
-      let coupleProfileId = null;
+      setChatIdentity(null);
+      setUnreadChatCount(0);
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("couple_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
+      const authUser = session?.user;
 
-      coupleProfileId = profile?.couple_profile_id || null;
+      if (!authUser) return;
 
-      if (!coupleProfileId) {
-        const { data: userProfile } = await supabase
-          .from("users")
+      try {
+        const { data: profile, error } = await supabase
+          .from("profiles")
           .select("couple_profile_id")
-          .eq("id", user.id)
+          .eq("id", authUser.id)
           .maybeSingle();
 
-        coupleProfileId = userProfile?.couple_profile_id || null;
-      }
+        if (error) throw error;
 
-      if (!coupleProfileId) {
-        setUnreadChatCount(0);
-        return;
-      }
+        if (!active || requestGeneration !== generation) return;
 
-      const { count, error } = await supabase
-        .from("messages")
-        .select("id", { count: "exact", head: true })
-        .eq("couple_profile_id", coupleProfileId)
-        .neq("sender_email", user.email)
-        .eq("read", false);
+        setChatIdentity({
+          userId: authUser.id,
+          email: authUser.email || "",
+          coupleProfileId: profile?.couple_profile_id || null,
+        });
+      } catch (error) {
+        if (!active || requestGeneration !== generation) return;
+
+        console.error("Error resolving BottomNav profile:", error);
+        setChatIdentity(null);
+      }
+    };
+
+    const initialize = async () => {
+      const { data, error } = await supabase.auth.getSession();
+
+      if (!active) return;
 
       if (error) {
-        console.error("Error loading unread chat count:", error);
+        console.error("Error loading BottomNav session:", error);
         return;
       }
 
-      setUnreadChatCount(count || 0);
-    } catch (error) {
-      console.error("Error loading unread chat count:", error);
-      setUnreadChatCount(0);
-    }
+      resolveChatIdentity(data.session);
+    };
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (
+          event === "SIGNED_IN" ||
+          event === "SIGNED_OUT" ||
+          event === "USER_UPDATED"
+        ) {
+          resolveChatIdentity(session);
+        }
+      }
+    );
+
+    initialize();
+
+    return () => {
+      active = false;
+      generation += 1;
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
-  React.useEffect(() => {
-    loadUnreadChatCount();
+  const userId = chatIdentity?.userId || null;
+  const userEmail = chatIdentity?.email || "";
+  const coupleProfileId = chatIdentity?.coupleProfileId || null;
 
-    const authChannel = supabase.auth.onAuthStateChange(() => {
-      loadUnreadChatCount();
-    });
+  // Fetch only the unread message count, not the profile.
+  const loadUnreadChatCount = React.useCallback(async () => {
+    if (!coupleProfileId || !userEmail) {
+      setUnreadChatCount(0);
+      return;
+    }
 
-    return () => {
-      authChannel.data.subscription.unsubscribe();
-    };
-  }, [loadUnreadChatCount]);
+    const requestKey = `${userId}:${coupleProfileId}:${userEmail}`;
 
-  React.useEffect(() => {
-    let isMounted = true;
+    if (unreadRequestRef.current?.key === requestKey) {
+      return unreadRequestRef.current.promise;
+    }
 
-    const subscribeToMessages = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    const request = (async () => {
+      try {
+        const { count, error } = await supabase
+          .from("messages")
+          .select("id", { count: "exact", head: true })
+          .eq("couple_profile_id", coupleProfileId)
+          .neq("sender_email", userEmail)
+          .eq("read", false);
 
-      if (!user || !isMounted) return;
+        if (error) throw error;
 
-      let coupleProfileId = null;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("couple_profile_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      coupleProfileId = profile?.couple_profile_id || null;
-
-      if (!coupleProfileId) {
-        const { data: userProfile } = await supabase
-          .from("users")
-          .select("couple_profile_id")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        coupleProfileId = userProfile?.couple_profile_id || null;
+        setUnreadChatCount(count || 0);
+      } catch (error) {
+        console.error("Error loading unread chat count:", error);
       }
+    })();
 
-      if (!coupleProfileId || !isMounted) return;
-
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-      }
-
-      const channel = supabase
-        .channel(`bottom-nav-messages-${coupleProfileId}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "messages",
-            filter: `couple_profile_id=eq.${coupleProfileId}`,
-          },
-          () => {
-            loadUnreadChatCount();
-          }
-        )
-        .subscribe();
-
-      channelRef.current = channel;
+    unreadRequestRef.current = {
+      key: requestKey,
+      promise: request,
     };
 
-    subscribeToMessages();
-
-    return () => {
-      isMounted = false;
-
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
+    try {
+      await request;
+    } finally {
+      if (unreadRequestRef.current?.promise === request) {
+        unreadRequestRef.current = null;
       }
-    };
-  }, [loadUnreadChatCount]);
+    }
+  }, [userId, userEmail, coupleProfileId]);
 
+  // Keep the badge current when the page changes.
   React.useEffect(() => {
     loadUnreadChatCount();
   }, [location.pathname, loadUnreadChatCount]);
+
+  // Subscribe to messages once for the active couple.
+  React.useEffect(() => {
+    if (!coupleProfileId) return;
+
+    const channel = supabase
+      .channel(`bottom-nav-messages-${coupleProfileId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+          filter: `couple_profile_id=eq.${coupleProfileId}`,
+        },
+        () => {
+          loadUnreadChatCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [coupleProfileId, loadUnreadChatCount]);
 
   if (shouldHideBottomNav) return null;
 
