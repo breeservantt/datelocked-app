@@ -12,6 +12,11 @@ import { App as CapacitorApp } from "@capacitor/app";
 import { supabase } from "@/lib/supabase";
 import Layout from "./components/Layout";
 import PinLock from "./components/PinLock";
+import DeleteAccount from "./pages/DeleteAccount";
+import {
+  preloadHome,
+  preloadOtherPages,
+} from "./lib/preloadPages";
 
 const Home = lazy(() => import("./pages/Home"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
@@ -33,17 +38,6 @@ const VerifyStatus = lazy(() => import("./pages/VerifyStatus"));
 const Login = lazy(() => import("./pages/Login"));
 const Landing = lazy(() => import("./pages/Landing"));
 const Splash = lazy(() => import("./pages/Splash"));
-
-const preloadMainPages = () => {
-  Promise.allSettled([
-    import("./pages/Chat"),
-    import("./pages/Dating"),
-    import("./pages/Goals"),
-    import("./pages/Memories"),
-    import("./pages/NightIn"),
-    import("./pages/VerifyStatus"),
-  ]);
-};
 
 function PageLoader() {
   return (
@@ -72,7 +66,7 @@ function StartupRoute() {
 
     async function waitForSplash() {
       const elapsed = Date.now() - startedAt;
-      const remaining = Math.max(0, 10000 - elapsed);
+      const remaining = Math.max(0, 5000 - elapsed);
 
       if (remaining > 0) {
         await new Promise((resolve) =>
@@ -98,6 +92,12 @@ function StartupRoute() {
           if (active) setStatus("guest");
           return;
         }
+
+        void preloadHome().then(() => {
+        if (active) {
+        void preloadOtherPages();
+        }
+      });
 
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
@@ -339,16 +339,6 @@ if (oauthError) {
 
   const shouldUseLayout = !noLayoutRoutes.includes(location.pathname);
 
-  React.useEffect(() => {
-  if (location.pathname !== "/home") return;
-
-  const timer = setTimeout(() => {
-    preloadMainPages();
-  }, 2000);
-
-  return () => clearTimeout(timer);
-}, [location.pathname]);
-
   const routes = (
     <Suspense fallback={<PageLoader />}>
       <Routes>
@@ -372,6 +362,7 @@ if (oauthError) {
         <Route path="/settings" element={<Settings />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/verifystatus" element={<VerifyStatus />} />
+        <Route path="/delete-account" element={<DeleteAccount />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
