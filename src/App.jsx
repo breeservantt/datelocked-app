@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabase";
 import Layout from "./components/Layout";
 import PinLock from "./components/PinLock";
 import DeleteAccount from "./pages/DeleteAccount";
+import ChildSafety from "./pages/ChildSafety";
 import {
   preloadHome,
   preloadOtherPages,
@@ -363,6 +364,7 @@ if (oauthError) {
         <Route path="/terms" element={<Terms />} />
         <Route path="/verifystatus" element={<VerifyStatus />} />
         <Route path="/delete-account" element={<DeleteAccount />} />
+        <Route path="/child-safety" element={<ChildSafety />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
