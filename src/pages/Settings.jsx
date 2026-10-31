@@ -1,15 +1,20 @@
+import React from "react";
+import { useNavigate, Link, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import {
   isBiometricAvailable,
   verifyBiometric,
 } from "@/lib/biometrics";
-import React from "react";
-import { useNavigate, Link, useLocation } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import StatusBadge from "@/components/ui/StatusBadge";
+import { parseSafeDate } from "@/components/utils/dateHelpers";
+import format from "date-fns/format";
+import { motion } from "framer-motion";
 import {
   Camera,
   User,
@@ -28,7 +33,6 @@ import {
   KeyRound,
   ChevronRight,
   Lock,
-  FileText,
   Home as HomeIcon,
   Heart,
   Image,
@@ -36,12 +40,6 @@ import {
   MessageCircle,
   Send,
 } from "lucide-react";
-import { motion } from "framer-motion";
-import StatusBadge from "@/components/ui/StatusBadge";
-import format from "date-fns/format";
-import { parseSafeDate } from "@/components/utils/dateHelpers";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 const createPageUrl = (pageName) => {
   if (pageName === "Home") return "/";
@@ -57,6 +55,12 @@ const navItems = [
   { label: "Chat", icon: MessageCircle, page: "Chat" },
   { label: "Verify", icon: Fingerprint, page: "VerifyStatus" },
 ];
+
+const blueButton =
+  "inline-flex items-center justify-center rounded-[9px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] px-3 text-xs font-medium text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff] disabled:opacity-60";
+
+const outlineButton =
+  "inline-flex items-center justify-center rounded-[9px] border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50 disabled:opacity-60";
 
 function AppShell({ children }) {
   return (
@@ -107,7 +111,11 @@ function AppCard({ children, className = "", onClick }) {
 }
 
 function SectionTitle({ children }) {
-  return <h2 className="text-base font-semibold text-slate-800">{children}</h2>;
+  return (
+    <h2 className="text-base font-semibold text-slate-800">
+      {children}
+    </h2>
+  );
 }
 
 function EmptyState({ icon, title, text }) {
@@ -117,12 +125,10 @@ function EmptyState({ icon, title, text }) {
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 shadow-[0_3px_10px_rgba(15,23,42,0.08)]">
           {icon}
         </div>
-
         <h3 className="text-[1.5rem] font-semibold leading-none text-slate-700">
           {title}
         </h3>
-
-        <p className="mt-3 text-center text-sm text-slate-500">{text}</p>
+        <p className="mt-3 text-sm text-slate-500">{text}</p>
       </div>
     </AppCard>
   );
@@ -156,7 +162,7 @@ function BottomNav() {
                 strokeWidth={2}
               />
               <span
-                className={`truncate text-[8px] leading-none tracking-[-0.01em] ${
+                className={`truncate text-[8px] leading-none ${
                   active
                     ? "font-semibold text-[#ef4f75]"
                     : "font-medium text-slate-400"
@@ -184,8 +190,12 @@ function FolderRow({ icon: Icon, title, subtitle, onClick }) {
           <Icon className="h-5 w-5 text-slate-600" />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-800">{title}</p>
-          {subtitle ? <p className="text-xs text-slate-500">{subtitle}</p> : null}
+          <p className="text-sm font-semibold text-slate-800">
+            {title}
+          </p>
+          {subtitle && (
+            <p className="text-xs text-slate-500">{subtitle}</p>
+          )}
         </div>
       </div>
       <ChevronRight className="h-5 w-5 text-slate-400" />
@@ -211,6 +221,52 @@ function formatDisplayDate(dateString) {
   return format(date, "MMM d, yyyy");
 }
 
+function ConfirmDialog({
+  title,
+  description,
+  loading,
+  confirmText,
+  busyText,
+  onCancel,
+  onConfirm,
+  danger = false,
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-[340px] rounded-[20px] bg-white p-5 shadow-[0_20px_45px_rgba(15,23,42,0.22)]">
+        <h2 className="text-[18px] font-semibold text-slate-900">
+          {title}
+        </h2>
+        <p className="mt-2 text-[14px] leading-5 text-slate-600">
+          {description}
+        </p>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            disabled={loading}
+            onClick={onCancel}
+            className="h-10 rounded-[12px] border border-slate-200 bg-white text-[14px] font-medium text-slate-700 disabled:opacity-60"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={onConfirm}
+            className={`h-10 rounded-[12px] text-[14px] font-medium disabled:opacity-60 ${
+              danger
+                ? "bg-red-500 text-white"
+                : "bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black"
+            }`}
+          >
+            {loading ? busyText : confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Settings() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -221,12 +277,17 @@ export default function Settings() {
   const [isBusyAction, setIsBusyAction] = React.useState(false);
   const [isAuthSaving, setIsAuthSaving] = React.useState(false);
 
-  const [showUnlockDialog, setShowUnlockDialog] = React.useState(false);
-  const [showTerminationDialog, setShowTerminationDialog] = React.useState(false);
-  const [showDeactivateDialog, setShowDeactivateDialog] = React.useState(false);
+  const [showUnlockDialog, setShowUnlockDialog] =
+    React.useState(false);
+  const [showTerminationDialog, setShowTerminationDialog] =
+    React.useState(false);
+  const [showDeleteAccountDialog, setShowDeleteAccountDialog] =
+    React.useState(false);
 
-  const [showSupportModal, setShowSupportModal] = React.useState(false);
-  const [supportSubmitting, setSupportSubmitting] = React.useState(false);
+  const [showSupportModal, setShowSupportModal] =
+    React.useState(false);
+  const [supportSubmitting, setSupportSubmitting] =
+    React.useState(false);
 
   const [supportForm, setSupportForm] = React.useState({
     category: "GENERAL",
@@ -234,13 +295,16 @@ export default function Settings() {
     message: "",
   });
 
-  const [pendingTermination, setPendingTermination] = React.useState(null);
+  const [pendingTermination, setPendingTermination] =
+    React.useState(null);
   const [openFolder, setOpenFolder] = React.useState(null);
 
   const [authPref, setAuthPref] = React.useState("PASSWORD");
   const [pinEnabled, setPinEnabled] = React.useState(false);
-  const [biometricEnabled, setBiometricEnabled] = React.useState(false);
-  const [biometricAvailable, setBiometricAvailable] = React.useState(false);
+  const [biometricEnabled, setBiometricEnabled] =
+    React.useState(false);
+  const [biometricAvailable, setBiometricAvailable] =
+    React.useState(false);
   const [biometricBusy, setBiometricBusy] = React.useState(false);
   const [pinNew, setPinNew] = React.useState("");
   const [pinConfirm, setPinConfirm] = React.useState("");
@@ -251,28 +315,21 @@ export default function Settings() {
     profile_photo: "",
   });
 
-  const PRIVACY_POLICY_URL = createPageUrl("Privacy");
-  const TERMS_POLICY_URL = createPageUrl("Terms");
-  const SECURITY_POLICY_URL = createPageUrl("Security");
-  const REFUND_POLICY_URL = createPageUrl("Refunds");
-
-  const buildFallbackProfile = React.useCallback((authUser) => {
-    return {
-      id: authUser.id,
-      email: authUser.email || "",
-      full_name: "",
-      location: "",
-      profile_photo: "",
-      date_of_birth: null,
-      relationship_status: "single",
-      partner_email: null,
-      couple_profile_id: null,
-      auth_preference: "PASSWORD",
-      pin_enabled: false,
-      pin_last_set_at: null,
-      insights_consent: true,
-    };
-  }, []);
+  const buildFallbackProfile = React.useCallback((authUser) => ({
+    id: authUser.id,
+    email: authUser.email || "",
+    full_name: "",
+    location: "",
+    profile_photo: "",
+    date_of_birth: null,
+    relationship_status: "single",
+    partner_email: null,
+    couple_profile_id: null,
+    auth_preference: "PASSWORD",
+    pin_enabled: false,
+    pin_last_set_at: null,
+    insights_consent: true,
+  }), []);
 
   const loadUserProfile = React.useCallback(async () => {
     const {
@@ -326,8 +383,8 @@ export default function Settings() {
       try {
         setIsLoading(true);
         await loadUserProfile();
-      } catch (e) {
-        console.error("Settings load error:", e);
+      } catch (error) {
+        console.error("Settings load error:", error);
         if (alive) setUser(null);
       } finally {
         if (alive) setIsLoading(false);
@@ -340,74 +397,72 @@ export default function Settings() {
   }, [loadUserProfile]);
 
   React.useEffect(() => {
-  let active = true;
+    let active = true;
 
-  isBiometricAvailable().then((available) => {
-    if (active) {
-      setBiometricAvailable(available);
-    }
-  });
+    isBiometricAvailable().then((available) => {
+      if (active) setBiometricAvailable(available);
+    });
 
-  return () => {
-    active = false;
-  };
-}, []);
-
-const handleToggleBiometric = async (checked) => {
-  if (biometricBusy) return;
-
-  setBiometricBusy(true);
-
-  try {
-    if (checked) {
-      const available = await isBiometricAvailable();
-
-      if (!available) {
-        alert(
-          "Android biometric authentication is unavailable. Check that fingerprint or supported face authentication is configured on your phone."
-        );
-        return;
-      }
-
-      await verifyBiometric();
-    }
-
-    if (!user?.id) {
-      throw new Error("No signed-in user found.");
-    }
-
-    const storageKey = `datelocked.biometricEnabled.${user.id}`;
-
-    localStorage.setItem(storageKey, String(checked));
-    setBiometricEnabled(checked);
-
-    alert(
-      checked
-        ? "Biometric unlocking enabled."
-        : "Biometric unlocking disabled."
-    );
-  } catch (error) {
-    console.error("Biometric verification failed:", error);
-    alert(error?.message || "Biometric verification failed.");
-  } finally {
-    setBiometricBusy(false);
-  }
-};
+    return () => {
+      active = false;
+    };
+  }, []);
 
   React.useEffect(() => {
-  if (!user?.id) return;
+    if (!user?.id) return;
 
-  const storageKey = `datelocked.biometricEnabled.${user.id}`;
+    const storageKey =
+      `datelocked.biometricEnabled.${user.id}`;
 
-  setBiometricEnabled(
-    localStorage.getItem(storageKey) === "true"
-  );
-}, [user?.id]);
+    setBiometricEnabled(
+      localStorage.getItem(storageKey) === "true"
+    );
+  }, [user?.id]);
+
+  const handleToggleBiometric = async (checked) => {
+    if (biometricBusy) return;
+    setBiometricBusy(true);
+
+    try {
+      if (checked) {
+        const available = await isBiometricAvailable();
+
+        if (!available) {
+          alert(
+            "Android biometric authentication is unavailable. Check that fingerprint or supported face authentication is configured on your phone."
+          );
+          return;
+        }
+
+        await verifyBiometric();
+      }
+
+      if (!user?.id) {
+        throw new Error("No signed-in user found.");
+      }
+
+      const storageKey =
+        `datelocked.biometricEnabled.${user.id}`;
+
+      localStorage.setItem(storageKey, String(checked));
+      setBiometricEnabled(checked);
+
+      alert(
+        checked
+          ? "Biometric unlocking enabled."
+          : "Biometric unlocking disabled."
+      );
+    } catch (error) {
+      console.error("Biometric verification failed:", error);
+      alert(error?.message || "Biometric verification failed.");
+    } finally {
+      setBiometricBusy(false);
+    }
+  };
 
   const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
-
     if (!file) return;
 
     try {
@@ -417,10 +472,13 @@ const handleToggleBiometric = async (checked) => {
       } = await supabase.auth.getUser();
 
       if (authError) throw authError;
-      if (!authUser) throw new Error("No signed-in user found.");
+      if (!authUser) {
+        throw new Error("No signed-in user found.");
+      }
 
       const fileExt = file.name.split(".").pop();
-      const filePath = `${authUser.id}/${Date.now()}.${fileExt}`;
+      const filePath =
+        `${authUser.id}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("profile-photos")
@@ -434,31 +492,43 @@ const handleToggleBiometric = async (checked) => {
 
       const publicUrl = data.publicUrl;
 
-      const { error: profileError } = await supabase.from("profiles").upsert(
-        {
-          id: authUser.id,
-          email: authUser.email,
-          profile_photo: publicUrl,
-        },
-        { onConflict: "id" }
-      );
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .upsert(
+          {
+            id: authUser.id,
+            email: authUser.email,
+            profile_photo: publicUrl,
+          },
+          { onConflict: "id" }
+        );
 
       if (profileError) throw profileError;
 
-      setFormData((prev) => ({ ...prev, profile_photo: publicUrl }));
+      setFormData((prev) => ({
+        ...prev,
+        profile_photo: publicUrl,
+      }));
+
       await loadUserProfile();
 
-      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-      queryClient.invalidateQueries({ queryKey: ["partner"] });
+      queryClient.invalidateQueries({
+        queryKey: ["currentUser"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["partner"],
+      });
     } catch (error) {
       console.error("Photo upload failed:", error);
-      alert(error?.message || "Photo upload failed. Please try again.");
+      alert(
+        error?.message ||
+          "Photo upload failed. Please try again."
+      );
     }
   };
 
   const handleSave = async () => {
     if (isSaving) return;
-
     setIsSaving(true);
 
     try {
@@ -468,130 +538,145 @@ const handleToggleBiometric = async (checked) => {
       } = await supabase.auth.getUser();
 
       if (authError) throw authError;
-      if (!authUser) throw new Error("No signed-in user found.");
+      if (!authUser) {
+        throw new Error("No signed-in user found.");
+      }
 
-      const { error } = await supabase.from("profiles").upsert(
-        {
-          id: authUser.id,
-          email: authUser.email,
-          full_name: (formData.full_name || "").trim(),
-          location: (formData.location || "").trim(),
-          profile_photo: formData.profile_photo || "",
-          auth_preference: authPref,
-          pin_enabled: pinEnabled,
-          insights_consent: user?.insights_consent ?? true,
-        },
-        { onConflict: "id" }
-      );
+      const { error } = await supabase
+        .from("profiles")
+        .upsert(
+          {
+            id: authUser.id,
+            email: authUser.email,
+            full_name: (formData.full_name || "").trim(),
+            location: (formData.location || "").trim(),
+            profile_photo: formData.profile_photo || "",
+            auth_preference: authPref,
+            pin_enabled: pinEnabled,
+            insights_consent:
+              user?.insights_consent ?? true,
+          },
+          { onConflict: "id" }
+        );
 
       if (error) throw error;
 
       await loadUserProfile();
 
-      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-      queryClient.invalidateQueries({ queryKey: ["partner"] });
-      queryClient.invalidateQueries({ queryKey: ["coupleProfile"] });
+      queryClient.invalidateQueries({
+        queryKey: ["currentUser"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["partner"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["coupleProfile"],
+      });
 
       alert("Profile updated.");
     } catch (error) {
       console.error("Error saving:", error);
-      alert(error?.message || "Failed to save changes. Please try again.");
+      alert(
+        error?.message ||
+          "Failed to save changes. Please try again."
+      );
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleSetPin = async () => {
-  if (isAuthSaving) return;
+    if (isAuthSaving) return;
 
-  const a = (pinNew || "").trim();
-  const b = (pinConfirm || "").trim();
+    const a = (pinNew || "").trim();
+    const b = (pinConfirm || "").trim();
 
-  if (!/^\d{4,8}$/.test(a)) {
-    alert("PIN must be 4–8 digits.");
-    return;
-  }
-
-  if (a !== b) {
-    alert("PIN confirmation does not match.");
-    return;
-  }
-
-  setIsAuthSaving(true);
-
-  try {
-    const { error } = await supabase.rpc("set_profile_pin", {
-      new_pin: a,
-    });
-
-    if (error) throw error;
-
-    setPinNew("");
-    setPinConfirm("");
-
-    await loadUserProfile();
-
-    alert("PIN updated.");
-  } catch (e) {
-    console.error("Could not set PIN:", e);
-    alert(e?.message || "Could not set PIN.");
-  } finally {
-    setIsAuthSaving(false);
-  }
-};
-
-  const handleTogglePin = async (checked) => {
-  if (isAuthSaving) return;
-
-  setIsAuthSaving(true);
-
-  try {
-    const {
-      data: { user: authUser },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError) throw authError;
-    if (!authUser) throw new Error("No signed-in user found.");
-
-    const updatePayload = checked
-      ? {
-          id: authUser.id,
-          email: authUser.email,
-          pin_enabled: true,
-          auth_preference: "PIN",
-        }
-      : {
-          id: authUser.id,
-          email: authUser.email,
-          pin_enabled: false,
-          auth_preference: "PASSWORD",
-          pin_hash: null,
-        };
-
-    const { error } = await supabase.from("profiles").upsert(updatePayload, {
-      onConflict: "id",
-    });
-
-    if (error) throw error;
-
-    if (!checked) {
-      setPinNew("");
-      setPinConfirm("");
+    if (!/^\d{4,8}$/.test(a)) {
+      alert("PIN must be 4–8 digits.");
+      return;
     }
 
-    await loadUserProfile();
-  } catch (e) {
-    console.error("Could not update PIN setting:", e);
-    alert(e?.message || "Could not update PIN setting.");
-  } finally {
-    setIsAuthSaving(false);
-  }
-};
+    if (a !== b) {
+      alert("PIN confirmation does not match.");
+      return;
+    }
+
+    setIsAuthSaving(true);
+
+    try {
+      const { error } = await supabase.rpc(
+        "set_profile_pin",
+        { new_pin: a }
+      );
+
+      if (error) throw error;
+
+      setPinNew("");
+      setPinConfirm("");
+      await loadUserProfile();
+      alert("PIN updated.");
+    } catch (error) {
+      console.error("Could not set PIN:", error);
+      alert(error?.message || "Could not set PIN.");
+    } finally {
+      setIsAuthSaving(false);
+    }
+  };
+
+  const handleTogglePin = async (checked) => {
+    if (isAuthSaving) return;
+    setIsAuthSaving(true);
+
+    try {
+      const {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
+      if (!authUser) {
+        throw new Error("No signed-in user found.");
+      }
+
+      const updatePayload = checked
+        ? {
+            id: authUser.id,
+            email: authUser.email,
+            pin_enabled: true,
+            auth_preference: "PIN",
+          }
+        : {
+            id: authUser.id,
+            email: authUser.email,
+            pin_enabled: false,
+            auth_preference: "PASSWORD",
+            pin_hash: null,
+          };
+
+      const { error } = await supabase
+        .from("profiles")
+        .upsert(updatePayload, { onConflict: "id" });
+
+      if (error) throw error;
+
+      if (!checked) {
+        setPinNew("");
+        setPinConfirm("");
+      }
+
+      await loadUserProfile();
+    } catch (error) {
+      console.error("Could not update PIN setting:", error);
+      alert(
+        error?.message || "Could not update PIN setting."
+      );
+    } finally {
+      setIsAuthSaving(false);
+    }
+  };
 
   const handleUnlock = async () => {
     if (isBusyAction) return;
-
     setIsBusyAction(true);
 
     try {
@@ -601,7 +686,9 @@ const handleToggleBiometric = async (checked) => {
       } = await supabase.auth.getUser();
 
       if (authError) throw authError;
-      if (!authUser) throw new Error("No signed-in user found.");
+      if (!authUser) {
+        throw new Error("No signed-in user found.");
+      }
 
       const { error: profileError } = await supabase
         .from("profiles")
@@ -622,15 +709,18 @@ const handleToggleBiometric = async (checked) => {
         })
         .eq("id", authUser.id);
 
-      if (usersError) console.warn("users update skipped:", usersError);
+      if (usersError) {
+        console.warn("users update skipped:", usersError);
+      }
 
       setShowUnlockDialog(false);
       await loadUserProfile();
-
       await queryClient.invalidateQueries();
-    } catch (e) {
-      console.error("Unlock failed:", e);
-      alert(e?.message || "Could not unlock relationship.");
+    } catch (error) {
+      console.error("Unlock failed:", error);
+      alert(
+        error?.message || "Could not unlock relationship."
+      );
     } finally {
       setIsBusyAction(false);
     }
@@ -638,22 +728,24 @@ const handleToggleBiometric = async (checked) => {
 
   const handleTerminationRequest = async () => {
     if (isBusyAction) return;
-
     setIsBusyAction(true);
 
     try {
       setShowTerminationDialog(false);
       alert("Termination request sent to your partner.");
       await loadAll();
-    } catch (e) {
-      console.error("Termination request failed:", e);
-      alert(e?.message || "Could not send termination request.");
+    } catch (error) {
+      console.error("Termination request failed:", error);
+      alert(
+        error?.message ||
+          "Could not send termination request."
+      );
     } finally {
       setIsBusyAction(false);
     }
   };
 
-    const handleConfirmTermination = async () => {
+  const handleConfirmTermination = async () => {
     if (isBusyAction) return;
 
     try {
@@ -666,7 +758,6 @@ const handleToggleBiometric = async (checked) => {
 
   const handleDeclineTermination = async () => {
     if (isBusyAction) return;
-
     setIsBusyAction(true);
 
     try {
@@ -677,60 +768,82 @@ const handleToggleBiometric = async (checked) => {
     }
   };
 
-  const handleDeactivate = async () => {
+  const handleDeleteAccount = async () => {
     if (isBusyAction) return;
-
     setIsBusyAction(true);
 
     try {
-      const { error } = await supabase.functions.invoke("deleteUserAccount");
+      const { data, error } =
+        await supabase.functions.invoke(
+          "deleteUserAccount"
+        );
 
       if (error) throw error;
 
-      // Clear the authentication session after successful deletion.
-  const { error: signOutError } = await supabase.auth.signOut({
-  scope: "local",
-  });
+      if (data?.success !== true) {
+        throw new Error(
+          data?.error ||
+            "Account deletion was not confirmed."
+        );
+      }
 
-if (signOutError) {
-  console.error("Sign-out after deactivation:", signOutError);
-}
+      const { error: signOutError } =
+        await supabase.auth.signOut({
+          scope: "local",
+        });
 
-  queryClient.clear();
-  setShowDeactivateDialog(false);
-  localStorage.removeItem("settings.user");
+      if (signOutError) {
+        console.error(
+          "Sign-out after account deletion:",
+          signOutError
+        );
+      }
 
-  // Return to the public landing page.
-  navigate("/", { replace: true });
-    } catch (e) {
-      console.error("Deactivate failed:", e);
-      alert(e?.message || "Could not deactivate account.");
+      queryClient.clear();
+      setShowDeleteAccountDialog(false);
+      localStorage.removeItem("settings.user");
+
+      navigate("/", { replace: true });
+    } catch (error) {
+      console.error(
+        "Account deletion failed:",
+        error
+      );
+
+      alert(
+        error?.message ||
+          "Could not delete account."
+      );
     } finally {
       setIsBusyAction(false);
     }
   };
 
   const handleLogout = async () => {
-  try {
-    queryClient.clear();
+    try {
+      queryClient.clear();
 
-    const { error } = await supabase.auth.signOut();
+      const { error } =
+        await supabase.auth.signOut();
 
-    if (error) throw error;
+      if (error) throw error;
 
-    navigate("/login", { replace: true });
-  } catch (e) {
-    console.error("Logout failed:", e);
-    alert("Logout failed. Please try again.");
-  }
-};
+      navigate("/login", { replace: true });
+    } catch (error) {
+      console.error("Logout failed:", error);
+      alert("Logout failed. Please try again.");
+    }
+  };
 
-    const handleSupportSubmit = async () => {
+  const handleSupportSubmit = async () => {
     if (supportSubmitting) return;
 
-    const category = (supportForm.category || "").trim();
-    const subject = (supportForm.subject || "").trim();
-    const message = (supportForm.message || "").trim();
+    const category =
+      (supportForm.category || "").trim();
+    const subject =
+      (supportForm.subject || "").trim();
+    const message =
+      (supportForm.message || "").trim();
 
     if (!subject) {
       alert("Please enter a subject.");
@@ -751,7 +864,6 @@ if (signOutError) {
       } = await supabase.auth.getUser();
 
       if (authError) throw authError;
-
       if (!authUser) {
         throw new Error("No signed-in user found.");
       }
@@ -775,10 +887,12 @@ if (signOutError) {
       });
 
       setShowSupportModal(false);
-
       alert("Support request submitted.");
     } catch (error) {
-      console.error("Support request failed:", error);
+      console.error(
+        "Support request failed:",
+        error
+      );
       alert(
         error?.message ||
           "Could not submit support request. Please try again."
@@ -803,13 +917,15 @@ if (signOutError) {
           <AppHeader title="Settings" />
           <div className="space-y-4 px-3 py-3">
             <EmptyState
-              icon={<XIcon className="h-8 w-8 text-slate-300" />}
+              icon={
+                <XIcon className="h-8 w-8 text-slate-300" />
+              }
               title="Could not load Settings"
               text="Please try again."
             />
             <Button
               onClick={() => window.location.reload()}
-              className="inline-flex h-10 w-full items-center justify-center rounded-[10px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
+              className={`h-10 w-full ${blueButton}`}
             >
               Retry
             </Button>
@@ -827,7 +943,10 @@ if (signOutError) {
 
         <div className="space-y-4 px-3 py-3">
           {pendingTermination && (
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
               <AppCard className="p-3">
                 <div className="flex items-start gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-amber-100 text-amber-600">
@@ -842,21 +961,20 @@ if (signOutError) {
                       Your partner wants to terminate.
                     </p>
 
-                    <div className="mt-3 grid grid-cols-2 gap-2 max-w-[260px] mx-auto">
+                    <div className="mx-auto mt-3 grid max-w-[260px] grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={handleConfirmTermination}
                         disabled={isBusyAction}
-                        className="inline-flex h-8 items-center justify-center rounded-[9px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] px-3 text-xs font-medium text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] disabled:opacity-60"
+                        className={`h-8 ${blueButton}`}
                       >
                         Confirm
                       </button>
-
                       <button
                         type="button"
                         onClick={handleDeclineTermination}
                         disabled={isBusyAction}
-                        className="inline-flex h-8 items-center justify-center rounded-[9px] border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] disabled:opacity-60"
+                        className={`h-8 ${outlineButton}`}
                       >
                         Decline
                       </button>
@@ -869,20 +987,26 @@ if (signOutError) {
 
           {openFolder === null && (
             <div className="space-y-3">
-              <SectionTitle>Settings Overview</SectionTitle>
+              <SectionTitle>
+                Settings Overview
+              </SectionTitle>
 
               <FolderRow
                 icon={User}
                 title="Profile"
                 subtitle="Photo, name, location, email, date of birth"
-                onClick={() => setOpenFolder("profile")}
+                onClick={() =>
+                  setOpenFolder("profile")
+                }
               />
 
               <FolderRow
                 icon={Lock}
                 title="Security"
                 subtitle="PIN and sign-in settings"
-                onClick={() => setOpenFolder("security")}
+                onClick={() =>
+                  setOpenFolder("security")
+                }
               />
 
               <AppCard className="p-3">
@@ -903,19 +1027,31 @@ if (signOutError) {
                       </div>
 
                       <Switch
-                        checked={!!user?.insights_consent}
-                        onCheckedChange={async (checked) => {
-                          const { error } = await supabase.from("profiles").upsert(
-                            {
-                              id: user.id,
-                              email: user.email,
-                              insights_consent: checked,
-                            },
-                            { onConflict: "id" }
-                          );
+                        checked={
+                          !!user?.insights_consent
+                        }
+                        onCheckedChange={async (
+                          checked
+                        ) => {
+                          const { error } =
+                            await supabase
+                              .from("profiles")
+                              .upsert(
+                                {
+                                  id: user.id,
+                                  email: user.email,
+                                  insights_consent:
+                                    checked,
+                                },
+                                {
+                                  onConflict: "id",
+                                }
+                              );
 
                           if (error) {
-                            alert("Could not update setting.");
+                            alert(
+                              "Could not update setting."
+                            );
                             return;
                           }
 
@@ -924,13 +1060,18 @@ if (signOutError) {
                       />
                     </div>
 
-                    {user?.relationship_status === "date_locked" ? (
+                    {user?.relationship_status ===
+                    "date_locked" ? (
                       <Button
                         asChild
                         variant="outline"
-                        className="mt-3 h-9 w-full rounded-[10px] border-slate-200 bg-white text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
+                        className="mt-3 h-9 w-full rounded-[10px] border-slate-200 bg-white text-xs font-medium text-slate-700"
                       >
-                        <Link to={createPageUrl("RelationshipInsights")}>
+                        <Link
+                          to={createPageUrl(
+                            "RelationshipInsights"
+                          )}
+                        >
                           <Shield className="mr-1.5 h-4 w-4" />
                           View Insights Dashboard
                         </Link>
@@ -957,21 +1098,30 @@ if (signOutError) {
                         </p>
                       </div>
 
-                      <StatusBadge status={user?.relationship_status} />
+                      <StatusBadge
+                        status={
+                          user?.relationship_status
+                        }
+                      />
                     </div>
 
-                    {user?.partner_email ? (
+                    {user?.partner_email && (
                       <p className="mt-2 text-xs text-slate-500">
                         Partner: {user.partner_email}
                       </p>
-                    ) : null}
+                    )}
 
-                    {user?.relationship_status === "date_locked" ? (
+                    {user?.relationship_status ===
+                    "date_locked" && (
                       <div className="mt-3 flex gap-2">
                         <button
                           type="button"
-                          onClick={() => setShowTerminationDialog(true)}
-                          className="inline-flex h-8 items-center justify-center rounded-[9px] border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
+                          onClick={() =>
+                            setShowTerminationDialog(
+                              true
+                            )
+                          }
+                          className={`h-8 ${outlineButton}`}
                         >
                           <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
                           Request
@@ -979,85 +1129,99 @@ if (signOutError) {
 
                         <button
                           type="button"
-                          onClick={() => setShowUnlockDialog(true)}
-                          className="inline-flex h-8 items-center justify-center rounded-[9px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] px-3 text-xs font-medium text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
+                          onClick={() =>
+                            setShowUnlockDialog(true)
+                          }
+                          className={`h-8 ${blueButton}`}
                         >
                           <Unlock className="mr-1.5 h-3.5 w-3.5" />
                           Date-Unlock
                         </button>
                       </div>
-                    ) : null}
+                    )}
                   </div>
                 </div>
               </AppCard>
 
               <AppCard>
-  <div className="flex items-start gap-3">
-    <div className="flex-1">
-      <div className="mt-3 mb-4 flex justify-center">
-        <div className="grid grid-cols-2 gap-3 w-fit">
-          <PolicyPill to={PRIVACY_POLICY_URL}>Privacy</PolicyPill>
-          <PolicyPill to={TERMS_POLICY_URL}>Terms</PolicyPill>
-          <PolicyPill to={SECURITY_POLICY_URL}>Security</PolicyPill>
-          <PolicyPill to={REFUND_POLICY_URL}>Refunds</PolicyPill>
-        </div>
-      </div>
-    </div>
-  </div>
-</AppCard>
+                <div className="my-4 flex justify-center">
+                  <div className="grid w-fit grid-cols-2 gap-3">
+                    <PolicyPill to="/privacy">
+                      Privacy
+                    </PolicyPill>
+                    <PolicyPill to="/terms">
+                      Terms
+                    </PolicyPill>
+                    <PolicyPill to="/security">
+                      Security
+                    </PolicyPill>
+                    <PolicyPill to="/refunds">
+                      Refunds
+                    </PolicyPill>
+                  </div>
+                </div>
+              </AppCard>
 
-            <AppCard className="p-3">
-  <div className="flex items-start gap-3">
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#eaf3ff] text-[#77aef7]">
-      <MessageCircle className="h-4 w-4" />
-    </div>
+              <AppCard className="p-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#eaf3ff] text-[#77aef7]">
+                    <MessageCircle className="h-4 w-4" />
+                  </div>
 
-    <div className="min-w-0 flex-1">
-      <p className="text-sm font-semibold text-slate-800">
-        Support
-      </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-slate-800">
+                      Support
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Tell us how we can help.
+                    </p>
 
-      <p className="mt-1 text-xs text-slate-500">
-        Tell us how we can help.
-      </p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowSupportModal(true)
+                      }
+                      className={`mt-3 h-8 w-full ${blueButton}`}
+                    >
+                      <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
+                      Contact Support
+                    </button>
+                  </div>
+                </div>
+              </AppCard>
 
-      <button
-        type="button"
-        onClick={() => setShowSupportModal(true)}
-        className="mt-3 inline-flex h-8 w-full items-center justify-center rounded-[9px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] px-3 text-xs font-medium text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
-      >
-        <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
-        Contact Support
-      </button>
-    </div>
-  </div>
-</AppCard> 
-
-              <AppCard className="px-3 pt-3 pb-5">
+              <AppCard className="px-3 pb-5 pt-3">
                 <div className="flex items-start gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-red-100 text-red-500">
                     <AlertTriangle className="h-4 w-4" />
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-slate-800">Account</p>
+                    <p className="text-sm font-semibold text-slate-800">
+                      Account
+                    </p>
+
                     <p className="mt-1 text-xs text-slate-500">
-                      Deactivate account or log out
+                      Delete your account or log out
                     </p>
 
                     <div className="mt-3 flex gap-2">
                       <button
                         type="button"
-                        onClick={() => setShowDeactivateDialog(true)}
-                        className="inline-flex h-8 items-center justify-center rounded-[9px] border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
+                        onClick={() =>
+                          setShowDeleteAccountDialog(
+                            true
+                          )
+                        }
+                        className={`h-8 ${outlineButton}`}
                       >
-                        Deactivate
+                        Delete Account
                       </button>
 
                       <button
                         type="button"
                         onClick={handleLogout}
-                        className="inline-flex h-8 items-center justify-center rounded-[9px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] px-3 text-xs font-medium text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
+                        className={`h-8 ${blueButton}`}
                       >
                         <LogOut className="mr-1.5 h-3.5 w-3.5" />
                         Log Out
@@ -1073,7 +1237,9 @@ if (signOutError) {
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={() => setOpenFolder(null)}
+                onClick={() =>
+                  setOpenFolder(null)
+                }
                 className="flex h-[44px] w-full items-center justify-center rounded-[14px] bg-slate-100 text-sm font-medium text-slate-700"
               >
                 Back
@@ -1085,25 +1251,34 @@ if (signOutError) {
                 <div className="mb-5 flex justify-center">
                   <div className="relative">
                     <div className="relative h-24 w-24 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-[0_8px_18px_rgba(15,23,42,0.10)]">
-  {formData.profile_photo ? (
-    <img
-      src={formData.profile_photo}
-      alt={formData.full_name || "Profile"}
-      className="absolute left-1/2 top-1/2 h-[122%] w-[122%] max-w-none -translate-x-1/2 -translate-y-1/2 object-cover"
-    />
-  ) : (
-    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-rose-100 to-pink-100 text-2xl text-rose-500">
-      {formData.full_name?.[0] || <User className="h-8 w-8" />}
-    </div>
-  )}
-</div>
+                      {formData.profile_photo ? (
+                        <img
+                          src={
+                            formData.profile_photo
+                          }
+                          alt={
+                            formData.full_name ||
+                            "Profile"
+                          }
+                          className="absolute left-1/2 top-1/2 h-[122%] w-[122%] max-w-none -translate-x-1/2 -translate-y-1/2 object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-rose-100 to-pink-100 text-2xl text-rose-500">
+                          {formData.full_name?.[0] || (
+                            <User className="h-8 w-8" />
+                          )}
+                        </div>
+                      )}
+                    </div>
 
-                    <label className="absolute -bottom-1 -right-1 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] shadow-[0_4px_10px_rgba(142,197,255,0.24)] transition hover:scale-105">
+                    <label className="absolute -bottom-1 -right-1 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] shadow-[0_4px_10px_rgba(142,197,255,0.24)]">
                       <Camera className="h-5 w-5 text-black" />
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={handlePhotoUpload}
+                        onChange={
+                          handlePhotoUpload
+                        }
                         className="hidden"
                       />
                     </label>
@@ -1116,14 +1291,17 @@ if (signOutError) {
                       Full Name
                     </Label>
                     <Input
-                      value={formData.full_name}
+                      value={
+                        formData.full_name
+                      }
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          full_name: e.target.value,
+                          full_name:
+                            e.target.value,
                         }))
                       }
-                      className="mt-2 h-10 rounded-[10px] border-slate-200 bg-white text-sm text-slate-800"
+                      className="mt-2 h-10 rounded-[10px] border-slate-200 bg-white text-sm"
                     />
                   </div>
 
@@ -1134,26 +1312,35 @@ if (signOutError) {
                     <div className="relative mt-2">
                       <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <Input
-                        value={formData.location}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            location: e.target.value,
-                          }))
+                        value={
+                          formData.location
                         }
-                        className="h-10 rounded-[10px] border-slate-200 bg-white pl-10 text-sm text-slate-800"
+                        onChange={(e) =>
+                          setFormData(
+                            (prev) => ({
+                              ...prev,
+                              location:
+                                e.target.value,
+                            })
+                          )
+                        }
+                        className="h-10 rounded-[10px] border-slate-200 bg-white pl-10 text-sm"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-slate-700">Email</Label>
+                    <Label className="text-sm font-medium text-slate-700">
+                      Email
+                    </Label>
                     <div className="relative mt-2">
                       <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <Input
-                        value={user.email || ""}
+                        value={
+                          user.email || ""
+                        }
                         disabled
-                        className="h-10 rounded-[10px] border-slate-200 bg-slate-50 pl-10 text-sm text-slate-800"
+                        className="h-10 rounded-[10px] border-slate-200 bg-slate-50 pl-10 text-sm"
                       />
                     </div>
                   </div>
@@ -1165,9 +1352,11 @@ if (signOutError) {
                     <div className="relative mt-2">
                       <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <Input
-                        value={formatDisplayDate(user?.date_of_birth)}
+                        value={formatDisplayDate(
+                          user?.date_of_birth
+                        )}
                         disabled
-                        className="h-10 rounded-[10px] border-slate-200 bg-slate-50 pl-10 text-sm text-slate-800"
+                        className="h-10 rounded-[10px] border-slate-200 bg-slate-50 pl-10 text-sm"
                       />
                     </div>
                   </div>
@@ -1175,14 +1364,14 @@ if (signOutError) {
                   <Button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
+                    className={`h-10 w-full gap-2 ${blueButton}`}
                   >
                     {isSaving ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <>
                         <Save className="h-4 w-4" />
-                        <span>Save Changes</span>
+                        Save Changes
                       </>
                     )}
                   </Button>
@@ -1195,137 +1384,166 @@ if (signOutError) {
             <div className="space-y-3">
               <Button
                 variant="outline"
-                onClick={() => setOpenFolder(null)}
-                className="h-9 w-full justify-center rounded-[10px] border-slate-200 bg-white text-xs font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:bg-slate-50"
+                onClick={() =>
+                  setOpenFolder(null)
+                }
+                className="h-9 w-full rounded-[10px] border-slate-200 bg-white text-xs"
               >
                 Back
               </Button>
 
-              <SectionTitle>Security</SectionTitle>
+              <SectionTitle>
+                Security
+              </SectionTitle>
 
               <AppCard className="p-4">
                 <div className="space-y-4">
                   <div className="rounded-[10px] border border-slate-200 bg-slate-50 p-3">
-  <div className="flex items-center justify-between gap-3">
-    <div className="flex items-center gap-3">
-      <Fingerprint className="h-5 w-5 text-slate-700" />
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <Fingerprint className="h-5 w-5 text-slate-700" />
 
-      <div>
-        <p className="text-sm font-semibold text-slate-800">
-          Biometric Login
-        </p>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">
+                            Biometric Login
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {biometricAvailable
+                              ? "Use fingerprint or supported face authentication."
+                              : "Biometric authentication unavailable on this device."}
+                          </p>
+                        </div>
+                      </div>
 
-        <p className="text-xs text-slate-500">
-          {biometricAvailable
-            ? "Use fingerprint or supported face authentication."
-            : "Biometric authentication unavailable on this device."}
-        </p>
-      </div>
-    </div>
-
-    <button
-  type="button"
-  disabled={biometricBusy}
-  onClick={() => handleToggleBiometric(!biometricEnabled)}
-  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] border transition ${
-    biometricEnabled
-      ? "border-[#77aef7] bg-[#77aef7]"
-      : "border-slate-400 bg-white"
-  } disabled:opacity-60`}
->
-  {biometricEnabled && (
-    <span className="text-[13px] font-bold leading-none text-white">
-      ✓
-    </span>
-  )}
-  </button>
-  </div>
-  </div>
+                      <button
+                        type="button"
+                        disabled={
+                          biometricBusy
+                        }
+                        onClick={() =>
+                          handleToggleBiometric(
+                            !biometricEnabled
+                          )
+                        }
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] border ${
+                          biometricEnabled
+                            ? "border-[#77aef7] bg-[#77aef7]"
+                            : "border-slate-400 bg-white"
+                        } disabled:opacity-60`}
+                      >
+                        {biometricEnabled && (
+                          <span className="text-[13px] font-bold text-white">
+                            ✓
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
 
                   <Separator />
 
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-slate-100">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-slate-100">
                         <KeyRound className="h-4 w-4 text-slate-600" />
                       </div>
 
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-800">PIN</p>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">
+                          PIN
+                        </p>
                         <p className="text-xs text-slate-500">
-                          {pinEnabled ? "Enabled" : "Disabled"}{" "}
+                          {pinEnabled
+                            ? "Enabled"
+                            : "Disabled"}{" "}
                           {user?.pin_last_set_at
-                            ? `• last set ${format(new Date(user.pin_last_set_at), "MMM d")}`
+                            ? `• last set ${format(
+                                new Date(
+                                  user.pin_last_set_at
+                                ),
+                                "MMM d"
+                              )}`
                             : ""}
                         </p>
                       </div>
                     </div>
 
                     <button
-  type="button"
-  disabled={isAuthSaving}
-  onClick={() => {
-    if (pinEnabled) {
-      handleTogglePin(false);
-      return;
-    }
+                      type="button"
+                      disabled={isAuthSaving}
+                      onClick={() => {
+                        if (pinEnabled) {
+                          handleTogglePin(false);
+                          return;
+                        }
 
-    setPinEnabled(true);
-    setAuthPref("PIN");
-  }}
-  className={`flex h-5 w-5 items-center justify-center rounded-[5px] border transition ${
-    pinEnabled
-      ? "border-[#77aef7] bg-[#77aef7]"
-      : "border-slate-400 bg-white"
-  } disabled:opacity-60`}
->
-  {pinEnabled ? (
-    <span className="text-[13px] font-bold leading-none text-white">✓</span>
-  ) : null}
-</button>
+                        setPinEnabled(true);
+                        setAuthPref("PIN");
+                      }}
+                      className={`flex h-5 w-5 items-center justify-center rounded-[5px] border ${
+                        pinEnabled
+                          ? "border-[#77aef7] bg-[#77aef7]"
+                          : "border-slate-400 bg-white"
+                      } disabled:opacity-60`}
+                    >
+                      {pinEnabled && (
+                        <span className="text-[13px] font-bold text-white">
+                          ✓
+                        </span>
+                      )}
+                    </button>
                   </div>
 
-                  {pinEnabled ? (
+                  {pinEnabled && (
                     <>
                       <div className="grid grid-cols-2 gap-3">
-  {/* NEW PIN */}
-  <div>
-    <Label className="text-sm font-medium text-slate-700">
-      New PIN
-    </Label>
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700">
+                            New PIN
+                          </Label>
+                          <Input
+                            value={pinNew}
+                            onChange={(e) =>
+                              setPinNew(
+                                e.target.value
+                                  .replace(/\D/g, "")
+                                  .slice(0, 8)
+                              )
+                            }
+                            placeholder="4–8 digits"
+                            inputMode="numeric"
+                            className="mt-2 h-10 w-full rounded-[10px] border-slate-200 bg-white px-3 text-center text-sm font-semibold tracking-[2px]"
+                          />
+                        </div>
 
-    <Input
-      value={pinNew}
-      onChange={(e) =>
-        setPinNew(e.target.value.replace(/\D/g, "").slice(0, 8))
-      }
-      placeholder="4–8 digits"
-      inputMode="numeric"
-      className="mt-2 h-10 w-full rounded-[10px] border-slate-200 bg-white px-3 text-center text-sm font-semibold tracking-[2px] text-slate-800"
-    />
-  </div>
+                        <div>
+                          <Label className="text-sm font-medium text-slate-700">
+                            Confirm
+                          </Label>
+                          <Input
+                            value={
+                              pinConfirm
+                            }
+                            onChange={(e) =>
+                              setPinConfirm(
+                                e.target.value
+                                  .replace(/\D/g, "")
+                                  .slice(0, 8)
+                              )
+                            }
+                            placeholder="Repeat PIN"
+                            inputMode="numeric"
+                            className="mt-2 h-10 w-full rounded-[10px] border-slate-200 bg-white px-3 text-center text-sm font-semibold tracking-[2px]"
+                          />
+                        </div>
+                      </div>
 
-  {/* CONFIRM PIN */}
-  <div>
-    <Label className="text-sm font-medium text-slate-700">
-      Confirm
-    </Label>
-
-    <Input
-      value={pinConfirm}
-      onChange={(e) =>
-        setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 8))
-      }
-      placeholder="Repeat PIN"
-      inputMode="numeric"
-      className="mt-2 h-10 w-full rounded-[10px] border-slate-200 bg-white px-3 text-center text-sm font-semibold tracking-[2px] text-slate-800"
-    />
-  </div>
-</div>
                       <Button
                         onClick={handleSetPin}
-                        disabled={isAuthSaving}
-                        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-black shadow-[0_4px_10px_rgba(142,197,255,0.24)] hover:from-[#7ab8ff] hover:to-[#98b4ff]"
+                        disabled={
+                          isAuthSaving
+                        }
+                        className={`h-10 w-full ${blueButton}`}
                       >
                         {isAuthSaving ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -1338,15 +1556,19 @@ if (signOutError) {
                         PIN is stored securely as a server-side hash.
                       </p>
                     </>
-                  ) : null}
+                  )}
 
                   <Separator />
 
                   <div className="rounded-[10px] border border-slate-200 bg-slate-50 p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs text-slate-500">Current preference</span>
+                      <span className="text-xs text-slate-500">
+                        Current preference
+                      </span>
                       <span className="text-xs font-semibold text-slate-800">
-                        {authPref === "PIN" ? "PIN" : "Password"}
+                        {authPref === "PIN"
+                          ? "PIN"
+                          : "Password"}
                       </span>
                     </div>
                   </div>
@@ -1357,118 +1579,59 @@ if (signOutError) {
         </div>
       </AppShell>
 
-      {showDeactivateDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-[340px] rounded-[20px] bg-white p-5 shadow-[0_20px_45px_rgba(15,23,42,0.22)]">
-            <h2 className="text-[18px] font-semibold text-slate-900">
-              Deactivate account?
-            </h2>
-
-            <p className="mt-2 text-[14px] leading-5 text-slate-600">
-              This will permanently delete your account data and sign you out.
-            </p>
-
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                disabled={isBusyAction}
-                onClick={() => setShowDeactivateDialog(false)}
-                className="h-10 rounded-[12px] border border-slate-200 bg-white text-[14px] font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] disabled:opacity-60"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                disabled={isBusyAction}
-                onClick={handleDeactivate}
-                className="h-10 rounded-[12px] bg-red-500 text-[14px] font-medium text-white shadow-[0_4px_12px_rgba(239,68,68,0.25)] disabled:opacity-60"
-              >
-                {isBusyAction ? "Deactivating..." : "Deactivate"}
-              </button>
-            </div>
-          </div>
-        </div>
+      {showDeleteAccountDialog && (
+        <ConfirmDialog
+          title="Delete account?"
+          description="This will permanently delete your account data and sign you out."
+          loading={isBusyAction}
+          confirmText="Delete Account"
+          busyText="Deleting..."
+          danger
+          onCancel={() =>
+            setShowDeleteAccountDialog(false)
+          }
+          onConfirm={handleDeleteAccount}
+        />
       )}
 
       {showUnlockDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-[340px] rounded-[20px] bg-white p-5 shadow-[0_20px_45px_rgba(15,23,42,0.22)]">
-            <h2 className="text-[18px] font-semibold text-slate-900">
-              Date-Unlock?
-            </h2>
-
-            <p className="mt-2 text-[14px] leading-5 text-slate-600">
-              This will unlock your relationship status and remove the partner connection.
-            </p>
-
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                disabled={isBusyAction}
-                onClick={() => setShowUnlockDialog(false)}
-                className="h-10 rounded-[12px] border border-slate-200 bg-white text-[14px] font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] disabled:opacity-60"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                disabled={isBusyAction}
-                onClick={handleUnlock}
-                className="h-10 rounded-[12px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-[14px] font-medium text-black shadow-[0_4px_12px_rgba(142,197,255,0.25)] disabled:opacity-60"
-              >
-                {isBusyAction ? "Unlocking..." : "Date-Unlock"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Date-Unlock?"
+          description="This will unlock your relationship status and remove the partner connection."
+          loading={isBusyAction}
+          confirmText="Date-Unlock"
+          busyText="Unlocking..."
+          onCancel={() =>
+            setShowUnlockDialog(false)
+          }
+          onConfirm={handleUnlock}
+        />
       )}
 
       {showTerminationDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-[340px] rounded-[20px] bg-white p-5 shadow-[0_20px_45px_rgba(15,23,42,0.22)]">
-            <h2 className="text-[18px] font-semibold text-slate-900">
-              Request Date-Unlock?
-            </h2>
-
-            <p className="mt-2 text-[14px] leading-5 text-slate-600">
-              This will send a relationship termination request.
-            </p>
-
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                disabled={isBusyAction}
-                onClick={() => setShowTerminationDialog(false)}
-                className="h-10 rounded-[12px] border border-slate-200 bg-white text-[14px] font-medium text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] disabled:opacity-60"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                disabled={isBusyAction}
-                onClick={handleTerminationRequest}
-                className="h-10 rounded-[12px] bg-gradient-to-r from-[#8ec5ff] to-[#a9bfff] text-[14px] font-medium text-black shadow-[0_4px_12px_rgba(142,197,255,0.25)] disabled:opacity-60"
-              >
-                {isBusyAction ? "Sending..." : "Send Request"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Request Date-Unlock?"
+          description="This will send a relationship termination request."
+          loading={isBusyAction}
+          confirmText="Send Request"
+          busyText="Sending..."
+          onCancel={() =>
+            setShowTerminationDialog(false)
+          }
+          onConfirm={
+            handleTerminationRequest
+          }
+        />
       )}
 
-            {showSupportModal && (
+      {showSupportModal && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-[390px] overflow-hidden rounded-[22px] bg-[#f7f3f6] shadow-[0_20px_50px_rgba(15,23,42,0.2)]">
-
             <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-800">
                   Support
                 </h2>
-
                 <p className="mt-0.5 text-xs text-slate-500">
                   Tell us how we can help
                 </p>
@@ -1487,50 +1650,47 @@ if (signOutError) {
             </div>
 
             <div className="max-h-[75vh] space-y-4 overflow-y-auto px-5 py-5">
-
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
                   What do you need help with?
                 </label>
 
                 <select
-                  value={supportForm.category}
+                  value={
+                    supportForm.category
+                  }
                   onChange={(e) =>
-                    setSupportForm((prev) => ({
-                      ...prev,
-                      category: e.target.value,
-                    }))
+                    setSupportForm(
+                      (prev) => ({
+                        ...prev,
+                        category:
+                          e.target.value,
+                      })
+                    )
                   }
                   className="h-11 w-full rounded-[12px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#5e9cff]"
                 >
                   <option value="GENERAL">
                     General Support
                   </option>
-
                   <option value="BUG">
                     Report a Bug
                   </option>
-
                   <option value="REFUND">
                     Refund Request
                   </option>
-
                   <option value="PAYMENT">
                     Payment Issue
                   </option>
-
                   <option value="SUBSCRIPTION">
                     Subscription Issue
                   </option>
-
                   <option value="ACCOUNT">
                     Account Issue
                   </option>
-
                   <option value="SAFETY">
                     Safety Concern
                   </option>
-
                   <option value="OTHER">
                     Other
                   </option>
@@ -1541,15 +1701,19 @@ if (signOutError) {
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
                   Subject
                 </label>
-
                 <input
                   type="text"
-                  value={supportForm.subject}
+                  value={
+                    supportForm.subject
+                  }
                   onChange={(e) =>
-                    setSupportForm((prev) => ({
-                      ...prev,
-                      subject: e.target.value,
-                    }))
+                    setSupportForm(
+                      (prev) => ({
+                        ...prev,
+                        subject:
+                          e.target.value,
+                      })
+                    )
                   }
                   placeholder="Briefly describe your issue"
                   className="h-11 w-full rounded-[12px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#5e9cff]"
@@ -1560,14 +1724,18 @@ if (signOutError) {
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
                   Message
                 </label>
-
                 <textarea
-                  value={supportForm.message}
+                  value={
+                    supportForm.message
+                  }
                   onChange={(e) =>
-                    setSupportForm((prev) => ({
-                      ...prev,
-                      message: e.target.value,
-                    }))
+                    setSupportForm(
+                      (prev) => ({
+                        ...prev,
+                        message:
+                          e.target.value,
+                      })
+                    )
                   }
                   placeholder="Explain what happened and how we can help..."
                   className="min-h-[140px] w-full resize-none rounded-[12px] border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#5e9cff]"
@@ -1582,8 +1750,12 @@ if (signOutError) {
 
               <button
                 type="button"
-                onClick={handleSupportSubmit}
-                disabled={supportSubmitting}
+                onClick={
+                  handleSupportSubmit
+                }
+                disabled={
+                  supportSubmitting
+                }
                 className="flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-[#2f6df0] text-sm font-semibold text-white transition hover:bg-[#255ed4] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {supportSubmitting ? (
@@ -1598,7 +1770,6 @@ if (signOutError) {
                   </>
                 )}
               </button>
-
             </div>
           </div>
         </div>
