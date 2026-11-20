@@ -121,7 +121,7 @@ export default function SubscriptionButtons() {
     <div className="space-y-3">
       <Button
         type="button"
-        disabled={loadingPlan !== null || !isAndroid}
+        disabled={loadingPlan !== null}
         onClick={() => handleSubscribe("monthly")}
         className="h-11 w-full rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600 text-white"
       >
@@ -132,7 +132,7 @@ export default function SubscriptionButtons() {
 
       <Button
         type="button"
-        disabled={loadingPlan !== null || !isAndroid}
+        disabled={loadingPlan !== null}
         onClick={() => handleSubscribe("yearly")}
         variant="outline"
         className="h-11 w-full rounded-[14px] border-purple-200 bg-white"
@@ -163,3 +163,4 @@ export default function SubscriptionButtons() {
     </div>
   );
 }
+
