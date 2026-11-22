@@ -1294,7 +1294,7 @@ export default function Dating() {
   return (
     <>
       <div className="min-h-screen w-screen overflow-x-hidden bg-[#f3edf1] px-0 py-0 pb-[74px]">
-        <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-[28px] border border-[#e8e2e7] bg-[#f7f3f6] shadow-[0_12px_40px_rgba(15,23,42,0.10)]">
+        <div className="mx-auto w-full max-w-[390px] max-[430px]:max-w-none overflow-hidden rounded-[28px] border border-[#e8e2e7] bg-[#f7f3f6] shadow-[0_12px_40px_rgba(15,23,42,0.10)]">
           <div className="bg-gradient-to-r from-[#5e9cff] via-[#2f6df0] to-[#6aa7ff] px-5 pb-8 pt-7">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
@@ -1386,7 +1386,7 @@ export default function Dating() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="-mx-4 grid grid-cols-1 gap-4">
+                <div className="-mx-4 grid grid-cols-1 gap-4 [&>div]:mx-0 [&>div]:w-full">
                   {publicContentState.map(
                     (content) => (
                       <div
