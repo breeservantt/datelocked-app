@@ -1,17 +1,11 @@
 import React from "react";
-
 import { supabase } from "@/lib/supabase";
-
 import { Button } from "@/components/ui/button";
-
 import { Loader2 } from "lucide-react";
-
 import { generateId } from "@/lib/generateId";
-
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-
 import { Card, CardContent } from "@/components/ui/card";
-
+import SubscriptionButtons from "@/components/SubscriptionButtons";
 import { Badge } from "@/components/ui/badge";
 
 import {
@@ -1392,12 +1386,12 @@ export default function Dating() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid grid-cols-1 gap-4">
+                <div className="-mx-4 grid grid-cols-1 gap-4">
                   {publicContentState.map(
                     (content) => (
                       <div
                         key={content.id}
-                        className="overflow-hidden rounded-[20px] bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
+                        className="overflow-hidden rounded-none bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
                       >
                         <div className="relative">
                           {content.content_type ===
@@ -1964,22 +1958,7 @@ export default function Dating() {
             
            
 <div className="space-y-2">
-  <Button
-    type="button"
-    disabled={true}
-    className="h-11 w-full rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600 text-white"
-  >
-    Subscribe Monthly - R39
-  </Button>
-
-  <Button
-    type="button"
-    disabled={true}
-    variant="outline"
-    className="h-11 w-full rounded-[14px] border-purple-200 bg-white"
-  >
-    Subscribe Yearly - R397.80
-  </Button>
+  <SubscriptionButtons />
 
   <p className="flex items-center justify-center gap-1 text-xs text-slate-500">
     <Shield className="h-3 w-3" />
