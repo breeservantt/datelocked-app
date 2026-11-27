@@ -12,8 +12,17 @@ const ALLOWED_STATES = [
   "SUBSCRIPTION_STATE_CANCELED",
 ];
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function reply(data: unknown, status = 200) {
-  return Response.json(data, { status });
+  return Response.json(data, {
+    status,
+    headers: corsHeaders,
+  });
 }
 
 async function hashToken(value: string) {
@@ -30,6 +39,13 @@ async function hashToken(value: string) {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
+    });
+  }
+
   if (req.method !== "POST") {
     return reply({ error: "Method not allowed" }, 405);
   }
