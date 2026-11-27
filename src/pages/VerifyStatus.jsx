@@ -1,5 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
+import SubscriptionButtons from "@/components/SubscriptionButtons";
 import {
   ArrowLeft,
   Key,
@@ -939,29 +940,16 @@ export default function VerifyStatus() {
             </p>
           </div>
 
-          <div className="space-y-2">
-  <Button
-    type="button"
-    disabled={true}
-    className="h-11 w-full rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600 text-white"
-  >
-    Subscribe Monthly - R39
-  </Button>
 
-  <Button
-    type="button"
-    disabled={true}
-    variant="outline"
-    className="h-11 w-full rounded-[14px] border-purple-200 bg-white"
-  >
-    Subscribe Yearly - R397.80
-  </Button>
+<div className="space-y-2">
+  <SubscriptionButtons />
 
   <p className="flex items-center justify-center gap-1 text-xs text-slate-500">
     <Shield className="h-3 w-3" />
-    Google Play subscriptions coming soon
+    Payments via Google Play
   </p>
-  </div>
+</div>
+
         </AppCard>
       </Modal>
 

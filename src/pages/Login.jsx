@@ -7,6 +7,16 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Mail, LockKeyhole } from "lucide-react";
 import DateLockedLogo from "@/components/DateLockedLogo";
 
+const SIGNUP_COOLDOWN_KEY = "datelocked_signup_cooldown_until";
+
+function getSignupCooldownSeconds() {
+  const until = Number(
+    sessionStorage.getItem(SIGNUP_COOLDOWN_KEY) || 0
+  );
+
+  return Math.max(0, Math.ceil((until - Date.now()) / 1000));
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const routingRef = React.useRef(false);
@@ -112,6 +122,7 @@ export default function Login() {
   }
 };
 
+  
   const handleEmailAuth = async (e) => {
     e.preventDefault();
 
@@ -132,25 +143,39 @@ export default function Login() {
       return;
     }
 
+    if (mode === "signup") {
+      const remaining = getSignupCooldownSeconds();
+
+      if (remaining > 0) {
+        setError(
+          `Please wait ${remaining} seconds before trying to register again.`
+        );
+        return;
+      }
+    }
+
     setIsEmailLoading(true);
 
     try {
       if (mode === "signup") {
         const { data, error: signupError } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password,
-          options: {
-            data: { full_name: "" },
-          },
-        });
+        email: cleanEmail,
+        password,
+        options: {
+        emailRedirectTo: "https://datelocked.app/auth/callback",
+    data: { full_name: "" },
+  },
+});
 
         if (signupError) throw signupError;
 
         if (data?.session?.user) {
           await routeLoggedInUser(data.session.user);
         } else if (data?.user) {
-          setMessage("Account created. Please sign in to continue.");
-          setMode("login");
+          setMessage(
+            "Registration request received. Check your email for confirmation. If you already have an account, sign in instead."
+          );
+          
         }
 
         return;
@@ -173,12 +198,43 @@ export default function Login() {
         setError("Login started, but session was not ready. Try again.");
       }
     } catch (err) {
-      setError(err.message || "Authentication failed.");
+      const errorMessage = err.message || "Authentication failed.";
+
+      const isRateLimited =
+        err.status === 429 ||
+        /security purposes|rate limit|too many requests/i.test(errorMessage);
+
+      if (mode === "signup" && isRateLimited) {
+        const match = errorMessage.match(
+          /(?:after|in)\s+(\d+)\s+seconds?/i
+        );
+
+        if (match) {
+          const seconds = Number(match[1]);
+
+          sessionStorage.setItem(
+            SIGNUP_COOLDOWN_KEY,
+            String(Date.now() + seconds * 1000)
+          );
+
+          setError(
+            `Please wait ${seconds} seconds before trying again. If you already registered, use Log In.`
+          );
+        } else {
+          setError(
+            "Too many registration requests. Please wait before trying again."
+          );
+        }
+      } else {
+        setError(errorMessage);
+      }
+
       routingRef.current = false;
     } finally {
       setIsEmailLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-[#f7f1f4] px-2 py-2">

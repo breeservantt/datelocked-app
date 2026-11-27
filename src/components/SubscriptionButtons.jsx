@@ -117,8 +117,39 @@ export default function SubscriptionButtons() {
     }
   }
 
+  if (!isAndroid) {
+    return (
+      <div className="space-y-3">
+        <a
+          href="https://play.google.com/store/apps/details?id=com.datelocked.app"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path d="M3 2.5v19l10-9.5L3 2.5zm11.5 8L6 2l11 6-2.5 2.5zm0 3L6 22l11-6-2.5-2.5zM16 12l3-3 3 1.7c1.3.7 1.3 1.9 0 2.6L19 15l-3-3z" />
+          </svg>
+
+          Open in Google Play
+        </a>
+
+        <p className="text-center text-xs leading-5 text-slate-500">
+          Open the Date-Locked Android app to subscribe
+          to Date-Locked Plus.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
+
       <Button
         type="button"
         disabled={loadingPlan !== null}
@@ -141,13 +172,6 @@ export default function SubscriptionButtons() {
           ? "Processing yearly subscription..."
           : "Subscribe Yearly - R397.80"}
       </Button>
-
-      {!isAndroid && (
-        <p className="text-center text-xs text-gray-500">
-          Google Play subscriptions are available in the
-          Android app.
-        </p>
-      )}
 
       {errorMessage && (
         <p role="alert" className="text-sm text-red-600">

@@ -33,6 +33,18 @@ const GAME_TWENTY_QUESTIONS = "TWENTY_QUESTIONS";
 const GAME_CLUE_DATE = "CLUE_DATE";
 const GAME_DATE_FIT = "DATE_FIT";
 
+function canAccessNightInGame(gameType, accountTier, subscriptionExpires) {
+  if (gameType === GAME_CLUE_DATE) return true;
+
+  if (accountTier !== "PREMIUM" || !subscriptionExpires) {
+    return false;
+  }
+
+  const expiry = new Date(subscriptionExpires).getTime();
+
+  return Number.isFinite(expiry) && expiry > Date.now();
+}
+
 const navItems = [
   { label: "Home", icon: HomeIcon, page: "Home" },
   { label: "Dating", icon: Heart, page: "Dating" },
@@ -225,6 +237,15 @@ export default function NightIn() {
   const [activeGame, setActiveGame] = React.useState(GAME_CLUE_DATE);
   const [gameState, setGameState] = React.useState(getDefaultGameState());
 
+  const [accountTier, setAccountTier] = React.useState(null);
+  const [subscriptionExpires, setSubscriptionExpires] = React.useState(null);
+
+  const hasNightInPlus = canAccessNightInGame(
+  GAME_TWO_TRUTHS,
+  accountTier,
+  subscriptionExpires
+);
+
   const channelRef = React.useRef(null);
   const isPreviewLocked = !coupleId;
 
@@ -291,7 +312,9 @@ export default function NightIn() {
 
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
-          .select("id, email, full_name, couple_profile_id, relationship_status")
+          .select(
+            "id, email, full_name, couple_profile_id, relationship_status, account_tier, subscription_expires"
+            )
           .eq("id", authUser.id)
           .maybeSingle();
 

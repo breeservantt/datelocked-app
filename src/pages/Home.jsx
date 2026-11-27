@@ -293,7 +293,7 @@ export default function Home() {
     isError,
     refetch: refetchUser,
   } = useQuery({
-    queryKey: ['currentUser'],
+    queryKey: ['currentUser', 'home'],
     queryFn: async () => {
       const {
         data: { user: authUser },
@@ -328,7 +328,8 @@ export default function Home() {
         email: authUser.email,
       };
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: 'always',
     retry: 1,
   });
 
@@ -898,7 +899,7 @@ export default function Home() {
           .upsert(payload, { onConflict: 'id' });
 
         await queryClient.invalidateQueries({
-          queryKey: ['currentUser'],
+          queryKey: ['currentUser', 'home'],
         });
       } catch (error) {
         console.error(error);

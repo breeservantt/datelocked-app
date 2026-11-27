@@ -73,6 +73,7 @@ export default function PinLock({ children }) {
     const requestId = ++requestIdRef.current;
     const isCurrent = () => requestId === requestIdRef.current;
     const startTime = performance.now();
+    console.count("[PERFORMANCE] PinLock security check started");
     setChecking(true);
     setSecurityCheckFailed(false);
     setError("");

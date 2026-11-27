@@ -47,7 +47,7 @@ import {
 
 const STORAGE_BUCKET = "dating-wall-media";
 
-const FREE_DAILY_POST_LIMIT = 2;
+const FREE_DAILY_POST_LIMIT = 1;
 
 const navItems = [
   { label: "Home", icon: HomeIcon, page: "Home" },

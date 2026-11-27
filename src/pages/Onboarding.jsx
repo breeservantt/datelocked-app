@@ -5,7 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Loader2, Search, MapPin, CheckCircle, Lock } from "lucide-react";
+import {
+  Loader2,
+  Search,
+  MapPin,
+  CheckCircle,
+  Lock,
+} from "lucide-react";
 import { motion } from "framer-motion";
 
 const LOCATION_OPTIONS = [
@@ -24,12 +30,34 @@ const LOCATION_OPTIONS = [
   "Durban, South Africa",
 ];
 
+// Prevent network requests from keeping the screen loading forever.
+function withTimeout(promise, ms, label) {
+  let timer;
+
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        reject(
+          new Error(
+            `${label} timed out. Check your connection and try again.`
+          )
+        );
+      }, ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 export default function Onboarding() {
   const navigate = useNavigate();
 
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
   const [authUser, setAuthUser] = React.useState(null);
+  const [pageError, setPageError] = React.useState("");
+
+  const savingRef = React.useRef(false);
+  const locationTimerRef = React.useRef(null);
 
   const [formData, setFormData] = React.useState({
     full_name: "",
@@ -39,10 +67,9 @@ export default function Onboarding() {
   });
 
   const [locationSearch, setLocationSearch] = React.useState("");
-  const [locationSuggestions, setLocationSuggestions] = React.useState([]);
+  const [locationSuggestions, setLocationSuggestions] =
+    React.useState([]);
   const [isSearching, setIsSearching] = React.useState(false);
-
-  const locationTimerRef = React.useRef(null);
 
   const isProfileComplete = React.useCallback((profile) => {
     return Boolean(
@@ -61,30 +88,44 @@ export default function Onboarding() {
         const {
           data: { user },
           error,
-        } = await supabase.auth.getUser();
+        } = await withTimeout(
+          supabase.auth.getUser(),
+          12000,
+          "Authentication"
+        );
 
         if (error) throw error;
+        if (!alive) return;
 
         if (!user) {
           navigate("/login", { replace: true });
           return;
         }
 
-        if (!alive) return;
-
         setAuthUser(user);
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("id, email, full_name, date_of_birth, gender, location, account_status, deactivated_at")
-          .eq("id", user.id)
-          .maybeSingle();
+        const {
+          data: profile,
+          error: profileError,
+        } = await withTimeout(
+          supabase
+            .from("profiles")
+            .select(
+              "id, email, full_name, date_of_birth, gender, location, account_status, deactivated_at"
+            )
+            .eq("id", user.id)
+            .maybeSingle(),
+          12000,
+          "Profile lookup"
+        );
+
+        if (profileError) throw profileError;
+        if (!alive) return;
 
         if (isProfileComplete(profile)) {
-        navigate("/home", { replace: true });
-        return;
-      }  
-         
+          navigate("/home", { replace: true });
+          return;
+        }
 
         setFormData({
           full_name: profile?.full_name || "",
@@ -96,7 +137,12 @@ export default function Onboarding() {
         setLocationSearch(profile?.location || "");
       } catch (err) {
         console.error("Onboarding load failed:", err);
-        navigate("/login", { replace: true });
+
+        if (alive) {
+          setPageError(
+            err.message || "Unable to load your profile."
+          );
+        }
       } finally {
         if (alive) setIsLoading(false);
       }
@@ -106,7 +152,10 @@ export default function Onboarding() {
 
     return () => {
       alive = false;
-      if (locationTimerRef.current) clearTimeout(locationTimerRef.current);
+
+      if (locationTimerRef.current) {
+        clearTimeout(locationTimerRef.current);
+      }
     };
   }, [navigate, isProfileComplete]);
 
@@ -154,8 +203,12 @@ export default function Onboarding() {
   };
 
   const handleCompleteOnboarding = async () => {
+    if (savingRef.current) return;
+
     if (!authUser) {
-      navigate("/login", { replace: true });
+      setPageError(
+        "Your session is unavailable. Please sign in again."
+      );
       return;
     }
 
@@ -164,54 +217,117 @@ export default function Onboarding() {
       return;
     }
 
+    const birthDate = new Date(formData.date_of_birth);
+
+    if (Number.isNaN(birthDate.getTime())) {
+      alert("Invalid date of birth.");
+      return;
+    }
+
+    const today = new Date();
+
+    let age =
+      today.getFullYear() - birthDate.getFullYear();
+
+    const monthDiff =
+      today.getMonth() - birthDate.getMonth();
+
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 &&
+        today.getDate() < birthDate.getDate())
+    ) {
+      age--;
+    }
+
+    if (age < 18) {
+      alert("You must be 18 or older to use Date-Locked.");
+      return;
+    }
+
+    savingRef.current = true;
     setIsSaving(true);
+    setPageError("");
+
+    const payload = {
+      id: authUser.id,
+      email: authUser.email,
+      full_name: formData.full_name.trim(),
+      date_of_birth: formData.date_of_birth,
+      gender: formData.gender,
+      location: (
+        formData.location || locationSearch
+      ).trim(),
+      relationship_status: "single",
+      updated_at: new Date().toISOString(),
+    };
 
     try {
-      const birthDate = new Date(formData.date_of_birth);
-
-      if (Number.isNaN(birthDate.getTime())) {
-        alert("Invalid date of birth.");
-        return;
-      }
-
-      const today = new Date();
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const monthDiff = today.getMonth() - birthDate.getMonth();
-
-      if (
-        monthDiff < 0 ||
-        (monthDiff === 0 && today.getDate() < birthDate.getDate())
-      ) {
-        age--;
-      }
-
-      if (age < 18) {
-        alert("You must be 18 or older to use Date-Locked.");
-        return;
-      }
-
-      const payload = {
-        id: authUser.id,
-        email: authUser.email,
-        full_name: formData.full_name.trim(),
-        date_of_birth: formData.date_of_birth,
-        gender: formData.gender,
-        location: (formData.location || locationSearch).trim(),
-        relationship_status: "single",
-        updated_at: new Date().toISOString(),
-      };
-
-      const { error } = await supabase
-        .from("profiles")
-        .upsert(payload, { onConflict: "id" });
+      const { error } = await withTimeout(
+        supabase
+          .from("profiles")
+          .upsert(payload, { onConflict: "id" }),
+        12000,
+        "Profile save"
+      );
 
       if (error) throw error;
 
       navigate("/home", { replace: true });
-    } catch (err) {
-      console.error("Onboarding save failed:", err);
-      alert(err.message || "Failed to complete setup.");
+    } catch (saveError) {
+      console.error(
+        "Onboarding save request failed or timed out:",
+        saveError
+      );
+
+      // The database write may succeed even if its response is lost.
+      // Verify the saved fields before allowing navigation.
+      try {
+        const {
+          data: saved,
+          error: verifyError,
+        } = await withTimeout(
+          supabase
+            .from("profiles")
+            .select(
+              "full_name, date_of_birth, gender, location"
+            )
+            .eq("id", authUser.id)
+            .maybeSingle(),
+          10000,
+          "Profile verification"
+        );
+
+        if (verifyError) throw verifyError;
+
+        const matches =
+          saved &&
+          saved.full_name?.trim() === payload.full_name &&
+          saved.date_of_birth === payload.date_of_birth &&
+          saved.gender === payload.gender &&
+          saved.location === payload.location;
+
+        if (matches) {
+          navigate("/home", { replace: true });
+          return;
+        }
+
+        setPageError(
+          saveError.message ||
+            "Profile was not saved. Please try again."
+        );
+      } catch (verifyError) {
+        console.error(
+          "Onboarding verification failed:",
+          verifyError
+        );
+
+        setPageError(
+          "Could not confirm your profile was saved. Check your connection, then try again."
+        );
+      }
     } finally {
+      savingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -220,6 +336,31 @@ export default function Onboarding() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f3edf1]">
         <Loader2 className="h-8 w-8 animate-spin text-[#5e9cff]" />
+      </div>
+    );
+  }
+
+  if (pageError && !authUser) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#f3edf1] px-6 text-center">
+        <p className="text-sm text-red-700">
+          {pageError}
+        </p>
+
+        <Button
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </Button>
+
+        <Button
+          variant="outline"
+          onClick={() =>
+            navigate("/login", { replace: true })
+          }
+        >
+          Back to login
+        </Button>
       </div>
     );
   }
@@ -242,7 +383,10 @@ export default function Onboarding() {
         </div>
 
         <div className="-mt-5 flex-1 px-4 pb-6">
-          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}>
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
             <Card className="rounded-[24px] border border-white/70 bg-white px-4 py-5 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
               <div className="space-y-4">
                 <div>
@@ -300,11 +444,17 @@ export default function Onboarding() {
                     }
                     className="h-12 w-full rounded-[15px] border border-slate-200 bg-[#fafafa] px-4 text-[14px] text-slate-800 outline-none focus:border-[#5e9cff]"
                   >
-                    <option value="">Select your gender</option>
+                    <option value="">
+                      Select your gender
+                    </option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
-                    <option value="non-binary">Non-binary</option>
-                    <option value="prefer_not_to_say">Prefer not to say</option>
+                    <option value="non-binary">
+                      Non-binary
+                    </option>
+                    <option value="prefer_not_to_say">
+                      Prefer not to say
+                    </option>
                   </select>
                 </div>
 
@@ -322,18 +472,22 @@ export default function Onboarding() {
                         const val = e.target.value;
 
                         setLocationSearch(val);
+
                         setFormData((prev) => ({
                           ...prev,
                           location: val,
                         }));
 
                         if (locationTimerRef.current) {
-                          clearTimeout(locationTimerRef.current);
+                          clearTimeout(
+                            locationTimerRef.current
+                          );
                         }
 
-                        locationTimerRef.current = setTimeout(() => {
-                          searchLocations(val);
-                        }, 300);
+                        locationTimerRef.current =
+                          setTimeout(() => {
+                            searchLocations(val);
+                          }, 300);
                       }}
                       placeholder="State, Country"
                       className="h-12 rounded-[15px] border border-slate-200 bg-[#fafafa] pl-11 pr-4 text-[14px] text-slate-800 placeholder:text-slate-400 focus:border-[#5e9cff]"
@@ -345,21 +499,34 @@ export default function Onboarding() {
 
                     {locationSuggestions.length > 0 ? (
                       <div className="absolute top-full z-20 mt-2 max-h-60 w-full overflow-auto rounded-[16px] border border-slate-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.10)]">
-                        {locationSuggestions.map((loc, index) => (
-                          <button
-                            key={`${loc}-${index}`}
-                            type="button"
-                            onClick={() => handleLocationSelect(loc)}
-                            className="flex w-full items-center gap-2 px-4 py-3 text-left text-[14px] text-slate-700 transition hover:bg-slate-50"
-                          >
-                            <MapPin className="h-4 w-4 text-slate-400" />
-                            <span>{loc}</span>
-                          </button>
-                        ))}
+                        {locationSuggestions.map(
+                          (loc, index) => (
+                            <button
+                              key={`${loc}-${index}`}
+                              type="button"
+                              onClick={() =>
+                                handleLocationSelect(loc)
+                              }
+                              className="flex w-full items-center gap-2 px-4 py-3 text-left text-[14px] text-slate-700 transition hover:bg-slate-50"
+                            >
+                              <MapPin className="h-4 w-4 text-slate-400" />
+                              <span>{loc}</span>
+                            </button>
+                          )
+                        )}
                       </div>
                     ) : null}
                   </div>
                 </div>
+
+                {pageError && (
+                  <p
+                    role="alert"
+                    className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
+                  >
+                    {pageError}
+                  </p>
+                )}
 
                 <Button
                   type="button"

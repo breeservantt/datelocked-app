@@ -1,27 +1,12 @@
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import SubscriptionButtons from "@/components/SubscriptionButtons";
 import {
-  ArrowLeft,
-  Plus,
-  Image as ImageIcon,
-  Calendar,
-  MapPin,
-  Heart,
-  Plane,
-  Utensils,
-  Star,
-  X,
-  Loader2,
-  Trash2,
-  Play,
-  Home as HomeIcon,
-  Target,
-  MessageCircle,
-  Fingerprint,
-  Crown,
-  Check,
-  Shield,
+  Plus, Image as ImageIcon, Calendar, MapPin, Heart,
+  Plane, Utensils, Star, X, Loader2, Trash2, Play,
+  Home as HomeIcon, Target, MessageCircle, Fingerprint,
+  Crown, Check, Shield,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
@@ -38,13 +23,7 @@ import confetti from "canvas-confetti";
 
 const MEMORY_BUCKET = "memories-media";
 const FREE_DAILY_MEMORY_LIMIT = 2;
-
-/*
-  EXACT MATCH TO DATING LIMIT SYSTEM:
-  This intentionally uses DATING_WALL_POST because that is the known working limit key.
-  If your profile already exceeded Dating upload/post limit, Memories will also block now.
-*/
-const MEMORY_LIMIT_KEY = FEATURE_KEYS.DATING_WALL_POST;
+const MEMORY_LIMIT_KEY = FEATURE_KEYS.MEMORY_POST;
 
 const categories = [
   { value: "date", label: "Date Night", icon: Heart },
@@ -76,19 +55,11 @@ const emptyMemory = {
 };
 
 function isPremiumUser(user) {
-  if (!user) return false;
+  if (user?.account_tier !== "PREMIUM") return false;
+  if (!user.subscription_expires) return false;
 
-  if (user.account_tier === "PREMIUM") {
-    if (!user.subscription_expires) return false;
-
-    const expiryDate = new Date(user.subscription_expires);
-
-    if (Number.isNaN(expiryDate.getTime())) return false;
-
-    return expiryDate.getTime() > Date.now();
-  }
-
-  return false;
+  const expiry = new Date(user.subscription_expires).getTime();
+  return Number.isFinite(expiry) && expiry > Date.now();
 }
 
 async function getCurrentProfileUser() {
@@ -136,25 +107,19 @@ function AppHeader({ title, onAddMemory, canEdit = false }) {
   return (
     <div className="border-b border-slate-200 bg-[#f8f6f7] px-4 py-4">
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0 flex-1">
-  <h1 className="truncate text-[24px] font-semibold tracking-[-0.02em] text-slate-800">
-    {title}
-  </h1>
-</div>
-
-        <div className="flex shrink-0 items-center gap-2">
-
-          {canEdit ? (
-            <button
-              type="button"
-              onClick={onAddMemory}
-              className="inline-flex h-[40px] shrink-0 items-center justify-center gap-2 rounded-[12px] bg-gradient-to-r from-[#ff4d6d] to-[#e84393] px-4 text-[12px] font-semibold text-white shadow-[0_5px_12px_rgba(255,77,109,0.20)] transition hover:opacity-95"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add Memories</span>
-            </button>
-          ) : null}
-        </div>
+        <h1 className="min-w-0 flex-1 truncate text-[24px] font-semibold tracking-[-0.02em] text-slate-800">
+          {title}
+        </h1>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={onAddMemory}
+            className="inline-flex h-[40px] shrink-0 items-center justify-center gap-2 rounded-[12px] bg-gradient-to-r from-[#ff4d6d] to-[#e84393] px-4 text-[12px] font-semibold text-white shadow-[0_5px_12px_rgba(255,77,109,0.20)]"
+          >
+            <Plus className="h-4 w-4" />
+            Add Memories
+          </button>
+        )}
       </div>
     </div>
   );
@@ -162,9 +127,7 @@ function AppHeader({ title, onAddMemory, canEdit = false }) {
 
 function AppCard({ children, className = "" }) {
   return (
-    <div
-      className={`overflow-hidden rounded-[12px] border border-slate-100 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.06)] ${className}`}
-    >
+    <div className={`overflow-hidden rounded-[12px] border border-slate-100 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.06)] ${className}`}>
       {children}
     </div>
   );
@@ -175,20 +138,20 @@ function Modal({ open, onClose, title, children }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3">
-      <div className="w-full max-w-[375px] overflow-hidden rounded-[16px] border border-[#ece6ea] bg-[#f7f4f6] shadow-[0_12px_30px_rgba(15,23,42,0.14)]">
-        <div className="border-b border-slate-200 bg-[#f8f6f7] px-4 py-4">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-[10px] p-1.5 transition hover:bg-slate-100"
-            >
-              <X className="h-5 w-5 text-slate-600" />
-            </button>
-          </div>
+      <div className="w-full max-w-[375px] overflow-hidden rounded-[16px] border border-[#ece6ea] bg-[#f7f4f6] shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-[#f8f6f7] px-4 py-4">
+          <h3 className="text-lg font-semibold text-slate-800">
+            {title}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded-[10px] p-1.5 hover:bg-slate-100"
+          >
+            <X className="h-5 w-5 text-slate-600" />
+          </button>
         </div>
-
         <div className="max-h-[78vh] space-y-4 overflow-y-auto px-4 py-4">
           {children}
         </div>
@@ -209,16 +172,13 @@ function MediaFrame({ children }) {
 function VideoPreview({ src }) {
   return (
     <MediaFrame>
-      <div className="flex w-full items-center justify-center">
-        <video
-          src={src}
-          preload="metadata"
-          muted
-          playsInline
-          className="h-auto w-full object-contain"
-        />
-      </div>
-
+      <video
+        src={src}
+        preload="metadata"
+        muted
+        playsInline
+        className="h-auto w-full object-contain"
+      />
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/45">
           <Play className="h-6 w-6 text-white" />
@@ -232,20 +192,18 @@ function BottomNav() {
   const location = useLocation();
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#ece6ea] bg-white/95 pb-[max(6px,env(safe-area-inset-bottom))] pt-1 shadow-[0_-6px_18px_rgba(15,23,42,0.05)] backdrop-blur">
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#ece6ea] bg-white/95 pb-[max(6px,env(safe-area-inset-bottom))] pt-1 shadow-lg backdrop-blur">
       <div className="mx-auto grid w-full max-w-[390px] grid-cols-7 gap-0.5 px-2">
         {navItems.map((item) => {
           const href = createPageUrl(item.page);
-          const active =
-            location.pathname === href ||
-            (href === "/" && location.pathname === "/");
+          const active = location.pathname === href;
           const Icon = item.icon;
 
           return (
             <Link
               key={item.label}
               to={href}
-              className={`flex min-h-[50px] flex-col items-center justify-center rounded-[14px] px-1 py-1 transition ${
+              className={`flex min-h-[50px] flex-col items-center justify-center rounded-[14px] px-1 py-1 ${
                 active ? "bg-[#fdecef]" : "bg-transparent"
               }`}
             >
@@ -253,15 +211,12 @@ function BottomNav() {
                 className={`mb-0.5 h-[18px] w-[18px] ${
                   active ? "text-[#ef4f75]" : "text-slate-400"
                 }`}
-                strokeWidth={2}
               />
-              <span
-                className={`truncate text-[8px] leading-none tracking-[-0.01em] ${
-                  active
-                    ? "font-semibold text-[#ef4f75]"
-                    : "font-medium text-slate-400"
-                }`}
-              >
+              <span className={`truncate text-[8px] ${
+                active
+                  ? "font-semibold text-[#ef4f75]"
+                  : "font-medium text-slate-400"
+              }`}>
                 {item.label}
               </span>
             </Link>
@@ -274,8 +229,10 @@ function BottomNav() {
 
 function formatDate(dateString) {
   if (!dateString) return "";
+
   const date = new Date(dateString);
   if (Number.isNaN(date.getTime())) return "";
+
   return date.toLocaleDateString("en-ZA", {
     year: "numeric",
     month: "short",
@@ -288,8 +245,12 @@ function MemoryTile({ memory, onClick }) {
   const previewVideo = memory.videos?.[0] || null;
 
   return (
-    <button type="button" onClick={onClick} className="block w-full text-left">
-      <AppCard className="overflow-hidden">
+    <button
+      type="button"
+      onClick={onClick}
+      className="block w-full text-left"
+    >
+      <AppCard>
         <div className="relative">
           {previewImage ? (
             <MediaFrame>
@@ -303,46 +264,40 @@ function MemoryTile({ memory, onClick }) {
           ) : previewVideo ? (
             <VideoPreview src={previewVideo} />
           ) : (
-            <div className="flex h-[215px] w-full items-center justify-center bg-slate-100">
+            <div className="flex h-[215px] items-center justify-center bg-slate-100">
               <ImageIcon className="h-10 w-10 text-slate-300" />
             </div>
           )}
-
-          <div className="absolute left-3 top-3">
-            <div className="inline-flex items-center rounded-full bg-white/95 px-3 py-1 text-[12px] font-medium capitalize text-slate-700 shadow-[0_3px_10px_rgba(15,23,42,0.10)]">
-              {memory.category || "other"}
-            </div>
+          <div className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-[12px] font-medium capitalize text-slate-700">
+            {memory.category || "other"}
           </div>
         </div>
 
         <div className="space-y-2 px-4 py-4">
-          <div className="text-[18px] font-semibold leading-tight text-slate-800">
+          <h3 className="text-[18px] font-semibold text-slate-800">
             {memory.title || "Untitled memory"}
+          </h3>
+
+          <div className="flex flex-wrap gap-3 text-[13px] text-slate-500">
+            {memory.date && (
+              <span className="inline-flex items-center gap-1.5">
+                <Calendar className="h-4 w-4" />
+                {formatDate(memory.date)}
+              </span>
+            )}
+            {memory.location && (
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin className="h-4 w-4" />
+                {memory.location}
+              </span>
+            )}
           </div>
 
-          {memory.date || memory.location ? (
-            <div className="flex flex-wrap items-center gap-3 text-[13px] text-slate-500">
-              {memory.date ? (
-                <div className="inline-flex items-center gap-1.5">
-                  <Calendar className="h-4 w-4" />
-                  <span>{formatDate(memory.date)}</span>
-                </div>
-              ) : null}
-
-              {memory.location ? (
-                <div className="inline-flex items-center gap-1.5">
-                  <MapPin className="h-4 w-4" />
-                  <span className="truncate">{memory.location}</span>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          {memory.description ? (
+          {memory.description && (
             <p className="line-clamp-2 text-[14px] leading-6 text-slate-500">
               {memory.description}
             </p>
-          ) : null}
+          )}
         </div>
       </AppCard>
     </button>
@@ -422,7 +377,6 @@ export default function Memories() {
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
 
       return Array.isArray(data) ? data : [];
@@ -459,35 +413,44 @@ export default function Memories() {
         .single();
 
       if (error) throw error;
-
       return data;
     },
-
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["memories"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["memories"],
+      });
 
       setShowAddModal(false);
-      setNewMemory(emptyMemory);
+      setNewMemory({ ...emptyMemory, photos: [], videos: [] });
       setLocationSuggestions([]);
 
-      const duration = 1200;
-      const end = Date.now() + duration;
+      const end = Date.now() + 1200;
 
       const frame = () => {
-        confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 } });
-        confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 } });
+        confetti({
+          particleCount: 3,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 },
+        });
+        confetti({
+          particleCount: 3,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 },
+        });
 
         if (Date.now() < end) requestAnimationFrame(frame);
       };
 
       frame();
     },
-
-    onError: (e) => {
-      console.error("Error creating memory:", e);
-      toast.error(e?.message || "Failed to save memory. Please try again.");
+    onError: (error) => {
+      console.error("Error creating memory:", error);
+      toast.error(
+        error?.message || "Failed to save memory. Please try again."
+      );
     },
-
     onSettled: () => setIsSubmitting(false),
   });
 
@@ -499,18 +462,17 @@ export default function Memories() {
         .eq("id", memoryId);
 
       if (error) throw error;
-
       return memoryId;
     },
-
     onSuccess: async () => {
       setSelectedMemory(null);
-      await queryClient.invalidateQueries({ queryKey: ["memories"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["memories"],
+      });
     },
-
-    onError: (e) => {
-      console.error("Error deleting memory:", e);
-      toast.error(e?.message || "Failed to delete memory. Please try again.");
+    onError: (error) => {
+      console.error("Error deleting memory:", error);
+      toast.error(error?.message || "Failed to delete memory.");
     },
   });
 
@@ -522,10 +484,10 @@ export default function Memories() {
 
     if (!premiumActive) {
       try {
-        const limitResult = await checkDailyLimit(MEMORY_LIMIT_KEY);
-        setLimitInfo(limitResult);
+        const result = await checkDailyLimit(MEMORY_LIMIT_KEY);
+        setLimitInfo(result);
 
-        if (!limitResult?.allowed) {
+        if (!result?.allowed) {
           setShowSubscriptionModal(true);
           toast.error(
             `Daily free limit reached. Free users get ${FREE_DAILY_MEMORY_LIMIT} memory uploads per day.`
@@ -534,6 +496,8 @@ export default function Memories() {
         }
       } catch (error) {
         console.error("Daily limit check failed:", error);
+        toast.error("Unable to verify your daily limit. Please try again.");
+        return;
       }
     }
 
@@ -542,23 +506,32 @@ export default function Memories() {
 
   const handleDeleteMemory = (memoryId) => {
     if (!memoryId) return;
-    if (!window.confirm("Delete this memory? This cannot be undone.")) return;
+
+    if (!window.confirm("Delete this memory? This cannot be undone.")) {
+      return;
+    }
+
     deleteMemoryMutation.mutate(memoryId);
   };
 
   const compressImage = async (file) => {
     if (!file.type.startsWith("image/")) return file;
 
-    const imageBitmap = await createImageBitmap(file);
-    const maxWidth = 1600;
-    const scale = Math.min(1, maxWidth / imageBitmap.width);
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 1600 / bitmap.width);
 
     const canvas = document.createElement("canvas");
-    canvas.width = Math.round(imageBitmap.width * scale);
-    canvas.height = Math.round(imageBitmap.height * scale);
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
 
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+    const context = canvas.getContext("2d");
+    if (!context) {
+      bitmap.close?.();
+      throw new Error("Unable to process the selected image.");
+    }
+
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
 
     const blob = await new Promise((resolve) => {
       canvas.toBlob(resolve, "image/jpeg", 0.78);
@@ -566,9 +539,11 @@ export default function Memories() {
 
     if (!blob) return file;
 
-    return new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
-      type: "image/jpeg",
-    });
+    return new File(
+      [blob],
+      file.name.replace(/\.[^/.]+$/, ".jpg"),
+      { type: "image/jpeg" }
+    );
   };
 
   const uploadFile = React.useCallback(async (file, folder) => {
@@ -577,7 +552,7 @@ export default function Memories() {
     const ext = file.name.split(".").pop()?.toLowerCase() || "file";
     const cleanName = file.name
       .replace(/\.[^/.]+$/, "")
-      .replace(/[^a-zA-Z0-9-_]/g, "-")
+      .replace(/[^a-zA-Z0-9_-]/g, "-")
       .slice(0, 40);
 
     const fileName = `${Date.now()}-${Math.random()
@@ -619,14 +594,18 @@ export default function Memories() {
     }
 
     if (!premiumActive) {
-      const limitResult = await checkDailyLimit(MEMORY_LIMIT_KEY);
-      setLimitInfo(limitResult);
+      try {
+        const result = await checkDailyLimit(MEMORY_LIMIT_KEY);
+        setLimitInfo(result);
 
-      if (!limitResult?.allowed) {
-        setShowSubscriptionModal(true);
-        toast.error(
-          `Daily free limit reached. Free users get ${FREE_DAILY_MEMORY_LIMIT} memory uploads per day.`
-        );
+        if (!result?.allowed) {
+          setShowSubscriptionModal(true);
+          toast.error("Daily free memory limit reached.");
+          return;
+        }
+      } catch (error) {
+        console.error("Media daily limit check failed:", error);
+        toast.error("Unable to verify your daily limit.");
         return;
       }
     }
@@ -636,12 +615,12 @@ export default function Memories() {
       const isVideo = file.type.startsWith("video/");
 
       if (!isImage && !isVideo) {
-        toast.error(`${file.name} is not supported. Only photos and videos are allowed.`);
+        toast.error(`${file.name} is not a supported photo or video.`);
         return false;
       }
 
       if (isVideo && file.size > 25 * 1024 * 1024) {
-        toast.error(`${file.name} is too large. Videos must be less than 25MB.`);
+        toast.error(`${file.name} exceeds the 25MB video limit.`);
         return false;
       }
 
@@ -658,8 +637,14 @@ export default function Memories() {
 
       for (const originalFile of validFiles) {
         const isImage = originalFile.type.startsWith("image/");
-        const preparedFile = isImage ? await compressImage(originalFile) : originalFile;
-        const folder = isImage ? "memories/photos" : "memories/videos";
+        const preparedFile = isImage
+          ? await compressImage(originalFile)
+          : originalFile;
+
+        const folder = isImage
+          ? "memories/photos"
+          : "memories/videos";
+
         const url = await uploadFile(preparedFile, folder);
 
         uploaded.push({
@@ -672,18 +657,22 @@ export default function Memories() {
         ...prev,
         photos: [
           ...(prev.photos || []),
-          ...uploaded.filter((item) => item.type === "photo").map((item) => item.url),
+          ...uploaded
+            .filter((item) => item.type === "photo")
+            .map((item) => item.url),
         ],
         videos: [
           ...(prev.videos || []),
-          ...uploaded.filter((item) => item.type === "video").map((item) => item.url),
+          ...uploaded
+            .filter((item) => item.type === "video")
+            .map((item) => item.url),
         ],
       }));
 
       toast.success("Media ready");
-    } catch (err) {
-      console.error("Media upload failed:", err);
-      toast.error(err?.message || "Failed to upload media. Please try again.");
+    } catch (error) {
+      console.error("Media upload failed:", error);
+      toast.error(error?.message || "Failed to upload media.");
     } finally {
       setIsUploadingMedia(false);
       setUploadingCount(0);
@@ -705,8 +694,9 @@ export default function Memories() {
   };
 
   const searchLocation = React.useCallback(async (query) => {
-    const q = (query || "").trim();
-    if (q.length < 3) {
+    const value = (query || "").trim();
+
+    if (value.length < 3) {
       setLocationSuggestions([]);
       return;
     }
@@ -714,61 +704,57 @@ export default function Memories() {
     setIsSearchingLocation(true);
 
     try {
-      setLocationSuggestions([q]);
-    } catch (err) {
-      console.error("Location search failed:", err);
-      setLocationSuggestions([]);
+      setLocationSuggestions([value]);
     } finally {
       setIsSearchingLocation(false);
     }
   }, []);
 
-  const onLocationChange = (val) => {
-    setNewMemory((prev) => ({ ...prev, location: val }));
+  const onLocationChange = (value) => {
+    setNewMemory((prev) => ({ ...prev, location: value }));
 
-    if (locationTimerRef.current) clearTimeout(locationTimerRef.current);
+    if (locationTimerRef.current) {
+      clearTimeout(locationTimerRef.current);
+    }
+
     locationTimerRef.current = setTimeout(() => {
-      searchLocation(val);
+      searchLocation(value);
     }, 450);
   };
 
   React.useEffect(() => {
     return () => {
-      if (locationTimerRef.current) clearTimeout(locationTimerRef.current);
+      if (locationTimerRef.current) {
+        clearTimeout(locationTimerRef.current);
+      }
     };
   }, []);
 
   React.useEffect(() => {
-    let channel;
+    if (!user?.couple_profile_id) return;
 
-    const setupRealtime = async () => {
-      const currentUser = await getCurrentProfileUser();
-
-      if (!currentUser?.couple_profile_id) return;
-
-      channel = supabase
-        .channel(`memories-${currentUser.couple_profile_id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "memories",
-            filter: `couple_profile_id=eq.${currentUser.couple_profile_id}`,
-          },
-          () => {
-            queryClient.invalidateQueries({ queryKey: ["memories"] });
-          }
-        )
-        .subscribe();
-    };
-
-    setupRealtime();
+    const channel = supabase
+      .channel(`memories-${user.couple_profile_id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "memories",
+          filter: `couple_profile_id=eq.${user.couple_profile_id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({
+            queryKey: ["memories"],
+          });
+        }
+      )
+      .subscribe();
 
     return () => {
-      if (channel) supabase.removeChannel(channel);
+      supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, user?.couple_profile_id]);
 
   const handleSubmit = async () => {
     if (!user?.id) {
@@ -797,9 +783,9 @@ export default function Memories() {
 
     try {
       if (!premiumActive) {
-        const limitResult = await consumeDailyLimit(MEMORY_LIMIT_KEY);
+        const result = await consumeDailyLimit(MEMORY_LIMIT_KEY);
 
-        if (!limitResult?.allowed) {
+        if (!result?.allowed) {
           setShowSubscriptionModal(true);
           toast.error(
             `Daily free limit reached. Free users get ${FREE_DAILY_MEMORY_LIMIT} memory uploads per day.`
@@ -807,7 +793,7 @@ export default function Memories() {
           return;
         }
 
-        setLimitInfo(limitResult);
+        setLimitInfo(result);
       }
 
       await createMemoryMutation.mutateAsync({
@@ -817,19 +803,19 @@ export default function Memories() {
 
       try {
         await awardCouplePoints?.("MEMORY_UPLOAD", 5);
-      } catch {
-        // Points must never block saving.
+      } catch (error) {
+        console.error("Memory points could not be awarded:", error);
       }
-    } catch (err) {
-      console.error("Save memory failed:", err);
-      toast.error(err?.message || "Failed to save memory.");
+    } catch (error) {
+      console.error("Save memory failed:", error);
+    } finally {
       setIsSubmitting(false);
     }
   };
 
   const filteredMemories = React.useMemo(() => {
     if (filter === "all") return memories;
-    return memories.filter((m) => m.category === filter);
+    return memories.filter((memory) => memory.category === filter);
   }, [memories, filter]);
 
   if (userLoading || memoriesLoading) {
@@ -854,28 +840,24 @@ export default function Memories() {
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
                 <X className="h-8 w-8 text-red-500" />
               </div>
-
               <h3 className="text-lg font-semibold text-slate-800">
                 Something went wrong
               </h3>
-
               <p className="mt-2 text-sm text-slate-500">
                 Failed to load memories.
               </p>
-
               <Button
                 onClick={() => {
                   refetchUser();
                   refetchMemories();
                 }}
-                className="mt-5 h-11 w-full rounded-[14px] bg-[#ff4d6d] text-white hover:bg-[#f03d5f]"
+                className="mt-5 h-11 w-full rounded-[14px] bg-[#ff4d6d] text-white"
               >
                 Try Again
               </Button>
             </AppCard>
           </div>
         </AppShell>
-
         <BottomNav />
       </>
     );
@@ -885,10 +867,10 @@ export default function Memories() {
     <>
       <AppShell>
         <AppHeader
-  title="Our Memories"
-  canEdit={canEdit}
-  onAddMemory={handleOpenAddMemory}
-/>
+          title="Our Memories"
+          canEdit={canEdit}
+          onAddMemory={handleOpenAddMemory}
+        />
 
         <div className="space-y-4 px-4 py-4">
           <AppCard className="min-h-[118px] px-3 py-4">
@@ -896,7 +878,7 @@ export default function Memories() {
               <button
                 type="button"
                 onClick={() => setFilter("all")}
-                className={`flex items-center gap-1.5 whitespace-nowrap rounded-[12px] px-3 py-1.5 text-[12px] font-medium shadow-sm transition ${
+                className={`whitespace-nowrap rounded-[12px] px-3 py-1.5 text-[12px] font-medium ${
                   filter === "all"
                     ? "bg-[#ff4d6d] text-white"
                     : "border border-slate-200 bg-white text-slate-700"
@@ -913,7 +895,7 @@ export default function Memories() {
                     key={cat.value}
                     type="button"
                     onClick={() => setFilter(cat.value)}
-                    className={`flex items-center gap-1.5 whitespace-nowrap rounded-[12px] px-3 py-1.5 text-[12px] font-medium shadow-sm transition ${
+                    className={`flex items-center gap-1.5 whitespace-nowrap rounded-[12px] px-3 py-1.5 text-[12px] font-medium ${
                       filter === cat.value
                         ? "bg-[#ff4d6d] text-white"
                         : "border border-slate-200 bg-white text-slate-700"
@@ -952,11 +934,9 @@ export default function Memories() {
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-50">
                   <ImageIcon className="h-8 w-8 text-slate-300" />
                 </div>
-
                 <h3 className="text-[1.35rem] font-semibold text-slate-700">
                   No memories yet
                 </h3>
-
                 <p className="mt-2 text-sm text-slate-500">
                   Start capturing your special moments
                 </p>
@@ -967,32 +947,33 @@ export default function Memories() {
       </AppShell>
 
       <Modal
-  open={showAddModal}
-  onClose={() => {
-    if (isSubmitting || isUploadingMedia) return;
-    setShowAddModal(false);
-  }}
-  title="Add a Memory"
->
+        open={showAddModal}
+        onClose={() => {
+          if (isSubmitting || isUploadingMedia) return;
+          setShowAddModal(false);
+        }}
+        title="Add a Memory"
+      >
         <AppCard className="p-4">
           <label className="mb-2 block text-sm font-medium text-slate-700">
             Title
           </label>
-
           <input
             type="text"
             value={newMemory.title}
             onChange={(e) =>
-              setNewMemory((prev) => ({ ...prev, title: e.target.value }))
+              setNewMemory((prev) => ({
+                ...prev,
+                title: e.target.value,
+              }))
             }
             placeholder="What happened?"
-            className="mb-4 h-11 w-full rounded-[12px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#ff4d6d]"
+            className="mb-4 h-11 w-full rounded-[12px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#ff4d6d]"
           />
 
           <label className="mb-2 block text-sm font-medium text-slate-700">
             Description
           </label>
-
           <textarea
             value={newMemory.description}
             onChange={(e) =>
@@ -1002,7 +983,7 @@ export default function Memories() {
               }))
             }
             placeholder="Tell the story..."
-            className="mb-4 min-h-[96px] w-full rounded-[12px] border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#ff4d6d]"
+            className="mb-4 min-h-[96px] w-full rounded-[12px] border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 outline-none focus:border-[#ff4d6d]"
           />
 
           <div className="mb-4 grid grid-cols-2 gap-3">
@@ -1010,14 +991,16 @@ export default function Memories() {
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Date
               </label>
-
               <input
                 type="date"
                 value={newMemory.date}
                 onChange={(e) =>
-                  setNewMemory((prev) => ({ ...prev, date: e.target.value }))
+                  setNewMemory((prev) => ({
+                    ...prev,
+                    date: e.target.value,
+                  }))
                 }
-                className="h-11 w-full rounded-[12px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#ff4d6d]"
+                className="h-11 w-full rounded-[12px] border border-slate-200 bg-white px-3 text-sm"
               />
             </div>
 
@@ -1025,13 +1008,15 @@ export default function Memories() {
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Category
               </label>
-
               <select
                 value={newMemory.category}
                 onChange={(e) =>
-                  setNewMemory((prev) => ({ ...prev, category: e.target.value }))
+                  setNewMemory((prev) => ({
+                    ...prev,
+                    category: e.target.value,
+                  }))
                 }
-                className="h-11 w-full rounded-[12px] border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#ff4d6d]"
+                className="h-11 w-full rounded-[12px] border border-slate-200 bg-white px-3 text-sm"
               >
                 {categories.map((cat) => (
                   <option key={cat.value} value={cat.value}>
@@ -1045,39 +1030,38 @@ export default function Memories() {
           <label className="mb-2 block text-sm font-medium text-slate-700">
             Location
           </label>
-
           <div className="relative mb-4">
             <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
             <input
               type="text"
               value={newMemory.location}
               onChange={(e) => onLocationChange(e.target.value)}
               placeholder="Where was it?"
-              className="h-11 w-full rounded-[12px] border border-slate-200 bg-white pl-9 pr-9 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#ff4d6d]"
+              className="h-11 w-full rounded-[12px] border border-slate-200 bg-white pl-9 pr-9 text-sm"
             />
-
-            {isSearchingLocation ? (
+            {isSearchingLocation && (
               <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
-            ) : null}
-
-            {locationSuggestions.length > 0 ? (
-              <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-[12px] border border-slate-200 bg-white shadow-lg">
-                {locationSuggestions.map((location, idx) => (
+            )}
+            {locationSuggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-[12px] border border-slate-200 bg-white shadow-lg">
+                {locationSuggestions.map((place, index) => (
                   <button
-                    key={`${location}-${idx}`}
+                    key={`${place}-${index}`}
                     type="button"
                     onClick={() => {
-                      setNewMemory((prev) => ({ ...prev, location }));
+                      setNewMemory((prev) => ({
+                        ...prev,
+                        location: place,
+                      }));
                       setLocationSuggestions([]);
                     }}
-                    className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
                   >
-                    {location}
+                    {place}
                   </button>
                 ))}
               </div>
-            ) : null}
+            )}
           </div>
 
           <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -1088,15 +1072,13 @@ export default function Memories() {
             {newMemory.photos.map((photo, index) => (
               <div
                 key={`${photo}-${index}`}
-                className="relative overflow-hidden rounded-[12px] border border-slate-200 bg-black"
+                className="relative overflow-hidden rounded-[12px] bg-black"
               >
                 <img
                   src={photo}
-                  alt=""
+                  alt="Memory preview"
                   className="h-auto w-full object-contain"
-                  loading="lazy"
                 />
-
                 <button
                   type="button"
                   onClick={() => removePhoto(index)}
@@ -1119,7 +1101,6 @@ export default function Memories() {
                   playsInline
                   className="h-auto w-full object-contain"
                 />
-
                 <button
                   type="button"
                   onClick={() => removeVideo(index)}
@@ -1131,7 +1112,7 @@ export default function Memories() {
             ))}
 
             <label
-              className={`flex min-h-[132px] w-full cursor-pointer flex-col items-center justify-center rounded-[14px] border border-dashed border-[#ffc0cb] bg-gradient-to-br from-[#fff7f9] to-[#fff0f5] text-slate-600 transition hover:border-[#ff4d6d] ${
+              className={`flex min-h-[132px] w-full cursor-pointer flex-col items-center justify-center rounded-[14px] border border-dashed border-[#ffc0cb] bg-gradient-to-br from-[#fff7f9] to-[#fff0f5] ${
                 isUploadingMedia ? "pointer-events-none opacity-70" : ""
               }`}
             >
@@ -1143,9 +1124,7 @@ export default function Memories() {
 
               <span className="mt-2 text-sm font-semibold text-slate-700">
                 {isUploadingMedia
-                  ? `Uploading ${uploadingCount} file${
-                      uploadingCount > 1 ? "s" : ""
-                    }...`
+                  ? `Uploading ${uploadingCount} file(s)...`
                   : "Add photos & videos"}
               </span>
 
@@ -1189,11 +1168,11 @@ export default function Memories() {
       </Modal>
 
       <Modal
-        open={selectedMemory}
+        open={!!selectedMemory}
         onClose={() => setSelectedMemory(null)}
         title={selectedMemory?.title || "Memory"}
       >
-        {selectedMemory ? (
+        {selectedMemory && (
           <>
             <AppCard>
               <div className="space-y-3 p-4">
@@ -1201,11 +1180,10 @@ export default function Memories() {
                   <img
                     key={`${photo}-${index}`}
                     src={photo}
-                    alt=""
+                    alt="Memory"
                     className="w-full rounded-[12px] object-contain"
                   />
                 ))}
-
                 {selectedMemory.videos?.map((video, index) => (
                   <video
                     key={`${video}-${index}`}
@@ -1220,25 +1198,23 @@ export default function Memories() {
 
             <AppCard className="p-4">
               <div className="space-y-3">
-                {selectedMemory.description ? (
+                {selectedMemory.description && (
                   <p className="text-sm leading-6 text-slate-600">
                     {selectedMemory.description}
                   </p>
-                ) : null}
-
-                {selectedMemory.date ? (
+                )}
+                {selectedMemory.date && (
                   <div className="flex items-center gap-2 text-sm text-slate-500">
                     <Calendar className="h-4 w-4" />
                     {formatDate(selectedMemory.date)}
                   </div>
-                ) : null}
-
-                {selectedMemory.location ? (
+                )}
+                {selectedMemory.location && (
                   <div className="flex items-center gap-2 text-sm text-slate-500">
                     <MapPin className="h-4 w-4" />
                     {selectedMemory.location}
                   </div>
-                ) : null}
+                )}
 
                 <Button
                   type="button"
@@ -1259,28 +1235,26 @@ export default function Memories() {
               </div>
             </AppCard>
           </>
-        ) : null}
+        )}
       </Modal>
 
       <Modal
-  open={showSubscriptionModal}
-  onClose={() => setShowSubscriptionModal(false)}
-  title="Date-Locked Plus"
->
+        open={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        title="Date-Locked Plus"
+      >
         <AppCard className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 p-5">
           <div className="mb-5 flex items-start gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600">
               <Crown className="h-5 w-5 text-white" />
             </div>
-
             <div>
               <h3 className="text-lg font-black text-slate-900">
                 Unlock unlimited memories
               </h3>
-
               <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                Free users can upload {FREE_DAILY_MEMORY_LIMIT} memories per day.
-                Upgrade to remove the daily memory limit.
+                Free users can upload {FREE_DAILY_MEMORY_LIMIT} memories
+                per day. Upgrade to remove the daily memory limit.
               </p>
             </div>
           </div>
@@ -1293,7 +1267,7 @@ export default function Memories() {
               "One subscription per couple",
             ].map((feature) => (
               <div key={feature} className="flex items-start gap-2">
-                <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-purple-600" />
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-purple-600" />
                 <span className="text-sm font-medium text-slate-700">
                   {feature}
                 </span>
@@ -1303,34 +1277,20 @@ export default function Memories() {
 
           <div className="mb-4 rounded-[14px] bg-white/75 p-4">
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-slate-900">R39</span>
-              <span className="text-sm font-semibold text-slate-500">/month</span>
+              <span className="text-3xl font-black text-slate-900">
+                R39
+              </span>
+              <span className="text-sm font-semibold text-slate-500">
+                /month
+              </span>
             </div>
-
             <p className="mt-1 text-xs font-medium text-slate-500">
               or R397.80/year • Save 15%
             </p>
           </div>
 
-          
           <div className="space-y-2">
-            <Button
-              type="button"
-              disabled={true}
-              className="h-11 w-full rounded-[14px] bg-gradient-to-r from-purple-600 to-pink-600 text-white"
-            >
-              Subscribe Monthly - R39
-            </Button>
-
-            <Button
-              type="button"
-              disabled={true}
-              variant="outline"
-              className="h-11 w-full rounded-[14px] border-purple-200 bg-white"
-            >
-              Subscribe Yearly - R397.80
-            </Button>
-
+            <SubscriptionButtons />
             <p className="flex items-center justify-center gap-1 text-xs text-slate-500">
               <Shield className="h-3 w-3" />
               Payments via Google Play
